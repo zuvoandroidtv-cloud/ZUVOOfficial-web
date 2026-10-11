@@ -11,6 +11,7 @@ import {
   getQuickServiceUrl,
   getDealershipWhatsAppUrl,
 } from '../../utils/whatsapp';
+import { trackWhatsAppClick, trackEvent } from '../../utils/analytics';
 
 export const WhatsAppWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,6 +35,13 @@ export const WhatsAppWidget: React.FC = () => {
       inquiryType: formState.inquiryType,
       tvModel: formState.tvModel,
       message: formState.message || 'I would like to get more information on sales & service options.',
+    });
+
+    trackWhatsAppClick('widget_custom_form', formState.inquiryType);
+    trackEvent('product_enquiry_submit', {
+      source: 'whatsapp_widget',
+      tvModel: formState.tvModel,
+      inquiryType: formState.inquiryType,
     });
 
     const whatsappUrl = createWhatsAppUrl(formattedPayload);

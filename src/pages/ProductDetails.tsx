@@ -7,13 +7,33 @@ import { Badge } from '../components/ui/Badge';
 import { products } from '../data/products';
 import { TV3D } from '../components/tv/TV3D';
 import { getQuickSalesUrl } from '../utils/whatsapp';
+import { SEO } from '../components/common/SEO';
+import { getProductSchema, getBreadcrumbSchema } from '../utils/schema';
+import { trackWhatsAppClick } from '../utils/analytics';
 
 export const ProductDetails: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const product = products.find((p) => p.id === productId) || products[0];
 
+  const schemas = [
+    getProductSchema(product),
+    getBreadcrumbSchema([
+      { name: 'Home', url: '/' },
+      { name: 'Products', url: '/products' },
+      { name: product.name, url: `/products/${product.id}` },
+    ]),
+  ];
+
   return (
     <PageContainer>
+      <SEO
+        title={`${product.name} | Specs, Features & Price Inquiry`}
+        description={`${product.name} features ${product.resolution}, ${product.smartOS}, ${product.audioTech}. Official brand warranty and direct customer support in India.`}
+        canonicalPath={`/products/${product.id}`}
+        type="product"
+        keywords={`${product.name}, ${product.sizes.join(', ')} TV, ${product.resolution}, ZUVO TV, ${product.smartOS}`}
+        schema={schemas}
+      />
       <div className="py-12 bg-black">
         <Container>
           {/* Back Navigation */}
@@ -91,6 +111,7 @@ export const ProductDetails: React.FC = () => {
               <div className="pt-6 border-t border-white/10 flex flex-col sm:flex-row gap-4">
                 <a
                   href={getQuickSalesUrl(product.name)}
+                  onClick={() => trackWhatsAppClick('product_details', product.name)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full text-center px-8 py-4 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white font-bold text-xs tracking-widest uppercase shadow-lg transition-all flex items-center justify-center space-x-2"
@@ -99,10 +120,10 @@ export const ProductDetails: React.FC = () => {
                   <span>INQUIRE / BUY ON WHATSAPP</span>
                 </a>
                 <Link
-                  to="/contact"
+                  to="/dealership"
                   className="w-full text-center px-8 py-4 rounded-full bg-white/5 text-white font-bold text-xs tracking-widest uppercase border border-white/20 hover:bg-white/10 transition-all"
                 >
-                  DEALER & SERVICE INFO
+                  DEALER & BULK ORDERS
                 </Link>
               </div>
             </div>
@@ -110,9 +131,9 @@ export const ProductDetails: React.FC = () => {
 
           {/* Full Technical Specifications Table */}
           <div className="mt-20 p-8 sm:p-12 rounded-3xl bg-[#09090b] border border-white/10">
-            <h3 className="text-2xl font-extrabold text-white tracking-tight uppercase mb-8 border-b border-white/10 pb-4">
+            <h2 className="text-2xl font-extrabold text-white tracking-tight uppercase mb-8 border-b border-white/10 pb-4">
               TECHNICAL SPECIFICATIONS
-            </h3>
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {product.specifications.map((spec, i) => (
                 <div key={i} className="p-4 rounded-xl bg-white/5 border border-white/5 flex flex-col justify-between">

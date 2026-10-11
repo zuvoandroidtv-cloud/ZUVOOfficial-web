@@ -4,13 +4,28 @@ import { Container } from '../components/ui/Container';
 import { SectionHeading } from '../components/ui/SectionHeading';
 import { techPillars } from '../data/technology';
 import { CTASection } from '../components/sections/CTASection';
+import { SEO } from '../components/common/SEO';
+import { getBreadcrumbSchema } from '../utils/schema';
 
 export const Technology: React.FC = () => {
+  const breadcrumbs = getBreadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Technology Engine', url: '/technology' },
+  ]);
+
   return (
     <PageContainer>
+      <SEO
+        title="ZUVO TV Technology — Display, Dolby Audio & Android TV Engine"
+        description="Explore the engineering behind ZUVO Smart TVs: Direct Crystal LED matrices, Dolby Audio immersion, high-performance processors, and official Google Android TV ecosystem."
+        canonicalPath="/technology"
+        keywords="ZUVO TV technology, smart TV display engine, Dolby Atmos TV, Android TV architecture, 4K UHD processing India"
+        schema={breadcrumbs}
+      />
       <div className="py-16 bg-black">
         <Container>
           <SectionHeading
+            as="h1"
             badge="ZUVO INNOVATION & HARDWARE"
             title="PRECISION"
             highlightTitle="TECHNOLOGY ENGINE"
@@ -27,9 +42,9 @@ export const Technology: React.FC = () => {
                 <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase block mb-2">
                   {pillar.subtitle}
                 </span>
-                <h3 className="text-2xl sm:text-4xl font-extrabold text-white uppercase tracking-tight mb-4">
+                <h2 className="text-2xl sm:text-4xl font-extrabold text-white uppercase tracking-tight mb-4">
                   {pillar.title}
-                </h3>
+                </h2>
                 <p className="text-neutral-300 text-sm sm:text-base max-w-3xl leading-relaxed mb-8">
                   {pillar.description}
                 </p>

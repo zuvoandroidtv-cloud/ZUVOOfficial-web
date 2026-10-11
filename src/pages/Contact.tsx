@@ -5,6 +5,9 @@ import { SectionHeading } from '../components/ui/SectionHeading';
 import { Mail, Phone, MapPin, CheckCircle2, MessageSquare } from 'lucide-react';
 import { siteConfig } from '../data/siteConfig';
 import { createWhatsAppUrl, formatInquiryMessage } from '../utils/whatsapp';
+import { SEO } from '../components/common/SEO';
+import { getLocalBusinessSchema, getBreadcrumbSchema } from '../utils/schema';
+import { trackWhatsAppClick, trackPhoneClick, trackEvent } from '../utils/analytics';
 
 export const Contact: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -18,6 +21,12 @@ export const Contact: React.FC = () => {
 
   const handleWhatsAppSubmit = () => {
     if (!formData.name || !formData.phone) return;
+
+    trackWhatsAppClick('contact_form', formData.inquiryType);
+    trackEvent('product_enquiry_submit', {
+      inquiryType: formData.inquiryType,
+      hasEmail: Boolean(formData.email),
+    });
 
     const payload = formatInquiryMessage({
       name: formData.name,
@@ -38,11 +47,27 @@ export const Contact: React.FC = () => {
     handleWhatsAppSubmit();
   };
 
+  const schemas = [
+    getLocalBusinessSchema(),
+    getBreadcrumbSchema([
+      { name: 'Home', url: '/' },
+      { name: 'Contact Us', url: '/contact' },
+    ]),
+  ];
+
   return (
     <PageContainer>
+      <SEO
+        title="Contact ZUVO TV — Sales Desk, Service Hub & WhatsApp Support"
+        description="Reach the official ZUVO Android TV sales desk and service hub. Connect via WhatsApp (+91 8056666653), phone, email, or visit our headquarters in Aarani, Tamil Nadu."
+        canonicalPath="/contact"
+        keywords="Contact ZUVO TV, ZUVO customer care number, TV service Aarani, ZUVO WhatsApp support, smart TV repair enquiry"
+        schema={schemas}
+      />
       <div className="py-16 bg-black">
         <Container>
           <SectionHeading
+            as="h1"
             badge="GET IN TOUCH"
             title="CONTACT ZUVO"
             highlightTitle="OFFICIAL BRAND"
@@ -53,7 +78,7 @@ export const Contact: React.FC = () => {
             {/* Left Contact Details */}
             <div className="lg:col-span-5 space-y-8">
               <div className="p-8 rounded-3xl bg-[#09090c] border border-white/10 space-y-6">
-                <h3 className="text-xl font-extrabold text-white uppercase">OFFICIAL CONTACT</h3>
+                <h2 className="text-xl font-extrabold text-white uppercase">OFFICIAL CONTACT</h2>
 
                 <div className="flex items-start space-x-4 text-xs">
                   <Mail className="text-cyan-400 mt-1 flex-shrink-0" size={20} />
@@ -69,7 +94,11 @@ export const Contact: React.FC = () => {
                   <Phone className="text-cyan-400 mt-1 flex-shrink-0" size={20} />
                   <div>
                     <span className="text-neutral-500 uppercase font-bold block">CUSTOMER & SALES CARE</span>
-                    <a href={`tel:${siteConfig.contact.phone}`} className="text-white font-medium text-sm hover:text-cyan-400 transition-colors">
+                    <a
+                      href={`tel:${siteConfig.contact.phone}`}
+                      onClick={() => trackPhoneClick('contact_page')}
+                      className="text-white font-medium text-sm hover:text-cyan-400 transition-colors"
+                    >
                       {siteConfig.contact.phone}
                     </a>
                   </div>
@@ -87,6 +116,7 @@ export const Contact: React.FC = () => {
                 <div className="pt-4 border-t border-white/10">
                   <a
                     href={`https://wa.me/918056666653?text=${encodeURIComponent('👋 Hi ZUVO Team, I want to inquire about TV Sales & Service.')}`}
+                    onClick={() => trackWhatsAppClick('instant_button', 'Header Quick Button')}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full py-3 px-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500 hover:text-white font-bold text-xs uppercase tracking-wider transition flex items-center justify-center space-x-2"
@@ -117,7 +147,7 @@ export const Contact: React.FC = () => {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-6">
-                    <h3 className="text-xl font-extrabold text-white uppercase mb-6">SEND SALES & SERVICE INQUIRY</h3>
+                    <h2 className="text-xl font-extrabold text-white uppercase mb-6">SEND SALES & SERVICE INQUIRY</h2>
 
                     <div>
                       <label className="text-xs font-bold text-neutral-400 uppercase block mb-2">FULL NAME *</label>

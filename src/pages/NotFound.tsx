@@ -2,10 +2,16 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { PageContainer } from '../components/layout/PageContainer';
 import { Container } from '../components/ui/Container';
+import { SEO } from '../components/common/SEO';
 
 export const NotFound: React.FC = () => {
   return (
     <PageContainer>
+      <SEO
+        title="404 — Page Not Found | ZUVO Android TV"
+        description="The requested page could not be located on the official ZUVO website."
+        noindex={true}
+      />
       <div className="py-24 bg-black text-center">
         <Container>
           <span className="text-xs font-bold text-cyan-400 tracking-widest uppercase block mb-4">404 ERROR</span>

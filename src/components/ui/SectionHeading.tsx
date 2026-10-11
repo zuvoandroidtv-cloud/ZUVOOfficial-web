@@ -9,6 +9,7 @@ export interface SectionHeadingProps {
   subtitle?: string;
   align?: 'left' | 'center' | 'right';
   className?: string;
+  as?: 'h1' | 'h2' | 'h3';
 }
 
 export const SectionHeading: React.FC<SectionHeadingProps> = ({
@@ -17,7 +18,10 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
   highlightTitle,
   subtitle,
   className = '',
+  as = 'h2',
 }) => {
+  const HeadingTag = as === 'h1' ? motion.h1 : as === 'h3' ? motion.h3 : motion.h2;
+
   return (
     <div className={`flex flex-col text-center items-center justify-center max-w-3xl mx-auto mb-16 ${className}`}>
       {badge && (
@@ -31,7 +35,7 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
           <Badge>{badge}</Badge>
         </motion.div>
       )}
-      <motion.h2
+      <HeadingTag
         initial={{ opacity: 0, y: 15 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
@@ -40,7 +44,7 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
       >
         {title}{' '}
         {highlightTitle && <span className="text-zuvo-gradient">{highlightTitle}</span>}
-      </motion.h2>
+      </HeadingTag>
       {subtitle && (
         <motion.p
           initial={{ opacity: 0, y: 15 }}

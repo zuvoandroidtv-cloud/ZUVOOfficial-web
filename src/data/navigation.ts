@@ -6,6 +6,7 @@ export interface NavLink {
 export const mainNavLinks: NavLink[] = [
   { label: 'Home', path: '/' },
   { label: 'Products', path: '/products' },
+  { label: 'Dealership', path: '/dealership' },
   { label: 'Technology', path: '/technology' },
   { label: 'About', path: '/about' },
   { label: 'Support', path: '/support' },
@@ -31,13 +32,15 @@ export const footerLinks = {
   ],
   support: [
     { label: 'Product Support', path: '/support' },
-    { label: 'User Manuals', path: '/support#manuals' },
-    { label: 'Warranty Info', path: '/support#warranty' },
+    { label: 'Warranty & Policy', path: '/warranty' },
+    { label: 'Become a Dealer', path: '/dealership' },
     { label: 'Contact Us', path: '/contact' },
   ],
   company: [
     { label: 'About ZUVO', path: '/about' },
     { label: 'Brand Philosophy', path: '/about#philosophy' },
-    { label: 'News & Press', path: '/about#news' },
+    { label: 'Dealership Enquiry', path: '/dealership' },
+    { label: 'Privacy Policy', path: '/privacy' },
+    { label: 'Terms of Service', path: '/terms' },
   ],
 };

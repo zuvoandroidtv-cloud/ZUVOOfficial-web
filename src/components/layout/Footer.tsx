@@ -18,7 +18,7 @@ export const Footer: React.FC = () => {
               {siteConfig.description}
             </p>
             <div className="flex items-center space-x-4 pt-2">
-              <Badge>OFFICIAL ANDROID TV PARTNER</Badge>
+              <Badge>POWERED BY ANDROID TV OS</Badge>
             </div>
           </div>
 

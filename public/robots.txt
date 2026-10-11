@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+# Disallow private or build assets if applicable
+Disallow: /api/
+Disallow: /*.json$
+
+# Official Sitemaps
+Sitemap: https://www.zuvoandroidtv.com/sitemap.xml
