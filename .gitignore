@@ -25,3 +25,6 @@ dist-ssr
 
 # Vite temporary build files
 vite.config.ts.timestamp-*.mjs
+
+# Netlify
+.netlify
