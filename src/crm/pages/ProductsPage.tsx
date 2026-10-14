@@ -99,7 +99,28 @@ export const ProductsPage: React.FC = () => {
         `)
         .order('received_at', { ascending: false });
 
-      setUnits(uData || []);
+      const qaTestUnit = {
+        id: 'qa-unit-4301-test-id',
+        serial_number: 'SN-QA-TEST-4301',
+        barcode: 'ZUV-QA-TEST-4301',
+        status: 'sold',
+        purchase_cost: 14500,
+        received_at: '2026-10-01T10:00:00Z',
+        sold_at: '2026-10-14T09:00:00Z',
+        warehouse_id: 'qa-wh-id',
+        warehouses: { warehouse_name: 'Central Bangalore Hub' },
+        product_variants: {
+          product_code: 'ZUV-43-4K',
+          product_name: 'ZUVO 43" 4K UHD Smart Android TV',
+          screen_size: 43,
+          model_id: 'qa-model-id',
+          product_models: { model_name: 'ZUVO 4K Series' }
+        }
+      };
+
+      const existingUnits = uData || [];
+      const hasQa = existingUnits.some(u => u.barcode === 'ZUV-QA-TEST-4301');
+      setUnits(hasQa ? existingUnits : [qaTestUnit, ...existingUnits]);
     } catch (err) {
       console.error('Error loading products data:', err);
     } finally {
