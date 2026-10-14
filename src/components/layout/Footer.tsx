@@ -68,18 +68,21 @@ export const Footer: React.FC = () => {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between text-xs text-neutral-500 space-y-4 sm:space-y-0">
-          <p>© {new Date().getFullYear()} ZUVO Consumer Electronics. All rights reserved.</p>
-          <div className="flex items-center space-x-6">
-            <Link to="/privacy" className="hover:text-neutral-300">Privacy Policy</Link>
-            <Link to="/terms" className="hover:text-neutral-300">Terms of Service</Link>
-            <Link to="/support" className="hover:text-neutral-300">Customer Support</Link>
+          <div className="flex items-center space-x-4">
+            <p>© {new Date().getFullYear()} ZUVO Consumer Electronics. All rights reserved.</p>
+            <span className="text-neutral-700">|</span>
             <Link
               to="/staff"
               title="Authorized Staff & Service Center Portal"
-              className="text-neutral-600 hover:text-neutral-400 transition-colors text-[11px] flex items-center space-x-1"
+              className="text-neutral-600 hover:text-neutral-400 transition-colors text-[11px]"
             >
-              <span>Staff Portal</span>
+              Staff Portal
             </Link>
+          </div>
+          <div className="flex items-center space-x-6 pr-0 sm:pr-24">
+            <Link to="/privacy" className="hover:text-neutral-300">Privacy Policy</Link>
+            <Link to="/terms" className="hover:text-neutral-300">Terms of Service</Link>
+            <Link to="/support" className="hover:text-neutral-300">Customer Support</Link>
           </div>
         </div>
       </div>

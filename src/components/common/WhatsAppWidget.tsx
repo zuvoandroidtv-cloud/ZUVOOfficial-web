@@ -60,9 +60,6 @@ export const WhatsAppWidget: React.FC = () => {
             exit={{ scale: 0, opacity: 0 }}
             className="flex items-center space-x-3"
           >
-            <span className="hidden sm:inline-block bg-[#0c0d12] text-white text-xs font-semibold px-3 py-2 rounded-xl border border-white/10 shadow-2xl">
-              Chat for Sales & Service
-            </span>
             <button
               onClick={() => setIsOpen(true)}
               className="relative group p-4 rounded-full bg-emerald-500 text-white shadow-2xl hover:bg-emerald-400 hover:scale-110 transition-all duration-300 flex items-center justify-center border border-emerald-300/30"
