@@ -33,13 +33,23 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
+      const cleanEmail = email.trim().toLowerCase();
+      const cleanPass = password.trim();
+
+      // Direct Super Admin Login Handler
+      if (cleanEmail === 'dravidd580@gmail.com' && cleanPass === 'dravid@1202') {
+        const { error } = await signIn(cleanEmail, cleanPass);
+        if (error) throw error;
+        return;
+      }
+
       if (isSignUp) {
-        const { error } = await signUp(email.trim(), password, fullName.trim() || undefined);
+        const { error } = await signUp(cleanEmail, password, fullName.trim() || undefined);
         if (error) throw error;
         setSuccessMsg('Account registered successfully! If email confirmation is enabled in your Supabase project, check your inbox to confirm before logging in.');
         setIsSignUp(false);
       } else {
-        const { error } = await signIn(email.trim(), password);
+        const { error } = await signIn(cleanEmail, password);
         if (error) throw error;
       }
     } catch (err: any) {
