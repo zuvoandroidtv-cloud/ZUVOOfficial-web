@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../context/AuthContext';
-import { Warehouse, ArrowRightLeft, Plus, MapPin, Box, ArrowRight, CheckCircle, Clock, Search, RefreshCw, Download, FileSpreadsheet } from 'lucide-react';
+import {
+  Warehouse, ArrowRightLeft, Plus, MapPin, Box, ArrowRight, CheckCircle, Clock,
+  Search, RefreshCw, Download, FileSpreadsheet, Truck, FileText, Barcode as BarcodeIcon,
+  AlertTriangle, ShieldCheck, CheckCircle2, X
+} from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
+import { TransferManifestModal, TransferManifestData } from '../components/common/TransferManifestModal';
 
 export const InventoryPage: React.FC = () => {
   const { role } = useAuth();
@@ -13,7 +18,7 @@ export const InventoryPage: React.FC = () => {
   const [pendingTransfers, setPendingTransfers] = useState<any[]>([]);
   const [inStockUnits, setInStockUnits] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'matrix' | 'incoming' | 'history'>('matrix');
+  const [activeTab, setActiveTab] = useState<'matrix' | 'manifests' | 'incoming' | 'history'>('matrix');
 
   // Filter states for history
   const [searchFilter, setSearchFilter] = useState('');
@@ -32,7 +37,7 @@ export const InventoryPage: React.FC = () => {
   const [whCity, setWhCity] = useState('');
   const [whState, setWhState] = useState('');
 
-  // Transfer Modal
+  // Transfer Modal (Legacy / Single Unit)
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [targetWarehouseId, setTargetWarehouseId] = useState('');
@@ -42,6 +47,33 @@ export const InventoryPage: React.FC = () => {
 
   // Receiving Action state
   const [receivingUnitId, setReceivingUnitId] = useState<string | null>(null);
+
+  // Phase 7.1: Stock Transfer Manifests state
+  const [stockTransfers, setStockTransfers] = useState<any[]>([]);
+  const [selectedTransfer, setSelectedTransfer] = useState<any | null>(null);
+  const [transferItems, setTransferItems] = useState<any[]>([]);
+  const [isCreateManifestModalOpen, setIsCreateManifestModalOpen] = useState(false);
+  const [isScanDispatchModalOpen, setIsScanDispatchModalOpen] = useState(false);
+  const [isScanReceiveModalOpen, setIsScanReceiveModalOpen] = useState(false);
+  const [isManifestViewOpen, setIsManifestViewOpen] = useState(false);
+  const [activeManifestData, setActiveManifestData] = useState<TransferManifestData | null>(null);
+
+  // Create Manifest form
+  const [manifestSourceWh, setManifestSourceWh] = useState('');
+  const [manifestDestWh, setManifestDestWh] = useState('');
+  const [manifestCarrier, setManifestCarrier] = useState('ZUVO National Logistics');
+  const [manifestVehicle, setManifestVehicle] = useState('');
+  const [manifestDriver, setManifestDriver] = useState('');
+  const [manifestDriverPhone, setManifestDriverPhone] = useState('');
+  const [manifestNotes, setManifestNotes] = useState('');
+  const [manifestFormError, setManifestFormError] = useState<string | null>(null);
+
+  // Barcode Scanning state (Dispatch & Receive)
+  const [scannedBarcode, setScannedBarcode] = useState('');
+  const [scanDamaged, setScanDamaged] = useState(false);
+  const [scanNotes, setScanNotes] = useState('');
+  const [scanFeedback, setScanFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isSubmittingScan, setIsSubmittingScan] = useState(false);
 
   const handleExport = async (format: 'csv' | 'xlsx') => {
     setExporting(true);
@@ -202,10 +234,249 @@ export const InventoryPage: React.FC = () => {
         .limit(50);
 
       setTransactions(txData || []);
+
+      // 6. Phase 7.1 Stock Transfers
+      const { data: stDataList } = await (supabase.from as any)('stock_transfers')
+        .select(`
+          *,
+          source_warehouse:source_warehouse_id(warehouse_name, warehouse_code, city),
+          destination_warehouse:destination_warehouse_id(warehouse_name, warehouse_code, city)
+        `)
+        .order('created_at', { ascending: false });
+      setStockTransfers(stDataList || []);
     } catch (err) {
       console.error('Error loading inventory data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Phase 7.1: Load items for a specific transfer
+  const loadTransferItems = async (transferId: string) => {
+    try {
+      const { data: items } = await (supabase.from as any)('stock_transfer_items')
+        .select(`
+          *,
+          product_unit:product_unit_id(
+            serial_number,
+            barcode,
+            product_variants(product_name, screen_size)
+          )
+        `)
+        .eq('transfer_id', transferId)
+        .order('created_at', { ascending: true });
+      setTransferItems(items || []);
+    } catch (err) {
+      console.error('Error loading transfer items:', err);
+    }
+  };
+
+  // Phase 7.1: Open Digital Manifest Modal
+  const handleOpenManifest = async (transfer: any) => {
+    try {
+      const { data: items } = await (supabase.from as any)('stock_transfer_items')
+        .select(`
+          *,
+          product_unit:product_unit_id(
+            serial_number,
+            barcode,
+            product_variants(product_name, screen_size)
+          )
+        `)
+        .eq('transfer_id', transfer.id);
+
+      const manifestPayload: TransferManifestData = {
+        transferNumber: transfer.transfer_number,
+        sourceWarehouse: `${transfer.source_warehouse?.warehouse_name} (${transfer.source_warehouse?.warehouse_code})`,
+        destinationWarehouse: `${transfer.destination_warehouse?.warehouse_name} (${transfer.destination_warehouse?.warehouse_code})`,
+        carrierName: transfer.carrier_name || 'ZUVO Fleet Logistics',
+        vehicleNumber: transfer.vehicle_number,
+        driverName: transfer.driver_name,
+        driverPhone: transfer.driver_phone,
+        dispatchDate: transfer.dispatched_at,
+        expectedArrival: transfer.expected_arrival_at,
+        status: transfer.status,
+        expectedCount: transfer.expected_unit_count || 0,
+        dispatchedCount: transfer.dispatched_unit_count || 0,
+        receivedCount: transfer.received_unit_count || 0,
+        missingCount: transfer.missing_unit_count || 0,
+        unexpectedCount: transfer.unexpected_unit_count || 0,
+        damagedCount: transfer.damaged_unit_count || 0,
+        items: (items || []).map((it: any) => ({
+          barcode: it.barcode,
+          serialNumber: it.serial_number || it.product_unit?.serial_number || 'N/A',
+          modelName: it.product_unit?.product_variants?.product_name || 'ZUVO Android TV',
+          screenSize: it.product_unit?.product_variants?.screen_size,
+          status: it.item_status,
+          isDamaged: it.is_damaged || false,
+          conditionNotes: it.condition_notes
+        }))
+      };
+
+      setActiveManifestData(manifestPayload);
+      setIsManifestViewOpen(true);
+    } catch (err: any) {
+      alert(`Failed to load manifest: ${err.message}`);
+    }
+  };
+
+  // Phase 7.1: Handle Create Stock Transfer Draft
+  const handleCreateManifestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setManifestFormError(null);
+
+    if (!manifestSourceWh || !manifestDestWh) {
+      setManifestFormError('Both source and destination warehouses are required.');
+      return;
+    }
+
+    if (manifestSourceWh === manifestDestWh) {
+      setManifestFormError('Destination warehouse must be different from source warehouse.');
+      return;
+    }
+
+    setIsExecuting(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_create_stock_transfer', {
+        p_source_warehouse_id: manifestSourceWh,
+        p_destination_warehouse_id: manifestDestWh,
+        p_carrier_name: manifestCarrier.trim() || null,
+        p_vehicle_number: manifestVehicle.trim() || null,
+        p_driver_name: manifestDriver.trim() || null,
+        p_driver_phone: manifestDriverPhone.trim() || null,
+        p_dispatch_notes: manifestNotes.trim() || null
+      });
+
+      if (error) throw error;
+
+      setIsCreateManifestModalOpen(false);
+      setManifestSourceWh('');
+      setManifestDestWh('');
+      setManifestVehicle('');
+      setManifestDriver('');
+      setManifestDriverPhone('');
+      setManifestNotes('');
+      loadData();
+      alert(`Stock Transfer Manifest ${data.transfer_number} created in DRAFT status.`);
+    } catch (err: any) {
+      setManifestFormError(err.message || 'Failed to create transfer manifest');
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // Phase 7.1: Scan barcode for dispatch
+  const handleDispatchScanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTransfer || !scannedBarcode.trim()) return;
+
+    setScanFeedback(null);
+    setIsSubmittingScan(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_scan_barcode_for_dispatch', {
+        p_transfer_id: selectedTransfer.id,
+        p_barcode_or_serial: scannedBarcode.trim()
+      });
+
+      if (error) throw error;
+
+      setScanFeedback({
+        type: 'success',
+        message: `Unit ${data.barcode} (SN: ${data.serial_number}) added to manifest.`
+      });
+      setScannedBarcode('');
+      loadTransferItems(selectedTransfer.id);
+      loadData();
+    } catch (err: any) {
+      setScanFeedback({
+        type: 'error',
+        message: err.message || 'Scan failed'
+      });
+    } finally {
+      setIsSubmittingScan(false);
+    }
+  };
+
+  // Phase 7.1: Authorize Dispatch
+  const handleAuthorizeDispatch = async (transferId: string) => {
+    if (!window.confirm('Authorize and dispatch this manifest? All units will enter IN_TRANSIT status.')) return;
+    setIsExecuting(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_dispatch_stock_transfer', {
+        p_transfer_id: transferId
+      });
+      if (error) throw error;
+      alert(`Manifest successfully dispatched! ${data.dispatched_count} unit(s) moved to IN_TRANSIT.`);
+      setIsScanDispatchModalOpen(false);
+      setSelectedTransfer(null);
+      loadData();
+    } catch (err: any) {
+      alert(`Dispatch authorization failed: ${err.message}`);
+    } finally {
+      setIsExecuting(false);
+    }
+  };
+
+  // Phase 7.1: Scan barcode for receiving
+  const handleReceivingScanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTransfer || !scannedBarcode.trim()) return;
+
+    setScanFeedback(null);
+    setIsSubmittingScan(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_scan_barcode_for_receiving', {
+        p_transfer_id: selectedTransfer.id,
+        p_barcode_or_serial: scannedBarcode.trim(),
+        p_is_damaged: scanDamaged,
+        p_condition_notes: scanNotes.trim() || null
+      });
+
+      if (error) throw error;
+
+      const flag = data.is_unexpected ? ' (UNEXPECTED UNIT RECORDED)' : data.is_damaged ? ' (DAMAGED RECORDED)' : '';
+      setScanFeedback({
+        type: 'success',
+        message: `Barcode ${data.barcode} received and verified${flag}.`
+      });
+      setScannedBarcode('');
+      setScanDamaged(false);
+      setScanNotes('');
+      loadTransferItems(selectedTransfer.id);
+      loadData();
+    } catch (err: any) {
+      setScanFeedback({
+        type: 'error',
+        message: err.message || 'Receiving scan failed'
+      });
+    } finally {
+      setIsSubmittingScan(false);
+    }
+  };
+
+  // Phase 7.1: Reconcile Manifest
+  const handleReconcileTransfer = async (transferId: string) => {
+    const notes = prompt('Enter final reconciliation review notes (optional):');
+    if (notes === null) return;
+
+    setIsExecuting(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_reconcile_stock_transfer', {
+        p_transfer_id: transferId,
+        p_reconciliation_notes: notes.trim() || null
+      });
+      if (error) throw error;
+      alert(
+        `Manifest Reconciliation Complete!\nFinal Status: ${data.status.toUpperCase()}\n` +
+        `Expected: ${data.expected_count} | Received: ${data.received_count} | Missing: ${data.missing_count} | Unexpected: ${data.unexpected_count} | Damaged: ${data.damaged_count}`
+      );
+      setIsScanReceiveModalOpen(false);
+      setSelectedTransfer(null);
+      loadData();
+    } catch (err: any) {
+      alert(`Reconciliation failed: ${err.message}`);
+    } finally {
+      setIsExecuting(false);
     }
   };
 
@@ -335,9 +606,15 @@ export const InventoryPage: React.FC = () => {
             <FileSpreadsheet size={15} /> Export Excel
           </button>
           {canManageInventory && (
-            <button onClick={() => setIsTransferModalOpen(true)} className="btn btn-primary">
+            <button onClick={() => setIsCreateManifestModalOpen(true)} className="btn btn-primary">
+              <Truck size={16} />
+              New Transfer Manifest
+            </button>
+          )}
+          {canManageInventory && (
+            <button onClick={() => setIsTransferModalOpen(true)} className="btn btn-secondary">
               <ArrowRightLeft size={16} />
-              Initiate Stock Transfer
+              Single Unit Transfer
             </button>
           )}
           {canManageInventory && (
@@ -350,12 +627,24 @@ export const InventoryPage: React.FC = () => {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px', flexWrap: 'wrap' }}>
         <button
           className={`btn ${activeTab === 'matrix' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
           onClick={() => setActiveTab('matrix')}
         >
           <Warehouse size={15} /> Facility Stock Matrix ({stockSummary.length})
+        </button>
+        <button
+          className={`btn ${activeTab === 'manifests' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+          onClick={() => setActiveTab('manifests')}
+          style={{ position: 'relative' }}
+        >
+          <Truck size={15} /> Transfer Manifests ({stockTransfers.length})
+          {stockTransfers.filter((t) => ['draft', 'prepared', 'in_transit'].includes(t.status)).length > 0 && (
+            <span style={{ position: 'absolute', top: '-6px', right: '-6px', background: 'var(--brand-primary)', color: '#fff', fontSize: '0.7rem', fontWeight: 800, padding: '2px 6px', borderRadius: '999px' }}>
+              {stockTransfers.filter((t) => ['draft', 'prepared', 'in_transit'].includes(t.status)).length}
+            </span>
+          )}
         </button>
         <button
           className={`btn ${activeTab === 'incoming' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
@@ -376,6 +665,161 @@ export const InventoryPage: React.FC = () => {
           <ArrowRightLeft size={15} /> Movement Audit Ledger ({transactions.length})
         </button>
       </div>
+
+      {/* TAB: Transfer Manifests (Phase 7.1) */}
+      {activeTab === 'manifests' && (
+        <div className="glass-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.1rem' }}>Multi-Warehouse Stock Transfer Manifests</h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                Inter-depot transit manifests, barcode dispatch scanning, receiving audits, and discrepancy reconciliation.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {canManageInventory && (
+                <button className="btn btn-primary btn-sm" onClick={() => setIsCreateManifestModalOpen(true)}>
+                  <Plus size={14} /> Create Manifest
+                </button>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={loadData}>
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Manifest #</th>
+                  <th>Source Depot</th>
+                  <th>Destination Depot</th>
+                  <th>Carrier / Vehicle</th>
+                  <th>Units (Exp / Rec)</th>
+                  <th>Discrepancies</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stockTransfers.length > 0 ? (
+                  stockTransfers.map((trf) => (
+                    <tr key={trf.id}>
+                      <td>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--brand-primary)' }}>
+                          {trf.transfer_number}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          {new Date(trf.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-slate">
+                          {trf.source_warehouse?.warehouse_name || 'Source'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge badge-warning">
+                          ➔ {trf.destination_warehouse?.warehouse_name || 'Destination'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{trf.carrier_name || 'ZUVO Fleet'}</div>
+                        {trf.vehicle_number && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            Veh: {trf.vehicle_number} {trf.driver_name ? `(${trf.driver_name})` : ''}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <span style={{ fontWeight: 700 }}>{trf.expected_unit_count || 0}</span> exp /{' '}
+                        <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{trf.received_unit_count || 0}</span> rec
+                      </td>
+                      <td>
+                        {trf.missing_unit_count > 0 || trf.unexpected_unit_count > 0 || trf.damaged_unit_count > 0 ? (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--accent-rose)', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                            {trf.missing_unit_count > 0 && <span className="badge badge-danger">Miss: {trf.missing_unit_count}</span>}
+                            {trf.unexpected_unit_count > 0 && <span className="badge badge-purple">Unexp: {trf.unexpected_unit_count}</span>}
+                            {trf.damaged_unit_count > 0 && <span className="badge badge-warning">Dam: {trf.damaged_unit_count}</span>}
+                          </div>
+                        ) : (
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>None</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          trf.status === 'reconciled' ? 'badge-success' :
+                          trf.status === 'in_transit' ? 'badge-warning' :
+                          trf.status === 'discrepancy' ? 'badge-danger' :
+                          trf.status === 'prepared' ? 'badge-cyan' :
+                          trf.status === 'partially_received' ? 'badge-purple' : 'badge-slate'
+                        }`}>
+                          {trf.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="View Printable / CSV Manifest"
+                            onClick={() => handleOpenManifest(trf)}
+                          >
+                            <FileText size={13} /> Manifest
+                          </button>
+
+                          {canManageInventory && ['draft', 'prepared'].includes(trf.status) && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => {
+                                setSelectedTransfer(trf);
+                                setScanFeedback(null);
+                                loadTransferItems(trf.id);
+                                setIsScanDispatchModalOpen(true);
+                              }}
+                            >
+                              <BarcodeIcon size={13} /> Dispatch Scan
+                            </button>
+                          )}
+
+                          {canManageInventory && ['in_transit', 'partially_received'].includes(trf.status) && (
+                            <button
+                              className="btn btn-success btn-sm"
+                              onClick={() => {
+                                setSelectedTransfer(trf);
+                                setScanFeedback(null);
+                                loadTransferItems(trf.id);
+                                setIsScanReceiveModalOpen(true);
+                              }}
+                            >
+                              <CheckCircle2 size={13} /> Receive & Scan
+                            </button>
+                          )}
+
+                          {canManageInventory && ['in_transit', 'partially_received', 'received'].includes(trf.status) && (
+                            <button
+                              className="btn btn-warning btn-sm"
+                              onClick={() => handleReconcileTransfer(trf.id)}
+                            >
+                              <ShieldCheck size={13} /> Reconcile
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                      No inter-depot stock transfer manifests found. Create a manifest to begin tracked transit.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: Facilities & Stock Overview */}
       {activeTab === 'matrix' && (
@@ -716,6 +1160,398 @@ export const InventoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* PHASE 7.1: Create Stock Transfer Manifest Modal */}
+      {isCreateManifestModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsCreateManifestModalOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Truck style={{ color: 'var(--brand-primary)' }} /> Create Inter-Depot Stock Transfer
+              </h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setIsCreateManifestModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {manifestFormError && (
+              <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: '#FDA4AF', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px' }}>
+                {manifestFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateManifestSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                <div className="input-group">
+                  <label className="input-label">Source Depot / Warehouse *</label>
+                  <select
+                    className="form-input"
+                    value={manifestSourceWh}
+                    onChange={(e) => setManifestSourceWh(e.target.value)}
+                    required
+                  >
+                    <option value="" style={{ background: '#111827' }}>-- Select Origin Depot --</option>
+                    {warehouses.map((wh) => (
+                      <option key={wh.id} value={wh.id} style={{ background: '#111827' }}>
+                        {wh.warehouse_name} ({wh.warehouse_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Destination Depot / Warehouse *</label>
+                  <select
+                    className="form-input"
+                    value={manifestDestWh}
+                    onChange={(e) => setManifestDestWh(e.target.value)}
+                    required
+                  >
+                    <option value="" style={{ background: '#111827' }}>-- Select Target Depot --</option>
+                    {warehouses.map((wh) => (
+                      <option key={wh.id} value={wh.id} style={{ background: '#111827' }}>
+                        {wh.warehouse_name} ({wh.warehouse_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                <div className="input-group">
+                  <label className="input-label">Carrier / Logistics Provider</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. ZUVO Fleet / BlueDart Logistics"
+                    value={manifestCarrier}
+                    onChange={(e) => setManifestCarrier(e.target.value)}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Vehicle Registration #</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. DL-01-AB-1234"
+                    value={manifestVehicle}
+                    onChange={(e) => setManifestVehicle(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
+                <div className="input-group">
+                  <label className="input-label">Driver Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. Rajesh Kumar"
+                    value={manifestDriver}
+                    onChange={(e) => setManifestDriver(e.target.value)}
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Driver Contact Phone</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. +91 98765 43210"
+                    value={manifestDriverPhone}
+                    onChange={(e) => setManifestDriverPhone(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="input-group" style={{ marginBottom: '16px' }}>
+                <label className="input-label">Dispatch Notes & Security Instructions</label>
+                <textarea
+                  className="form-input"
+                  rows={2}
+                  placeholder="Security seal numbers, route details, special transit instructions..."
+                  value={manifestNotes}
+                  onChange={(e) => setManifestNotes(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button type="button" onClick={() => setIsCreateManifestModalOpen(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={isExecuting}>
+                  {isExecuting ? 'Creating Manifest...' : 'Create Transfer Draft'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.1: Barcode Dispatch Scanning Modal */}
+      {isScanDispatchModalOpen && selectedTransfer && (
+        <div className="modal-backdrop" onClick={() => setIsScanDispatchModalOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <BarcodeIcon style={{ color: 'var(--brand-primary)' }} /> Dispatch Scanning & Manifest Intake
+                </h2>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Manifest #{selectedTransfer.transfer_number} | Origin: {selectedTransfer.source_warehouse?.warehouse_name} ➔ {selectedTransfer.destination_warehouse?.warehouse_name}
+                </div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setIsScanDispatchModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {scanFeedback && (
+              <div style={{
+                background: scanFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+                color: scanFeedback.type === 'success' ? 'var(--accent-emerald)' : '#FDA4AF',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                marginBottom: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                {scanFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                {scanFeedback.message}
+              </div>
+            )}
+
+            <form onSubmit={handleDispatchScanSubmit} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+              <input
+                type="text"
+                className="form-input"
+                autoFocus
+                placeholder="Scan or type TV Barcode / Serial Number (e.g. ZUV-55-4K-001)..."
+                value={scannedBarcode}
+                onChange={(e) => setScannedBarcode(e.target.value)}
+                disabled={isSubmittingScan}
+                style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '1rem', letterSpacing: '0.5px' }}
+              />
+              <button type="submit" className="btn btn-primary" disabled={isSubmittingScan || !scannedBarcode.trim()}>
+                {isSubmittingScan ? 'Validating...' : 'Add Unit'}
+              </button>
+            </form>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '0.95rem', marginBottom: '8px', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Manifest Scanned Units ({transferItems.length})</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Status: {selectedTransfer.status.toUpperCase()}</span>
+              </h4>
+
+              <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <table className="data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Barcode</th>
+                      <th>Serial Number</th>
+                      <th>Model</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transferItems.length > 0 ? (
+                      transferItems.map((it) => (
+                        <tr key={it.id}>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{it.barcode}</td>
+                          <td>{it.serial_number || it.product_unit?.serial_number || 'N/A'}</td>
+                          <td>{it.product_unit?.product_variants?.product_name || 'ZUVO TV'}</td>
+                          <td>
+                            <span className="badge badge-success">{it.item_status}</span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                          No units scanned onto this manifest yet. Scan a barcode above.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => handleOpenManifest(selectedTransfer)}
+              >
+                <FileText size={15} /> Preview Manifest
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" onClick={() => setIsScanDispatchModalOpen(false)} className="btn btn-secondary">
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={transferItems.length === 0 || isExecuting}
+                  onClick={() => handleAuthorizeDispatch(selectedTransfer.id)}
+                >
+                  <Truck size={15} /> Authorize & Dispatch Manifest ({transferItems.length} Units)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.1: Barcode Receiving & Inspection Modal */}
+      {isScanReceiveModalOpen && selectedTransfer && (
+        <div className="modal-backdrop" onClick={() => setIsScanReceiveModalOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '780px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <CheckCircle2 style={{ color: 'var(--accent-emerald)' }} /> Receiving Dock Barcode Audit
+                </h2>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  Manifest #{selectedTransfer.transfer_number} | Dest Hub: {selectedTransfer.destination_warehouse?.warehouse_name}
+                </div>
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={() => setIsScanReceiveModalOpen(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {scanFeedback && (
+              <div style={{
+                background: scanFeedback.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+                color: scanFeedback.type === 'success' ? 'var(--accent-emerald)' : '#FDA4AF',
+                padding: '10px 14px',
+                borderRadius: '8px',
+                marginBottom: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}>
+                {scanFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                {scanFeedback.message}
+              </div>
+            )}
+
+            <form onSubmit={handleReceivingScanSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input
+                  type="text"
+                  className="form-input"
+                  autoFocus
+                  placeholder="Scan receiving barcode or serial..."
+                  value={scannedBarcode}
+                  onChange={(e) => setScannedBarcode(e.target.value)}
+                  disabled={isSubmittingScan}
+                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: '1rem' }}
+                />
+                <button type="submit" className="btn btn-success" disabled={isSubmittingScan || !scannedBarcode.trim()}>
+                  {isSubmittingScan ? 'Verifying...' : 'Receive Unit'}
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--accent-rose)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={scanDamaged}
+                    onChange={(e) => setScanDamaged(e.target.checked)}
+                  />
+                  Mark Unit as Damaged / Broken Packaging
+                </label>
+                {scanDamaged && (
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Describe transit damage (e.g. cracked display, wet carton)..."
+                    value={scanNotes}
+                    onChange={(e) => setScanNotes(e.target.value)}
+                    style={{ flex: 1, fontSize: '0.85rem' }}
+                  />
+                )}
+              </div>
+            </form>
+
+            <div style={{ marginBottom: '20px' }}>
+              <h4 style={{ fontSize: '0.95rem', marginBottom: '8px' }}>
+                Manifest Line Items ({transferItems.length})
+              </h4>
+              <div style={{ maxHeight: '220px', overflowY: 'auto', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
+                <table className="data-table" style={{ margin: 0 }}>
+                  <thead>
+                    <tr>
+                      <th>Barcode</th>
+                      <th>Serial Number</th>
+                      <th>Model</th>
+                      <th>Status</th>
+                      <th>Damaged</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transferItems.map((it) => (
+                      <tr key={it.id}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>{it.barcode}</td>
+                        <td>{it.serial_number || it.product_unit?.serial_number || 'N/A'}</td>
+                        <td>{it.product_unit?.product_variants?.product_name || 'ZUVO TV'}</td>
+                        <td>
+                          <span className={`badge ${
+                            it.item_status === 'received' ? 'badge-success' :
+                            it.item_status === 'unexpected' ? 'badge-purple' :
+                            it.item_status === 'damaged' ? 'badge-warning' : 'badge-slate'
+                          }`}>
+                            {it.item_status}
+                          </span>
+                        </td>
+                        <td>{it.is_damaged ? <span style={{ color: 'var(--accent-rose)', fontWeight: 700 }}>YES</span> : 'No'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => handleOpenManifest(selectedTransfer)}
+              >
+                <FileText size={15} /> View Full Manifest
+              </button>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" onClick={() => setIsScanReceiveModalOpen(false)} className="btn btn-secondary">
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-warning"
+                  onClick={() => handleReconcileTransfer(selectedTransfer.id)}
+                  disabled={isExecuting}
+                >
+                  <ShieldCheck size={15} /> Finalize Reconciliation
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.1: Printable / PDF / CSV Digital Manifest Modal */}
+      <TransferManifestModal
+        isOpen={isManifestViewOpen}
+        onClose={() => setIsManifestViewOpen(false)}
+        manifest={activeManifestData}
+      />
     </div>
   );
 };
