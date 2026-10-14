@@ -7,12 +7,17 @@
     "dev": "node ./node_modules/vite/bin/vite.js --port 3000",
     "build": "node ./node_modules/typescript/bin/tsc && node ./node_modules/vite/bin/vite.js build && node ./scripts/prerender.js",
     "test:seo": "node ./scripts/verify-seo.js",
+    "test:integration": "node ./scripts-crm/test_website_crm_integration.mjs",
+    "test": "npm run test:seo && npm run test:integration",
     "preview": "node ./node_modules/vite/bin/vite.js preview"
   },
   "dependencies": {
     "@react-three/drei": "^9.105.0",
     "@react-three/fiber": "^8.16.0",
+    "@supabase/supabase-js": "^2.117.3",
     "framer-motion": "^11.1.7",
+    "html5-qrcode": "^2.3.8",
+    "jsbarcode": "^3.12.3",
     "lucide-react": "^0.378.0",
     "ogl": "^1.0.11",
     "postprocessing": "^6.36.4",
@@ -22,6 +27,7 @@
     "three": "^0.164.1"
   },
   "devDependencies": {
+    "@types/jsbarcode": "^3.11.4",
     "@types/node": "^20.12.11",
     "@types/react": "^18.3.2",
     "@types/react-dom": "^18.3.0",

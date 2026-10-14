@@ -68,13 +68,13 @@ export const Support: React.FC = () => {
               <h2 className="text-base font-bold text-white mb-2">User Manuals</h2>
               <p className="text-neutral-400 text-xs">Setup guides & remote pairing.</p>
             </div>
-            <Link to="/warranty" className="p-6 rounded-2xl bg-[#090a0d] border border-white/10 text-center hover:border-cyan-400/40 transition group">
+            <Link to="/warranty#register" className="p-6 rounded-2xl bg-[#090a0d] border border-cyan-500/20 text-center hover:border-cyan-400/50 transition group">
               <Shield size={32} className="mx-auto text-cyan-400 mb-4 group-hover:scale-110 transition-transform" />
               <h2 className="text-base font-bold text-white mb-2 flex items-center justify-center space-x-1">
-                <span>Warranty Policy</span>
+                <span>Warranty &amp; Registration</span>
                 <ArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
               </h2>
-              <p className="text-neutral-400 text-xs">Official brand coverage details.</p>
+              <p className="text-neutral-400 text-xs">Verify barcode &amp; claim coverage.</p>
             </Link>
             <Link to="/contact" className="p-6 rounded-2xl bg-[#090a0d] border border-white/10 text-center hover:border-cyan-400/40 transition group">
               <PhoneCall size={32} className="mx-auto text-cyan-400 mb-4 group-hover:scale-110 transition-transform" />

@@ -3,10 +3,12 @@ import { PageContainer } from '../components/layout/PageContainer';
 import { Container } from '../components/ui/Container';
 import { SectionHeading } from '../components/ui/SectionHeading';
 import { SEO } from '../components/common/SEO';
-import { ShieldCheck, Wrench, FileCheck, PhoneCall, MessageSquare, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Wrench, FileCheck, PhoneCall, MessageSquare, AlertCircle, QrCode, ExternalLink } from 'lucide-react';
 import { siteConfig } from '../data/siteConfig';
 import { getQuickServiceUrl } from '../utils/whatsapp';
 import { getBreadcrumbSchema, getFaqSchema } from '../utils/schema';
+import { getCrmWarrantyUrl } from '../utils/crmConfig';
+import { CustomerWarrantyPortal } from '../crm/pages/CustomerWarrantyPortal';
 import { CTASection } from '../components/sections/CTASection';
 
 export const Warranty: React.FC = () => {
@@ -79,6 +81,50 @@ export const Warranty: React.FC = () => {
               <p className="text-neutral-400 text-xs sm:text-sm leading-relaxed">
                 No complicated paperwork. Simply message our service line on WhatsApp with your invoice photo and TV serial number to initiate support.
               </p>
+            </div>
+          </div>
+
+          {/* CRM Digital Warranty Registration Section */}
+          <div className="max-w-4xl mx-auto mb-16" id="register">
+            <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-b from-[#0c0f17] to-[#07090e] border border-cyan-500/20 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6 border-b border-white/10 pb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <QrCode size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">DIGITAL CRM SYSTEM</span>
+                    <h2 className="text-xl sm:text-2xl font-extrabold text-white uppercase tracking-tight">ONLINE WARRANTY REGISTRATION</h2>
+                  </div>
+                </div>
+
+                <a
+                  href={getCrmWarrantyUrl()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 text-cyan-400 hover:text-cyan-300 text-xs font-semibold border border-cyan-500/30 transition"
+                  title="Open warranty portal in new tab"
+                >
+                  <span>Open Standalone Portal</span>
+                  <ExternalLink size={14} />
+                </a>
+              </div>
+
+              <p className="text-neutral-300 text-xs sm:text-sm leading-relaxed mb-6">
+                Enter your ZUVO Smart TV barcode or serial number below to verify your purchase against the official inventory registry and instantly activate your 12-month manufacturer warranty.
+              </p>
+
+              {/* Integrated CRM Warranty Portal Component */}
+              <div className="w-full rounded-2xl overflow-hidden border border-white/10 bg-[#070A10] p-4 sm:p-6 crm-app-scope">
+                <CustomerWarrantyPortal />
+              </div>
+
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between text-[11px] text-neutral-500 gap-2">
+                <span>Direct single source of truth connection with ZUVO CRM &amp; Service Database.</span>
+                <span className="text-neutral-400 font-mono">Status: Secure End-to-End Encryption</span>
+              </div>
             </div>
           </div>
 

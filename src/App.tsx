@@ -13,9 +13,13 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import NotFound from './pages/NotFound';
 
+// Unified CRM Integration
+import { AuthProvider } from './crm/context/AuthContext';
+import { App as CrmApp } from './crm/App';
+
 export default function App() {
   return (
-    <>
+    <AuthProvider>
       <ScrollToTop />
       <Routes>
         <Route path="/" element={<Home />} />
@@ -30,8 +34,14 @@ export default function App() {
         <Route path="/contact" element={<Contact />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
+
+        {/* Unified Authenticated CRM & Discreet Staff Portal */}
+        <Route path="/staff" element={<CrmApp />} />
+        <Route path="/crm" element={<CrmApp />} />
+        <Route path="/crm/*" element={<CrmApp />} />
+
         <Route path="*" element={<NotFound />} />
       </Routes>
-    </>
+    </AuthProvider>
   );
 }
