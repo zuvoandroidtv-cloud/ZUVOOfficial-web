@@ -28,6 +28,7 @@ export const CustomerWarrantyPortal: React.FC = () => {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [warrantyStartDate, setWarrantyStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [registering, setRegistering] = useState(false);
   const [registeredWarranty, setRegisteredWarranty] = useState<any | null>(null);
 
@@ -267,15 +268,62 @@ export const CustomerWarrantyPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* Locked Terms Box */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Calendar size={14} style={{ color: 'var(--brand-primary)' }} /> Warranty Start Date (Purchase Date) *
+                </label>
+                <input
+                  type="date"
+                  required
+                  className="input-field"
+                  value={warrantyStartDate}
+                  onChange={(e) => setWarrantyStartDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{ fontWeight: 600 }}
+                />
+                <span className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem', display: 'block' }}>
+                  Select the date of TV purchase/delivery from your invoice.
+                </span>
+              </div>
+              <div className="form-group">
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <ShieldCheck size={14} style={{ color: 'var(--status-success)' }} /> Warranty Duration & Expiry
+                </label>
+                <div
+                  className="input-field"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: 'var(--bg-secondary)',
+                    fontWeight: 600,
+                    color: 'var(--brand-primary)'
+                  }}
+                >
+                  <span>12 Months Standard Coverage</span>
+                  <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                    Until:{' '}
+                    {(() => {
+                      const d = new Date(warrantyStartDate || new Date());
+                      d.setFullYear(d.getFullYear() + 1);
+                      d.setDate(d.getDate() - 1);
+                      return d.toLocaleDateString();
+                    })()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Enforced Warranty Policy Parameters Box */}
             <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1.5rem', fontSize: '0.8125rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
-                <Lock size={14} style={{ color: 'var(--brand-primary)' }} /> Enforced Warranty Policy Parameters:
+                <ShieldCheck size={16} style={{ color: 'var(--status-success)' }} /> Comprehensive Warranty Coverage Details:
               </div>
-              <ul style={{ paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                <li>Warranty Start Date: <strong>TODAY ({new Date().toLocaleDateString()})</strong></li>
-                <li>Manufacturer Coverage Duration: <strong>12 Months Standard Warranty</strong></li>
-                <li>End Date: Automatically calculated by the database server (+1 year)</li>
+              <ul style={{ paddingLeft: '1.25rem', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <li><strong>Display Panel & Motherboard:</strong> 100% genuine component replacement for panel lines, dead pixels, and power failures.</li>
+                <li><strong>Audio & Remote Control:</strong> Coverage against internal speaker distortions, motherboard audio chips, and Bluetooth voice remotes.</li>
+                <li><strong>Authorized Technicians:</strong> Doorstep on-site technician inspection and service with OTP verification.</li>
               </ul>
             </div>
 
