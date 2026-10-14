@@ -22,13 +22,16 @@ import {
   RefreshCw,
   QrCode,
   ShieldAlert,
-  ChevronRight,
-  Filter
+  CheckCircle,
+  FileCheck,
+  ShieldCheck,
+  Percent,
+  Sliders
 } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
 
-type ProcurementTab = 'purchase_orders' | 'goods_receipts' | 'vendors' | 'vendor_returns' | 'reports';
+type ProcurementTab = 'purchase_orders' | 'goods_receipts' | 'reorder_points' | 'factory_qa' | 'vendors' | 'vendor_returns' | 'reports';
 
 interface LineItemInput {
   product_variant_id: string;
@@ -125,6 +128,49 @@ export const ProcurementPage: React.FC = () => {
   const [receivingPerf, setReceivingPerf] = useState<any[]>([]);
   const [discrepancies, setDiscrepancies] = useState<any[]>([]);
 
+  // Phase 7.2: Automated Reorder Points State
+  const [reorderSuggestions, setReorderSuggestions] = useState<any[]>([]);
+  const [loadingReorder, setLoadingReorder] = useState(false);
+  const [autoGeneratingPo, setAutoGeneratingPo] = useState<string | null>(null);
+  const [autoReplenishingId, setAutoReplenishingId] = useState<string | null>(null);
+
+  // Phase 7.2: Factory QA Intake Inspections & Debit Memos State
+  const [inspections, setInspections] = useState<any[]>([]);
+  const [debitMemos, setDebitMemos] = useState<any[]>([]);
+  const [showInspectionModal, setShowInspectionModal] = useState(false);
+  const [inspWarehouseId, setInspWarehouseId] = useState('');
+  const [inspVendorId, setInspVendorId] = useState('');
+  const [inspPoId, setInspPoId] = useState('');
+  const [inspBatchLot, setInspBatchLot] = useState('');
+  const [inspTotalBatchQty, setInspTotalBatchQty] = useState<number>(50);
+  const [inspSampleSize, setInspSampleSize] = useState<number>(10);
+  const [inspPassedQty, setInspPassedQty] = useState<number>(10);
+  const [inspRejectedQty, setInspRejectedQty] = useState<number>(0);
+  const [inspQuarantineQty, setInspQuarantineQty] = useState<number>(0);
+  const [inspStage, setInspStage] = useState('optical_inspection');
+  const [inspVerdict, setInspVerdict] = useState('passed');
+  const [inspVisualCheck, setInspVisualCheck] = useState(true);
+  const [inspAudioCheck, setInspAudioCheck] = useState(true);
+  const [inspRemoteCheck, setInspRemoteCheck] = useState(true);
+  const [inspDeadPixels, setInspDeadPixels] = useState<number>(0);
+  const [inspNotes, setInspNotes] = useState('');
+  const [savingInspection, setSavingInspection] = useState(false);
+
+  // QA Modal Specific State
+  const [qaVendorId, setQaVendorId] = useState('');
+  const [qaWarehouseId, setQaWarehouseId] = useState('');
+  const [qaVariantId, setQaVariantId] = useState('');
+  const [qaLotNumber, setQaLotNumber] = useState('');
+  const [qaStage, setQaStage] = useState('optical_inspection');
+  const [qaVerdict, setQaVerdict] = useState<'passed' | 'rejected' | 'quarantine'>('passed');
+  const [qaSampleSize, setQaSampleSize] = useState<number>(10);
+  const [qaPassedUnits, setQaPassedUnits] = useState<number>(10);
+  const [qaRejectedUnits, setQaRejectedUnits] = useState<number>(0);
+  const [qaQuarantineUnits, setQaQuarantineUnits] = useState<number>(0);
+  const [qaDeadPixels, setQaDeadPixels] = useState<number>(0);
+  const [qaDebitCost, setQaDebitCost] = useState<number>(15000);
+  const [qaNotes, setQaNotes] = useState('');
+
   // Feedback Notification
   const [bannerMsg, setBannerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -201,6 +247,37 @@ export const ProcurementPage: React.FC = () => {
             .order('created_at', { ascending: false });
           if (error) throw error;
           setVendorReturns(data || []);
+        } else if (activeTab === 'reorder_points') {
+          setLoadingReorder(true);
+          try {
+            const { data, error } = await (supabase.rpc as any)('fn_evaluate_inventory_reorder_points');
+            if (error) throw error;
+            setReorderSuggestions(data || []);
+          } catch (e: any) {
+            console.error('Error evaluating reorder points:', e);
+          } finally {
+            setLoadingReorder(false);
+          }
+        } else if (activeTab === 'factory_qa') {
+          const [inspRes, dmRes] = await Promise.all([
+            (supabase.from as any)('factory_intake_inspections')
+              .select(`
+                *,
+                warehouses (warehouse_name),
+                vendors (display_name, legal_name),
+                purchase_orders (po_number)
+              `)
+              .order('created_at', { ascending: false }),
+            (supabase.from as any)('vendor_debit_memos')
+              .select(`
+                *,
+                vendors (display_name, legal_name),
+                purchase_orders (po_number)
+              `)
+              .order('created_at', { ascending: false })
+          ]);
+          if (inspRes.data) setInspections(inspRes.data);
+          if (dmRes.data) setDebitMemos(dmRes.data);
         } else if (activeTab === 'reports') {
           const [sumRes, perfRes, discRes] = await Promise.all([
             supabase.from('vw_vendor_purchase_summary' as any).select('*'),
@@ -217,6 +294,83 @@ export const ProcurementPage: React.FC = () => {
     };
     fetchTabData();
   }, [activeTab, poFilterStatus, refreshKey]);
+
+  // Phase 7.2: Auto-generate replenishment PO
+  const handleAutoReplenish = async (sug: any) => {
+    if (!sug.preferred_vendor_id) {
+      alert(`No preferred vendor assigned for ${sug.product_name}. Please edit the reorder policy.`);
+      return;
+    }
+    const key = `${sug.warehouse_id}-${sug.product_variant_id}`;
+    setAutoGeneratingPo(key);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_auto_generate_replenishment_po', {
+        p_warehouse_id: sug.warehouse_id,
+        p_vendor_id: sug.preferred_vendor_id,
+        p_variant_id: sug.product_variant_id,
+        p_order_quantity: sug.suggested_reorder_qty,
+        p_notes: `Automated reorder PO for ${sug.warehouse_name} | Stock: ${sug.in_stock_count} vs Reorder Point: ${sug.reorder_point}`
+      });
+      if (error) throw error;
+      setBannerMsg({
+        type: 'success',
+        text: `Replenishment PO ${data.po_number} generated for ${data.ordered_quantity} units.`
+      });
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(`Failed to generate replenishment PO: ${err.message}`);
+    } finally {
+      setAutoGeneratingPo(null);
+    }
+  };
+
+  // Phase 7.2: Record Factory Intake QA Inspection
+  const handleSaveInspection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!qaWarehouseId || !qaVendorId || !qaLotNumber.trim()) {
+      alert('Warehouse, Vendor, and Batch Lot Number are required.');
+      return;
+    }
+
+    setSavingInspection(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_record_factory_intake_inspection', {
+        p_warehouse_id: qaWarehouseId,
+        p_vendor_id: qaVendorId,
+        p_batch_lot_number: qaLotNumber.trim(),
+        p_total_batch_quantity: Math.max(Number(qaSampleSize), Number(qaPassedUnits) + Number(qaRejectedUnits) + Number(qaQuarantineUnits)),
+        p_sample_size: Number(qaSampleSize),
+        p_passed_quantity: Number(qaPassedUnits),
+        p_rejected_quantity: Number(qaRejectedUnits),
+        p_quarantine_quantity: Number(qaQuarantineUnits),
+        p_inspection_stage: qaStage,
+        p_inspection_verdict: qaVerdict,
+        p_visual_display_check: true,
+        p_audio_chassis_check: true,
+        p_remote_accessories_check: true,
+        p_panel_dead_pixels_count: Number(qaDeadPixels),
+        p_purchase_order_id: null,
+        p_inspector_notes: qaNotes.trim() || null
+      });
+
+      if (error) throw error;
+
+      let msg = `Intake Inspection ${data.inspection_number} saved with verdict ${data.verdict.toUpperCase()}.`;
+      if (data.debit_memo_number) {
+        msg += ` Vendor Debit Memo ${data.debit_memo_number} automatically issued for rejected units.`;
+      }
+
+      setBannerMsg({ type: 'success', text: msg });
+      setShowInspectionModal(false);
+      setQaLotNumber('');
+      setQaNotes('');
+      setRefreshKey((k) => k + 1);
+    } catch (err: any) {
+      alert(`Failed to save factory QA inspection: ${err.message}`);
+    } finally {
+      setSavingInspection(false);
+    }
+  };
 
   // View PO Details Drawer/Modal
   const handleViewPoDetails = async (po: any) => {
@@ -762,6 +916,38 @@ export const ProcurementPage: React.FC = () => {
         >
           <BarChart3 size={16} style={{ display: 'inline', marginRight: '6px' }} /> Discrepancies & Analytics
         </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'reorder_points' ? 'active' : ''}`}
+          onClick={() => setActiveTab('reorder_points')}
+          style={{
+            padding: '0.75rem 1.25rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            borderBottom: activeTab === 'reorder_points' ? '2px solid var(--brand-primary)' : 'none',
+            color: activeTab === 'reorder_points' ? 'var(--brand-primary)' : 'var(--text-muted)'
+          }}
+        >
+          <Sliders size={16} style={{ display: 'inline', marginRight: '6px' }} /> Reorder Policies ({reorderSuggestions.filter(r => r.reorder_required).length})
+        </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'factory_qa' ? 'active' : ''}`}
+          onClick={() => setActiveTab('factory_qa')}
+          style={{
+            padding: '0.75rem 1.25rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            borderBottom: activeTab === 'factory_qa' ? '2px solid var(--brand-primary)' : 'none',
+            color: activeTab === 'factory_qa' ? 'var(--brand-primary)' : 'var(--text-muted)'
+          }}
+        >
+          <ShieldAlert size={16} style={{ display: 'inline', marginRight: '6px' }} /> Factory Intake QA & Debits ({inspections.length})
+        </button>
       </div>
 
       {/* TAB 1: PURCHASE ORDERS */}
@@ -1281,6 +1467,448 @@ export const ProcurementPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: REORDER POLICIES & AUTOMATED SUGGESTIONS */}
+      {activeTab === 'reorder_points' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Automated Inventory Reorder Policies</h2>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                Evaluates real-time warehouse stock vs safety buffers and triggers auto-replenishment purchase orders.
+              </p>
+            </div>
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => setRefreshKey((k) => k + 1)}
+            >
+              <RotateCcw size={14} /> Refresh Thresholds
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Variant</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Warehouse</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Stock On Hand</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>In Transit</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Effective Stock</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Reorder Point</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Replenish Qty</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Preferred Vendor</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reorderSuggestions.map((item, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>
+                        {item.product_name}
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>{item.product_code}</div>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{item.warehouse_name}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{item.stock_on_hand}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{item.stock_in_transit}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700, color: item.reorder_required ? 'var(--status-danger)' : 'var(--text-primary)' }}>
+                        {item.effective_stock}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{item.reorder_point}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{item.replenishment_quantity}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        {item.reorder_required ? (
+                          <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <AlertTriangle size={12} /> Low Stock (Reorder Needed)
+                          </span>
+                        ) : (
+                          <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <CheckCircle2 size={12} /> Stock Healthy
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        {item.preferred_vendor_name || 'Not Configured'}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          disabled={!item.preferred_vendor_id || autoReplenishingId === item.variant_id}
+                          onClick={() => handleAutoReplenish(item)}
+                          title={!item.preferred_vendor_id ? 'Assign a preferred vendor first' : 'Create Draft Purchase Order'}
+                        >
+                          <Plus size={12} /> {autoReplenishingId === item.variant_id ? 'Generating...' : 'Auto-Generate PO'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {reorderSuggestions.length === 0 && (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No reorder policies configured yet. Policies will populate automatically from variant inventory levels.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 7: FACTORY INTAKE QA INSPECTIONS & VENDOR DEBIT MEMOS */}
+      {activeTab === 'factory_qa' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Factory Intake QA & Vendor Debit Memos</h2>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                Multi-stage quality assurance: optical panel audit, power-on tests, burn-in validation, and automatic debit memo generation for rejected lots.
+              </p>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => {
+                if (vendors.length > 0 && !qaVendorId) setQaVendorId(vendors[0].id);
+                if (warehouses.length > 0 && !qaWarehouseId) setQaWarehouseId(warehouses[0].id);
+                if (variants.length > 0 && !qaVariantId) setQaVariantId(variants[0].id);
+                setShowInspectionModal(true);
+              }}
+            >
+              <Plus size={14} /> Record Lot QA Inspection
+            </button>
+          </div>
+
+          {/* Section A: QA Inspections Table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: '2rem' }}>
+            <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>
+              Recent Factory Intake Inspections ({inspections.length})
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Inspection #</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Lot / Batch</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Stage</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Vendor</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Sample Size</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Passed</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Rejected</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Dead Pixels</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Verdict</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspections.map((insp) => (
+                    <tr key={insp.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--brand-primary)' }}>
+                        {insp.inspection_number}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{insp.lot_number}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className="badge badge-secondary" style={{ textTransform: 'capitalize' }}>
+                          {insp.stage?.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{insp.vendors?.display_name || 'Vendor'}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{insp.sample_size}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--status-success)', fontWeight: 600 }}>
+                        {insp.passed_units}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: insp.rejected_units > 0 ? 'var(--status-danger)' : 'var(--text-muted)', fontWeight: 600 }}>
+                        {insp.rejected_units}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{insp.dead_pixel_count || 0}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className={`badge badge-${insp.verdict === 'passed' ? 'success' : insp.verdict === 'rejected' ? 'danger' : 'warning'}`}>
+                          {insp.verdict?.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>
+                        {new Date(insp.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {inspections.length === 0 && (
+                    <tr>
+                      <td colSpan={10} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No factory intake inspections recorded yet. Click "Record Lot QA Inspection" above to log first audit.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section B: Automated Vendor Debit Memos */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', fontWeight: 700, display: 'flex', justifyContent: 'space-between' }}>
+              <span>Issued Vendor Debit Memos ({debitMemos.length})</span>
+              <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                Total Claim Amount: ₹{debitMemos.reduce((sum, d) => sum + (Number(d.debit_amount) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Debit Memo #</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Vendor</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Reason</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Debit Amount (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Issued Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {debitMemos.map((memo) => (
+                    <tr key={memo.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--brand-primary)' }}>
+                        {memo.debit_memo_number}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{memo.vendors?.display_name || 'Vendor'}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{memo.reason}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700, color: 'var(--status-danger)' }}>
+                        ₹{Number(memo.debit_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className="badge badge-secondary" style={{ textTransform: 'uppercase' }}>
+                          {memo.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', color: 'var(--text-muted)' }}>
+                        {new Date(memo.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))}
+                  {debitMemos.length === 0 && (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No debit memos issued. Debit memos are created automatically when units fail intake inspection.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: RECORD FACTORY QA INSPECTION */}
+      {showInspectionModal && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '750px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Record Factory Intake QA Inspection</h2>
+                <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  Optical display inspection, audio clarity, and automated debit memo calculation for rejected TV sets.
+                </p>
+              </div>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowInspectionModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveInspection}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Vendor Supplier *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={qaVendorId}
+                    onChange={(e) => setQaVendorId(e.target.value)}
+                  >
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>{v.display_name} ({v.vendor_code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Warehouse Destination *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={qaWarehouseId}
+                    onChange={(e) => setQaWarehouseId(e.target.value)}
+                  >
+                    {warehouses.map((w) => (
+                      <option key={w.id} value={w.id}>{w.warehouse_name} ({w.warehouse_code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Product Variant *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={qaVariantId}
+                    onChange={(e) => setQaVariantId(e.target.value)}
+                  >
+                    {variants.map((v) => (
+                      <option key={v.id} value={v.id}>{v.product_name} ({v.product_code})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Lot / Batch Number *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    required
+                    placeholder="e.g. LOT-202610-098"
+                    value={qaLotNumber}
+                    onChange={(e) => setQaLotNumber(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>QA Stage *</label>
+                  <select
+                    className="form-control"
+                    value={qaStage}
+                    onChange={(e) => setQaStage(e.target.value)}
+                  >
+                    <option value="initial_dock">Initial Dock Inspection</option>
+                    <option value="optical_inspection">Optical & Dead-Pixel Audit</option>
+                    <option value="power_on_test">Power-On & Motherboard Test</option>
+                    <option value="burn_in_chamber">Burn-In Chamber (48hr)</option>
+                    <option value="packaging_audit">Packaging & Accessories Audit</option>
+                    <option value="final_acceptance">Final Acceptance Sampling</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Inspection Verdict *</label>
+                  <select
+                    className="form-control"
+                    value={qaVerdict}
+                    onChange={(e) => setQaVerdict(e.target.value as any)}
+                  >
+                    <option value="passed">Passed (Ready for Stock)</option>
+                    <option value="rejected">Rejected (Auto Debit Memo)</option>
+                    <option value="quarantine">Quarantine (Under Investigation)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '1rem', marginBottom: '1.25rem', background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '8px' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Sample Size *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    className="form-control"
+                    required
+                    value={qaSampleSize}
+                    onChange={(e) => setQaSampleSize(parseInt(e.target.value) || 1)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, color: 'var(--status-success)' }}>Passed Units *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    required
+                    value={qaPassedUnits}
+                    onChange={(e) => setQaPassedUnits(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, color: 'var(--status-danger)' }}>Rejected Units *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    required
+                    value={qaRejectedUnits}
+                    onChange={(e) => setQaRejectedUnits(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, color: 'var(--status-warning)' }}>Quarantine Units</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    value={qaQuarantineUnits}
+                    onChange={(e) => setQaQuarantineUnits(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Dead Pixels</label>
+                  <input
+                    type="number"
+                    min="0"
+                    className="form-control"
+                    value={qaDeadPixels}
+                    onChange={(e) => setQaDeadPixels(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+              </div>
+
+              {qaRejectedUnits > 0 && (
+                <div style={{ marginBottom: '1.25rem', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--status-danger)', fontWeight: 700, marginBottom: '0.5rem' }}>
+                    <AlertTriangle size={16} /> Automated Vendor Debit Memo will be generated
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Debit Cost Per Unit (₹) *</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="form-control"
+                      value={qaDebitCost}
+                      onChange={(e) => setQaDebitCost(parseFloat(e.target.value) || 0)}
+                    />
+                    <div style={{ marginTop: '0.25rem', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                      Total Debit: ₹{(qaRejectedUnits * qaDebitCost).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label" style={{ fontWeight: 600 }}>Defect Notes / Lab Observations</label>
+                <textarea
+                  className="form-control"
+                  rows={2}
+                  placeholder="e.g. Sub-pixel clustering in quadrant 2; bezel gap exceeding 1.5mm..."
+                  value={qaNotes}
+                  onChange={(e) => setQaNotes(e.target.value)}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowInspectionModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingInspection}>
+                  {savingInspection ? 'Saving Inspection...' : 'Record QA Audit & Finalize'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
