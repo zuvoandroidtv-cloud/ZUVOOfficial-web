@@ -25,9 +25,12 @@ import {
   X,
   RefreshCw,
   Award,
-  DollarSign
+  DollarSign,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import { BarcodeLookupModal } from '../components/common/BarcodeLookupModal';
+import { technicianOfflineService } from '../lib/technicianOfflineService';
 
 export const TechnicianPage: React.FC = () => {
   const { user, profile, currentRole } = useAuth();
@@ -141,14 +144,51 @@ export const TechnicianPage: React.FC = () => {
 
       const { data, error } = await query;
       if (error) throw error;
-      setVisits(data || []);
+      const fetched = data || [];
+      setVisits(fetched);
+      technicianOfflineService.cacheVisits(fetched);
     } catch (err: any) {
-      console.error('Error fetching technician visits:', err);
-      setErrorMsg(err.message || 'Failed to load technician visits.');
+      console.warn('Network issue fetching technician visits, attempting local cache fallback:', err);
+      const cached = technicianOfflineService.getCachedVisits();
+      if (cached.length > 0) {
+        setVisits(cached);
+        setErrorMsg('Operating in offline mode. Displaying locally cached visits.');
+      } else {
+        setErrorMsg(err.message || 'Failed to load technician visits.');
+      }
     } finally {
       setLoading(false);
     }
   };
+
+  // Sync pending offline queue when online
+  useEffect(() => {
+    const handleOnline = async () => {
+      const queue = technicianOfflineService.getQueue();
+      if (queue.length > 0) {
+        setSuccessMsg(`Connection restored. Synchronizing ${queue.length} pending status update(s)...`);
+        const { succeeded, failed } = await technicianOfflineService.processQueue(async (item) => {
+          const { error } = await supabase.rpc('fn_update_visit_status', {
+            p_visit_id: item.visitId,
+            p_new_status: item.toStatus,
+            p_technician_notes: item.technicianNotes,
+            p_updated_by: user?.id || null
+          });
+          return { success: !error, error: error?.message };
+        });
+        if (succeeded > 0) {
+          setSuccessMsg(`Successfully synchronized ${succeeded} offline update(s).`);
+          fetchVisits();
+        }
+        if (failed > 0) {
+          setErrorMsg(`${failed} offline update(s) could not be synchronized.`);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, [user]);
 
   // Fetch spare parts & warehouses for parts usage
   const fetchPartsDependencies = async () => {
@@ -172,11 +212,30 @@ export const TechnicianPage: React.FC = () => {
     fetchPartsDependencies();
   }, [user, currentRole]);
 
-  // Status transitions
+  // Status transitions with offline resiliency
   const handleUpdateStatus = async (visitId: string, newStatus: string, notes?: string) => {
     setActionLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    // If client is offline, queue transition locally
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      technicianOfflineService.enqueueTransition(
+        visitId,
+        selectedVisit?.service_ticket_id || '',
+        selectedVisit?.status || '',
+        newStatus,
+        notes || 'Offline mobile status update'
+      );
+      setSuccessMsg(`Status queued offline: ${newStatus.replace('_', ' ').toUpperCase()}. Will sync automatically upon reconnection.`);
+      setVisits(technicianOfflineService.getCachedVisits());
+      if (selectedVisit && selectedVisit.id === visitId) {
+        setSelectedVisit((prev: any) => ({ ...prev, status: newStatus }));
+      }
+      setActionLoading(false);
+      return;
+    }
+
     try {
       const { data, error } = await supabase.rpc('fn_update_visit_status', {
         p_visit_id: visitId,
@@ -185,7 +244,22 @@ export const TechnicianPage: React.FC = () => {
         p_updated_by: user?.id || null
       });
 
-      if (error) throw error;
+      if (error) {
+        // If error is network-related, fall back to queue
+        if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          technicianOfflineService.enqueueTransition(
+            visitId,
+            selectedVisit?.service_ticket_id || '',
+            selectedVisit?.status || '',
+            newStatus,
+            notes || 'Offline mobile status update'
+          );
+          setSuccessMsg(`Network drop detected. Status queued locally: ${newStatus.replace('_', ' ').toUpperCase()}`);
+          setVisits(technicianOfflineService.getCachedVisits());
+          return;
+        }
+        throw error;
+      }
 
       setSuccessMsg(`Visit status updated to ${newStatus.replace('_', ' ').toUpperCase()}`);
       fetchVisits();
@@ -365,14 +439,25 @@ export const TechnicianPage: React.FC = () => {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowBarcodeLookup(true)}
-            className="technician-btn-touch btn-primary"
-            style={{ fontSize: '0.8rem', padding: '0.5rem 0.875rem' }}
-          >
-            <Barcode size={16} />
-            <span>Scan TV</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {typeof navigator !== 'undefined' && !navigator.onLine ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', padding: '0.35rem 0.65rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                <WifiOff size={14} /> Offline Mode
+              </span>
+            ) : (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', padding: '0.35rem 0.65rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600 }}>
+                <Wifi size={14} /> Live Sync
+              </span>
+            )}
+            <button
+              onClick={() => setShowBarcodeLookup(true)}
+              className="technician-btn-touch btn-primary"
+              style={{ fontSize: '0.8rem', padding: '0.5rem 0.875rem' }}
+            >
+              <Barcode size={16} />
+              <span>Scan TV</span>
+            </button>
+          </div>
         </div>
       </div>
 

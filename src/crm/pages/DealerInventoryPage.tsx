@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../context/AuthContext';
-import { Package, Search, Filter, AlertCircle, Barcode, Tv, CheckCircle2, AlertTriangle, Clock, ShieldAlert, ArrowRight, X } from 'lucide-react';
+import { Package, Search, Filter, AlertCircle, Barcode, Tv, CheckCircle2, AlertTriangle, Clock, ShieldAlert, ArrowRight, X, FileText } from 'lucide-react';
 import { Pagination } from '../components/common/Pagination';
 import { UnlinkedDealerAlert } from '../components/common/UnlinkedDealerAlert';
+import { DealerCreditMemoModal, CreditMemoData } from '../components/common/DealerCreditMemoModal';
 
 export const DealerInventoryPage: React.FC = () => {
   const { profile } = useAuth();
@@ -12,6 +13,8 @@ export const DealerInventoryPage: React.FC = () => {
   const [inventory, setInventory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCreditMemo, setSelectedCreditMemo] = useState<CreditMemoData | null>(null);
+  const [isCreditMemoOpen, setIsCreditMemoOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [ownershipFilter, setOwnershipFilter] = useState('all');
   const [page, setPage] = useState(1);
@@ -392,6 +395,31 @@ export const DealerInventoryPage: React.FC = () => {
                         <span style={{ fontSize: '0.75rem', color: '#dc2626', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <ShieldAlert size={14} /> Reported: {item.discrepancy_reason?.replace('_', ' ')}
                         </span>
+                      ) : item.consignment_status === 'returned' ? (
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => {
+                            setSelectedCreditMemo({
+                              creditMemoNumber: `CR-MEMO-${item.consignment_id?.substring(0, 8)?.toUpperCase() || 'RESTOCK'}`,
+                              creditDate: item.dispatched_at || new Date().toISOString(),
+                              dealerName: profile?.full_name || 'Authorized Dealer',
+                              dealerCode: profile?.dealer_id?.substring(0, 8),
+                              warehouseName: 'Central Depot Warehouse',
+                              productBarcode: item.barcode || 'N/A',
+                              productSerial: item.serial_number || 'N/A',
+                              modelName: item.model_name || 'ZUVO 4K Smart TV',
+                              wholesalePrice: Number(item.selling_price || 16500) * 0.82,
+                              taxAmount: Number(item.selling_price || 16500) * 0.18,
+                              totalCreditAmount: Number(item.selling_price || 16500),
+                              reason: 'Restocked to Central Depot via Consignment Return',
+                              status: 'CREDITED'
+                            });
+                            setIsCreditMemoOpen(true);
+                          }}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem' }}
+                        >
+                          <FileText size={13} /> Credit Memo
+                        </button>
                       ) : (
                         <span className="text-muted" style={{ fontSize: '0.875rem' }}>Verified</span>
                       )}
@@ -478,6 +506,13 @@ export const DealerInventoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Dealer Consignment Credit Memo Printable Modal */}
+      <DealerCreditMemoModal
+        isOpen={isCreditMemoOpen}
+        onClose={() => setIsCreditMemoOpen(false)}
+        memo={selectedCreditMemo}
+      />
     </div>
   );
 };

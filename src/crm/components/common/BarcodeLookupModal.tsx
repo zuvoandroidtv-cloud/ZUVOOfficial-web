@@ -250,6 +250,32 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
                   <Camera size={18} />
                   Scan via Camera
                 </button>
+                <label
+                  className="btn btn-secondary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', background: 'rgba(168, 85, 247, 0.1)', borderColor: 'rgba(168, 85, 247, 0.3)', color: '#c084fc' }}
+                >
+                  <FileText size={18} />
+                  Optical Test File
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setCameraError(null);
+                      try {
+                        const html5Qr = new Html5Qrcode('barcode-camera-view');
+                        const decodedText = await html5Qr.scanFile(file, true);
+                        playBeep();
+                        setQuery(decodedText);
+                        executeLookup(decodedText);
+                      } catch (err: any) {
+                        setCameraError(`Optical file scan failed: ${err || 'No barcode detected in image.'}`);
+                      }
+                    }}
+                  />
+                </label>
               </div>
             )}
           </div>

@@ -17,12 +17,15 @@ import {
   Edit,
   Plus,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Cpu,
+  ShieldCheck
 } from 'lucide-react';
+import { notificationGateway } from '../lib/notificationGateway';
 
 export const CommunicationsPage: React.FC = () => {
   const { user, isAllowed } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<'logs' | 'templates'>('logs');
+  const [activeSubTab, setActiveSubTab] = useState<'logs' | 'templates' | 'gateway'>('logs');
   const [logs, setLogs] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -273,6 +276,13 @@ export const CommunicationsPage: React.FC = () => {
         >
           <Sliders size={15} /> Message Templates & Sandbox
         </button>
+        <button
+          onClick={() => setActiveSubTab('gateway')}
+          className={`btn ${activeSubTab === 'gateway' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+        >
+          <Cpu size={15} /> Gateway Provider Settings
+        </button>
       </div>
 
       {activeSubTab === 'logs' ? (
@@ -419,7 +429,7 @@ export const CommunicationsPage: React.FC = () => {
             </div>
           )}
         </div>
-      ) : (
+      ) : activeSubTab === 'templates' ? (
         /* Templates & Sandbox Subtab */
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '20px' }}>
           {/* Left: Templates List */}
@@ -550,6 +560,75 @@ export const CommunicationsPage: React.FC = () => {
                 }}>
                   {sandboxRendered}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Gateway Provider Settings Sub-Tab */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="glass-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
+                <Cpu size={24} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Notification Gateway Configuration</h3>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  Provider-agnostic dispatch architecture with automatic failover to local simulation and in-app messaging.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
+              <div style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Active Primary Adapter:</span>
+                  <span style={{ background: '#ecfdf5', color: '#059669', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    SIMULATION (SAFE)
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Environment default: VITE_SMS_GATEWAY_ENABLED is false. Zero paid telecom consumption.
+                </p>
+              </div>
+
+              <div style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Fail-Safe Fallback:</span>
+                  <span style={{ background: '#eff6ff', color: '#2563eb', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    ACTIVE & VERIFIED
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  If external providers time out or fail, system logs dispatch locally without disrupting technician visits.
+                </p>
+              </div>
+
+              <div style={{ padding: '16px', background: 'rgba(255, 255, 255, 0.02)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Idempotency Protection:</span>
+                  <span style={{ background: '#f5f3ff', color: '#7c3aed', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700 }}>
+                    ENFORCED
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Duplicate webhook calls and repeated send attempts are deduplicated via unique idempotency keys.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '24px', padding: '16px', background: 'rgba(59, 130, 246, 0.05)', borderRadius: '8px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#3b82f6', fontWeight: 600, fontSize: '0.9rem', marginBottom: '6px' }}>
+                <ShieldCheck size={18} /> Production Ready Gateway Interface
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                To enable real telecom SMS or WhatsApp Business in production:
+                <ol style={{ margin: '8px 0 0 16px', padding: 0 }}>
+                  <li>Deploy secure backend webhook dispatcher (Cloudflare Worker / Edge Function).</li>
+                  <li>Set <code>VITE_SMS_GATEWAY_ENABLED=true</code> in hosting environment variables.</li>
+                  <li>Set <code>VITE_SMS_GATEWAY_URL</code> to the authorized relay endpoint.</li>
+                </ol>
               </div>
             </div>
           </div>
