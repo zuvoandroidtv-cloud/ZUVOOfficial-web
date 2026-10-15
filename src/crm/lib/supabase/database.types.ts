@@ -4431,6 +4431,189 @@ export type Database = {
           },
         ]
       }
+      core_refurbishment_work_orders: {
+        Row: {
+          id: string
+          work_order_number: string
+          defective_core_id: string
+          assigned_engineer_id: string | null
+          status: string
+          rail_12v_tested: boolean
+          rail_24v_tested: boolean
+          rail_5v_tested: boolean
+          burn_in_duration_hours: number
+          burn_in_passed: boolean
+          optical_panel_passed: boolean
+          audio_chassis_passed: boolean
+          diagnostics_notes: string | null
+          labor_minutes: number
+          certified_by: string | null
+          certified_at: string | null
+          restocked_warehouse_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          work_order_number: string
+          defective_core_id: string
+          assigned_engineer_id?: string | null
+          status?: string
+          rail_12v_tested?: boolean
+          rail_24v_tested?: boolean
+          rail_5v_tested?: boolean
+          burn_in_duration_hours?: number
+          burn_in_passed?: boolean
+          optical_panel_passed?: boolean
+          audio_chassis_passed?: boolean
+          diagnostics_notes?: string | null
+          labor_minutes?: number
+          certified_by?: string | null
+          certified_at?: string | null
+          restocked_warehouse_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          work_order_number?: string
+          defective_core_id?: string
+          assigned_engineer_id?: string | null
+          status?: string
+          rail_12v_tested?: boolean
+          rail_24v_tested?: boolean
+          rail_5v_tested?: boolean
+          burn_in_duration_hours?: number
+          burn_in_passed?: boolean
+          optical_panel_passed?: boolean
+          audio_chassis_passed?: boolean
+          diagnostics_notes?: string | null
+          labor_minutes?: number
+          certified_by?: string | null
+          certified_at?: string | null
+          restocked_warehouse_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_refurbishment_work_orders_defective_core_id_fkey"
+            columns: ["defective_core_id"]
+            isOneToOne: false
+            referencedRelation: "technician_defective_cores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "core_refurbishment_work_orders_assigned_engineer_id_fkey"
+            columns: ["assigned_engineer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "core_refurbishment_work_orders_restocked_warehouse_id_fkey"
+            columns: ["restocked_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      core_refurbishment_parts_used: {
+        Row: {
+          id: string
+          work_order_id: string
+          spare_part_id: string | null
+          part_description: string
+          quantity: number
+          unit_cost: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          work_order_id: string
+          spare_part_id?: string | null
+          part_description: string
+          quantity?: number
+          unit_cost?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          work_order_id?: string
+          spare_part_id?: string | null
+          part_description?: string
+          quantity?: number
+          unit_cost?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_refurbishment_parts_used_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "core_refurbishment_work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "core_refurbishment_parts_used_spare_part_id_fkey"
+            columns: ["spare_part_id"]
+            isOneToOne: false
+            referencedRelation: "spare_parts"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      core_scrap_disposition_records: {
+        Row: {
+          id: string
+          scrap_batch_number: string
+          recycler_vendor_name: string
+          authorized_cpcb_id: string | null
+          total_cores_count: number
+          total_weight_kg: number
+          salvage_credit_realized: number
+          disposition_notes: string | null
+          disposed_by: string | null
+          disposed_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          scrap_batch_number: string
+          recycler_vendor_name: string
+          authorized_cpcb_id?: string | null
+          total_cores_count?: number
+          total_weight_kg?: number
+          salvage_credit_realized?: number
+          disposition_notes?: string | null
+          disposed_by?: string | null
+          disposed_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          scrap_batch_number?: string
+          recycler_vendor_name?: string
+          authorized_cpcb_id?: string | null
+          total_cores_count?: number
+          total_weight_kg?: number
+          salvage_credit_realized?: number
+          disposition_notes?: string | null
+          disposed_by?: string | null
+          disposed_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "core_scrap_disposition_records_disposed_by_fkey"
+            columns: ["disposed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       crm_overview: {
@@ -6218,8 +6401,100 @@ export type Database = {
           service_ticket_id: string | null
           service_visit_id: string | null
           spare_part_id: string | null
-          technician_id: string
           updated_at: string
+        }
+      }
+      fn_create_refurb_work_order: {
+        Args: {
+          p_assigned_engineer_id?: string | null
+          p_core_id: string
+          p_notes?: string | null
+        }
+        Returns: {
+          assigned_engineer_id: string | null
+          audio_chassis_passed: boolean
+          burn_in_duration_hours: number
+          burn_in_passed: boolean
+          certified_at: string | null
+          certified_by: string | null
+          created_at: string
+          defective_core_id: string
+          diagnostics_notes: string | null
+          id: string
+          labor_minutes: number
+          optical_panel_passed: boolean
+          rail_12v_tested: boolean
+          rail_24v_tested: boolean
+          rail_5v_tested: boolean
+          restocked_warehouse_id: string | null
+          status: string
+          updated_at: string
+          work_order_number: string
+        }
+      }
+      fn_log_refurb_bench_test: {
+        Args: {
+          p_audio_chassis_passed?: boolean
+          p_burn_in_duration_hours: number
+          p_diagnostics_notes?: string | null
+          p_labor_minutes?: number
+          p_optical_panel_passed?: boolean
+          p_rail_12v_tested: boolean
+          p_rail_24v_tested: boolean
+          p_rail_5v_tested: boolean
+          p_work_order_id: string
+        }
+        Returns: {
+          assigned_engineer_id: string | null
+          audio_chassis_passed: boolean
+          burn_in_duration_hours: number
+          burn_in_passed: boolean
+          certified_at: string | null
+          certified_by: string | null
+          created_at: string
+          defective_core_id: string
+          diagnostics_notes: string | null
+          id: string
+          labor_minutes: number
+          optical_panel_passed: boolean
+          rail_12v_tested: boolean
+          rail_24v_tested: boolean
+          rail_5v_tested: boolean
+          restocked_warehouse_id: string | null
+          status: string
+          updated_at: string
+          work_order_number: string
+        }
+      }
+      fn_certify_and_restock_refurb_item: {
+        Args: {
+          p_destination_warehouse_id: string
+          p_notes?: string | null
+          p_work_order_id: string
+        }
+        Returns: Json
+      }
+      fn_scrap_defective_cores_batch: {
+        Args: {
+          p_authorized_cpcb_id?: string | null
+          p_core_ids: string[]
+          p_disposition_notes?: string | null
+          p_recycler_vendor_name: string
+          p_salvage_credit_realized?: number
+          p_total_weight_kg?: number
+        }
+        Returns: {
+          authorized_cpcb_id: string | null
+          created_at: string
+          disposed_at: string
+          disposed_by: string | null
+          disposition_notes: string | null
+          id: string
+          recycler_vendor_name: string
+          salvage_credit_realized: number
+          scrap_batch_number: string
+          total_cores_count: number
+          total_weight_kg: number
         }
       }
       fn_verify_visit_otp_and_complete: {

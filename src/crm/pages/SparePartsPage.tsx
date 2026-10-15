@@ -18,14 +18,17 @@ import {
   ClipboardCheck,
   ArrowRightLeft,
   ShieldCheck,
-  Check
+  Check,
+  Wrench,
+  Cpu,
+  Recycle
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
 
 export const SparePartsPage: React.FC = () => {
   const { currentRole, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'catalog' | 'compatibility' | 'consumption' | 'trunk_management' | 'reverse_logistics'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'compatibility' | 'consumption' | 'trunk_management' | 'reverse_logistics' | 'refurb_bench'>('catalog');
   const [parts, setParts] = useState<any[]>([]);
   const [stockSummary, setStockSummary] = useState<any[]>([]);
   const [compatibilities, setCompatibilities] = useState<any[]>([]);
@@ -72,6 +75,47 @@ export const SparePartsPage: React.FC = () => {
   });
   const [submittingIntake, setSubmittingIntake] = useState(false);
   const [submittingInspect, setSubmittingInspect] = useState(false);
+
+  // Phase 7.6: Engineering Rework, Bench QA & Restock / Scrap State
+  const [refurbWorkOrders, setRefurbWorkOrders] = useState<any[]>([]);
+  const [scrapDispositionRecords, setScrapDispositionRecords] = useState<any[]>([]);
+  const [showCreateWorkOrderModal, setShowCreateWorkOrderModal] = useState(false);
+  const [showBenchTestModal, setShowBenchTestModal] = useState(false);
+  const [showCertifyRestockModal, setShowCertifyRestockModal] = useState(false);
+  const [showScrapBatchModal, setShowScrapBatchModal] = useState(false);
+  const [selectedCoreForRework, setSelectedCoreForRework] = useState<any | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<any | null>(null);
+  const [selectedScrapCores, setSelectedScrapCores] = useState<string[]>([]);
+
+  const [createWoForm, setCreateWoForm] = useState({
+    assignedEngineerId: '',
+    diagnosticsNotes: ''
+  });
+  const [benchTestForm, setBenchTestForm] = useState({
+    rail12vTested: true,
+    rail24vTested: true,
+    rail5vTested: true,
+    burnInDurationHours: 2,
+    opticalPanelPassed: true,
+    audioChassisPassed: true,
+    laborMinutes: 45,
+    diagnosticsNotes: ''
+  });
+  const [certifyRestockForm, setCertifyRestockForm] = useState({
+    destinationWarehouseId: '',
+    restockNotes: ''
+  });
+  const [scrapBatchForm, setScrapBatchForm] = useState({
+    recyclerVendorName: 'EcoRecycle Solutions India Pvt Ltd',
+    authorizedCpcbId: 'CPCB-REG-2026-EW-0982',
+    totalWeightKg: 12.5,
+    salvageCreditRealized: 1500,
+    dispositionNotes: 'Scrapped beyond economical repair'
+  });
+  const [submittingWo, setSubmittingWo] = useState(false);
+  const [submittingTest, setSubmittingTest] = useState(false);
+  const [submittingRestock, setSubmittingRestock] = useState(false);
+  const [submittingScrapBatch, setSubmittingScrapBatch] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -188,6 +232,41 @@ export const SparePartsPage: React.FC = () => {
         setReverseManifests(manifestsRes.data || []);
         setAllDefectiveCores(coresRes.data || []);
         setWarehousesList(whRes.data || []);
+      } else if (activeTab === 'refurb_bench') {
+        const [woRes, coresRes, whRes, scrapRes] = await Promise.all([
+          supabase.from('core_refurbishment_work_orders').select(`
+            *,
+            assigned_engineer:profiles!core_refurbishment_work_orders_assigned_engineer_id_fkey(full_name, employee_code),
+            restocked_warehouse:warehouses!core_refurbishment_work_orders_restocked_warehouse_id_fkey(warehouse_name, warehouse_code),
+            defective_core:technician_defective_cores(
+              id,
+              core_tag_number,
+              item_type,
+              serial_number,
+              barcode,
+              defect_symptom,
+              custody_status,
+              spare_parts(part_name, part_code),
+              product_units(serial_number, barcode, product_variants(product_name))
+            )
+          `).order('created_at', { ascending: false }),
+          supabase.from('technician_defective_cores').select(`
+            *,
+            profiles!technician_defective_cores_technician_id_fkey(full_name, employee_code),
+            spare_parts(part_name, part_code, category),
+            product_units(serial_number, barcode, product_variants(product_name))
+          `).order('created_at', { ascending: false }),
+          supabase.from('warehouses').select('id, warehouse_name, warehouse_code').eq('is_active', true),
+          supabase.from('core_scrap_disposition_records').select('*').order('created_at', { ascending: false })
+        ]);
+
+        setRefurbWorkOrders(woRes.data || []);
+        setAllDefectiveCores(coresRes.data || []);
+        setWarehousesList(whRes.data || []);
+        setScrapDispositionRecords(scrapRes.data || []);
+        if (whRes.data && whRes.data.length > 0 && !certifyRestockForm.destinationWarehouseId) {
+          setCertifyRestockForm(prev => ({ ...prev, destinationWarehouseId: whRes.data[0].id }));
+        }
       }
     } catch (err: any) {
       console.error('Error fetching spare parts data:', err);
@@ -413,6 +492,134 @@ export const SparePartsPage: React.FC = () => {
     }
   };
 
+  // Phase 7.6: Create Refurb Work Order
+  const handleCreateWorkOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCoreForRework) return;
+
+    setSubmittingWo(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const { data, error } = await supabase.rpc('fn_create_refurb_work_order', {
+        p_core_id: selectedCoreForRework.id,
+        p_assigned_engineer_id: createWoForm.assignedEngineerId || user?.id || null,
+        p_notes: createWoForm.diagnosticsNotes || 'Bench rework order initialized'
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Refurbishment Work Order #${(data as any)?.work_order_number || ''} created successfully! Core moved to IN_REWORK.`);
+      setShowCreateWorkOrderModal(false);
+      setSelectedCoreForRework(null);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to create refurb work order.');
+    } finally {
+      setSubmittingWo(false);
+    }
+  };
+
+  // Phase 7.6: Log Bench Test & Burn-In
+  const handleLogBenchTest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedWorkOrder) return;
+
+    setSubmittingTest(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const { data, error } = await supabase.rpc('fn_log_refurb_bench_test', {
+        p_work_order_id: selectedWorkOrder.id,
+        p_rail_12v_tested: benchTestForm.rail12vTested,
+        p_rail_24v_tested: benchTestForm.rail24vTested,
+        p_rail_5v_tested: benchTestForm.rail5vTested,
+        p_burn_in_duration_hours: Number(benchTestForm.burnInDurationHours) || 0,
+        p_optical_panel_passed: benchTestForm.opticalPanelPassed,
+        p_audio_chassis_passed: benchTestForm.audioChassisPassed,
+        p_labor_minutes: Number(benchTestForm.laborMinutes) || 45,
+        p_diagnostics_notes: benchTestForm.diagnosticsNotes || 'Bench tests and burn-in chamber soak recorded'
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Bench electrical test & burn-in results logged for Work Order #${(data as any)?.work_order_number}. Status: ${(data as any)?.status}.`);
+      setShowBenchTestModal(false);
+      setSelectedWorkOrder(null);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to log bench test results.');
+    } finally {
+      setSubmittingTest(false);
+    }
+  };
+
+  // Phase 7.6: Certify & Restock into Usable Inventory
+  const handleCertifyAndRestock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedWorkOrder) return;
+
+    setSubmittingRestock(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const { data, error } = await supabase.rpc('fn_certify_and_restock_refurb_item', {
+        p_work_order_id: selectedWorkOrder.id,
+        p_destination_warehouse_id: certifyRestockForm.destinationWarehouseId,
+        p_notes: certifyRestockForm.restockNotes || 'Certified refurbished unit returned to available stock'
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Work Order #${selectedWorkOrder.work_order_number} certified & atomically restocked into warehouse inventory!`);
+      setShowCertifyRestockModal(false);
+      setSelectedWorkOrder(null);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to certify and restock refurbished item.');
+    } finally {
+      setSubmittingRestock(false);
+    }
+  };
+
+  // Phase 7.6: Batch Scrap Disposition Manifest
+  const handleScrapBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedScrapCores.length === 0) {
+      setErrorMsg('Please select at least one scrapped core for batch e-waste disposition.');
+      return;
+    }
+
+    setSubmittingScrapBatch(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const { data, error } = await supabase.rpc('fn_scrap_defective_cores_batch', {
+        p_core_ids: selectedScrapCores,
+        p_recycler_vendor_name: scrapBatchForm.recyclerVendorName,
+        p_authorized_cpcb_id: scrapBatchForm.authorizedCpcbId || null,
+        p_total_weight_kg: Number(scrapBatchForm.totalWeightKg) || 0,
+        p_salvage_credit_realized: Number(scrapBatchForm.salvageCreditRealized) || 0,
+        p_disposition_notes: scrapBatchForm.dispositionNotes || 'Hazardous e-waste scrap manifest'
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Scrap disposition manifest #${(data as any)?.scrap_batch_number || ''} created for ${selectedScrapCores.length} cores!`);
+      setShowScrapBatchModal(false);
+      setSelectedScrapCores([]);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to generate scrap disposition manifest.');
+    } finally {
+      setSubmittingScrapBatch(false);
+    }
+  };
+
   return (
     <div className="module-container">
       {/* Top Header */}
@@ -470,6 +677,13 @@ export const SparePartsPage: React.FC = () => {
             style={activeTab === 'reverse_logistics' ? { background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderColor: '#F59E0B' } : {}}
           >
             <ArrowRightLeft size={15} /> Reverse Logistics & Core Quarantine
+          </button>
+          <button
+            className={`btn ${activeTab === 'refurb_bench' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('refurb_bench')}
+            style={activeTab === 'refurb_bench' ? { background: 'linear-gradient(135deg, #10B981, #059669)', borderColor: '#10B981' } : {}}
+          >
+            <Wrench size={15} /> Workshop Refurb Bench & Restock
           </button>
         </div>
       </div>
@@ -1106,13 +1320,262 @@ export const SparePartsPage: React.FC = () => {
                               >
                                 QA Inspect & Settle
                               </button>
+                            ) : (core.custody_status === 'APPROVED_FOR_REFURB' || core.custody_status === 'REFURB_APPROVED') ? (
+                              <button
+                                className="btn btn-secondary"
+                                style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', color: '#10B981', borderColor: '#10B981' }}
+                                onClick={() => {
+                                  setSelectedCoreForRework(core);
+                                  setCreateWoForm({
+                                    assignedEngineerId: user?.id || '',
+                                    diagnosticsNotes: `Bench rework for ${core.core_tag_number}`
+                                  });
+                                  setShowCreateWorkOrderModal(true);
+                                }}
+                              >
+                                <Wrench size={13} style={{ display: 'inline', marginRight: '4px' }} />
+                                Start Rework
+                              </button>
                             ) : (
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                                {core.custody_status === 'REFURB_APPROVED' ? 'Settled (Refurb)' :
-                                 core.custody_status === 'SCRAPPED' ? 'Settled (Scrapped)' :
+                                {core.custody_status === 'IN_REWORK' ? 'In Workshop Rework' :
+                                 core.custody_status === 'RESTOCKED' ? 'Restocked (Usable)' :
+                                 core.custody_status === 'SCRAPPED' ? 'Marked for Scrap' :
+                                 core.custody_status === 'SCRAP_DISPOSED' ? 'Scrap Disposed' :
                                  'In Field Custody'}
                               </span>
                             )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 7.6: Workshop Engineering Refurbishment Bench & Restock Tab */}
+      {activeTab === 'refurb_bench' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Refurb Bench KPI Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #10B981' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Active Bench Work Orders
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#10B981', marginTop: '0.25rem' }}>
+                {refurbWorkOrders.filter(w => w.status !== 'QA_CERTIFIED' && w.status !== 'FAILED_SCRAP').length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Currently on workshop repair benches
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #3B82F6' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Burn-In Chamber Testing
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#3B82F6', marginTop: '0.25rem' }}>
+                {refurbWorkOrders.filter(w => w.status === 'BURN_IN_TESTING').length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Thermal soak & signal stress verified
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #8B5CF6' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Certified & Restocked
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#8B5CF6', marginTop: '0.25rem' }}>
+                {refurbWorkOrders.filter(w => w.status === 'QA_CERTIFIED').length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Added to sellable/field spare inventory
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #EF4444' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Scrap Dispositions (E-Waste)
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#EF4444', marginTop: '0.25rem' }}>
+                {scrapDispositionRecords.length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Certified recycling vendor batches
+              </div>
+            </div>
+          </div>
+
+          {/* Section 1: Active Refurbishment Bench Work Orders */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <Wrench style={{ color: '#10B981' }} />
+                  <span>Workshop Engineering Rework Orders (RWO)</span>
+                </h3>
+                <p className="text-muted" style={{ fontSize: '0.75rem', margin: '0.25rem 0 0 0' }}>
+                  Micro-component soldering, rail voltage diagnostics (12V/24V/5V), burn-in testing & inventory restock certification.
+                </p>
+              </div>
+
+              {allDefectiveCores.filter(c => c.custody_status === 'SCRAPPED').length > 0 && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ fontSize: '0.8125rem', color: '#EF4444', borderColor: '#EF4444' }}
+                  onClick={() => {
+                    const scrapped = allDefectiveCores.filter(c => c.custody_status === 'SCRAPPED').map(c => c.id);
+                    setSelectedScrapCores(scrapped);
+                    setShowScrapBatchModal(true);
+                  }}
+                >
+                  <Recycle size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                  Batch Scrap Manifest ({allDefectiveCores.filter(c => c.custody_status === 'SCRAPPED').length})
+                </button>
+              )}
+            </div>
+
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Work Order #</th>
+                    <th>Core Tag #</th>
+                    <th>Item Description</th>
+                    <th>Assigned Engineer</th>
+                    <th>Status</th>
+                    <th>Electrical Rails</th>
+                    <th>Burn-In Soak</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {refurbWorkOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>
+                        <p className="text-muted">No active refurbishment work orders found. Triage cores in Reverse Logistics to start rework.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    refurbWorkOrders.map((wo) => {
+                      const allRailsPass = wo.rail_12v_tested && wo.rail_24v_tested && wo.rail_5v_tested;
+                      const canCertify = allRailsPass && wo.burn_in_passed && wo.status !== 'QA_CERTIFIED';
+
+                      return (
+                        <tr key={wo.id}>
+                          <td>
+                            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--brand-primary)' }}>
+                              {wo.work_order_number}
+                            </strong>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {new Date(wo.created_at).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td>
+                            <strong style={{ fontFamily: 'var(--font-mono)', color: '#F59E0B' }}>
+                              {wo.defective_core?.core_tag_number || 'CORE'}
+                            </strong>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>
+                              {wo.defective_core?.item_type === 'WHOLE_TV_UNIT' ? (
+                                wo.defective_core?.product_units?.product_variants?.product_name || 'ZUVO TV Unit'
+                              ) : (
+                                wo.defective_core?.spare_parts?.part_name || 'Component Board'
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                              {wo.defective_core?.defect_symptom || 'Component failure'}
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{wo.assigned_engineer?.full_name || 'Unassigned'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{wo.assigned_engineer?.employee_code || ''}</div>
+                          </td>
+                          <td>
+                            <span className={`badge ${
+                              wo.status === 'ASSIGNED' ? 'badge-warning' :
+                              wo.status === 'BURN_IN_TESTING' ? 'badge-primary' :
+                              wo.status === 'QA_CERTIFIED' ? 'badge-success' : 'badge-neutral'
+                            }`}>
+                              {wo.status}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <span style={{ color: wo.rail_12v_tested ? '#10B981' : '#EF4444' }}>
+                                12V Rail: {wo.rail_12v_tested ? '✓ PASS' : '✗ PENDING'}
+                              </span>
+                              <span style={{ color: wo.rail_24v_tested ? '#10B981' : '#EF4444' }}>
+                                24V Rail: {wo.rail_24v_tested ? '✓ PASS' : '✗ PENDING'}
+                              </span>
+                              <span style={{ color: wo.rail_5v_tested ? '#10B981' : '#EF4444' }}>
+                                5V Rail: {wo.rail_5v_tested ? '✓ PASS' : '✗ PENDING'}
+                              </span>
+                            </div>
+                          </td>
+                          <td>
+                            {wo.burn_in_passed ? (
+                              <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
+                                ✓ {wo.burn_in_duration_hours}h Passed
+                              </span>
+                            ) : (
+                              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                                {wo.burn_in_duration_hours > 0 ? `${wo.burn_in_duration_hours}h Incomplete` : 'Pending Chamber'}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              {wo.status !== 'QA_CERTIFIED' && (
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                                  onClick={() => {
+                                    setSelectedWorkOrder(wo);
+                                    setBenchTestForm({
+                                      rail12vTested: wo.rail_12v_tested,
+                                      rail24vTested: wo.rail_24v_tested,
+                                      rail5vTested: wo.rail_5v_tested,
+                                      burnInDurationHours: wo.burn_in_duration_hours || 2,
+                                      opticalPanelPassed: wo.optical_panel_passed,
+                                      audioChassisPassed: wo.audio_chassis_passed,
+                                      laborMinutes: wo.labor_minutes || 45,
+                                      diagnosticsNotes: wo.diagnostics_notes || ''
+                                    });
+                                    setShowBenchTestModal(true);
+                                  }}
+                                >
+                                  <Cpu size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                                  Log Tests
+                                </button>
+                              )}
+
+                              {canCertify && (
+                                <button
+                                  className="btn btn-primary"
+                                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                                  onClick={() => {
+                                    setSelectedWorkOrder(wo);
+                                    setShowCertifyRestockModal(true);
+                                  }}
+                                >
+                                  <CheckCircle size={12} style={{ display: 'inline', marginRight: '3px' }} />
+                                  Certify & Restock
+                                </button>
+                              )}
+
+                              {wo.status === 'QA_CERTIFIED' && (
+                                <span style={{ fontSize: '0.75rem', color: '#10B981', fontWeight: 600 }}>
+                                  ✓ Restocked in {wo.restocked_warehouse?.warehouse_code || 'Depot'}
+                                </span>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1505,6 +1968,464 @@ export const SparePartsPage: React.FC = () => {
                   disabled={submittingIssue}
                 >
                   {submittingIssue ? 'Transferring Stock...' : 'Confirm Stock Issuance'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 7.6 Modal: Create Refurb Work Order */}
+      {showCreateWorkOrderModal && selectedCoreForRework && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Wrench style={{ color: '#10B981' }} />
+                <span>Initialize Workshop Rework: {selectedCoreForRework.core_tag_number}</span>
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowCreateWorkOrderModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateWorkOrder} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem' }}>
+                <div><strong>Component:</strong> {selectedCoreForRework.item_type === 'WHOLE_TV_UNIT' ? 'Whole TV Swap' : selectedCoreForRework.spare_parts?.part_name}</div>
+                <div><strong>Defect Symptom:</strong> {selectedCoreForRework.defect_symptom}</div>
+                <div><strong>Harvested By:</strong> {selectedCoreForRework.profiles?.full_name || 'Field Tech'}</div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Assign Bench Repair Engineer *
+                </label>
+                <select
+                  className="input"
+                  value={createWoForm.assignedEngineerId}
+                  onChange={(e) => setCreateWoForm({ ...createWoForm, assignedEngineerId: e.target.value })}
+                  required
+                >
+                  <option value={user?.id || ''}>Current User ({user?.email})</option>
+                  {techniciansList.map(t => (
+                    <option key={t.id} value={t.id}>{t.full_name} ({t.employee_code || 'Technician'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Diagnostics Notes & Initial Triage Plan
+                </label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  value={createWoForm.diagnosticsNotes}
+                  onChange={(e) => setCreateWoForm({ ...createWoForm, diagnosticsNotes: e.target.value })}
+                  placeholder="e.g. Inspect power rails, replace blown capacitors, test HDMI signal lock"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCreateWorkOrderModal(false)}
+                  disabled={submittingWo}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                  disabled={submittingWo}
+                >
+                  {submittingWo ? 'Assigning...' : 'Create Rework Work Order'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 7.6 Modal: Log Bench Test & Burn-In Chamber Soak */}
+      {showBenchTestModal && selectedWorkOrder && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Cpu style={{ color: 'var(--brand-primary)' }} />
+                <span>Bench Electrical Tests & Burn-In: {selectedWorkOrder.work_order_number}</span>
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowBenchTestModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleLogBenchTest} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem' }}>1. Multimeter Voltage Rail Diagnostics</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={benchTestForm.rail12vTested}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, rail12vTested: e.target.checked })}
+                    />
+                    <span>12V Main Rail</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={benchTestForm.rail24vTested}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, rail24vTested: e.target.checked })}
+                    />
+                    <span>24V Inverter Rail</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={benchTestForm.rail5vTested}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, rail5vTested: e.target.checked })}
+                    />
+                    <span>5V Standby Rail</span>
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0.75rem' }}>
+                <div style={{ fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.5rem' }}>2. Burn-In Chamber & Physical QA</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                      Burn-In Duration (Hours) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      className="input"
+                      value={benchTestForm.burnInDurationHours}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, burnInDurationHours: parseFloat(e.target.value) || 0 })}
+                      required
+                    />
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>Min 1.5h required for certification pass</div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                      Repair Labor (Minutes) *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      className="input"
+                      value={benchTestForm.laborMinutes}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, laborMinutes: parseInt(e.target.value) || 45 })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '1.5rem' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={benchTestForm.opticalPanelPassed}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, opticalPanelPassed: e.target.checked })}
+                    />
+                    <span>Optical Uniformity Pass</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.8125rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={benchTestForm.audioChassisPassed}
+                      onChange={(e) => setBenchTestForm({ ...benchTestForm, audioChassisPassed: e.target.checked })}
+                    />
+                    <span>Audio & Ports Pass</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Bench Notes & Components Replaced
+                </label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={benchTestForm.diagnosticsNotes}
+                  onChange={(e) => setBenchTestForm({ ...benchTestForm, diagnosticsNotes: e.target.value })}
+                  placeholder="e.g. Replaced diode D104 and capacitor C201. Thermal camera shows stable 42C"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowBenchTestModal(false)}
+                  disabled={submittingTest}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submittingTest}
+                >
+                  {submittingTest ? 'Recording...' : 'Save Bench Test Results'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 7.6 Modal: Certify & Restock into Usable Inventory */}
+      {showCertifyRestockModal && selectedWorkOrder && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <CheckCircle style={{ color: '#10B981' }} />
+                <span>Certify Rework & Restock: {selectedWorkOrder.work_order_number}</span>
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowCertifyRestockModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCertifyAndRestock} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem' }}>
+                <div style={{ fontWeight: 600, color: '#10B981', marginBottom: '0.25rem' }}>QA Certification Ready</div>
+                <div>All electrical voltage rails passed. Burn-in chamber soak completed ({selectedWorkOrder.burn_in_duration_hours}h).</div>
+                <div style={{ marginTop: '0.25rem' }}>This action will atomically update the inventory ledger and return this unit to available stock.</div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Destination Warehouse *
+                </label>
+                <select
+                  className="input"
+                  value={certifyRestockForm.destinationWarehouseId}
+                  onChange={(e) => setCertifyRestockForm({ ...certifyRestockForm, destinationWarehouseId: e.target.value })}
+                  required
+                >
+                  <option value="">Select Warehouse Location...</option>
+                  {warehousesList.map(w => (
+                    <option key={w.id} value={w.id}>{w.warehouse_name} ({w.warehouse_code})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Certification & Inventory Ledger Notes
+                </label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={certifyRestockForm.restockNotes}
+                  onChange={(e) => setCertifyRestockForm({ ...certifyRestockForm, restockNotes: e.target.value })}
+                  placeholder="e.g. Certified refurbished component restored to central depot bin A-12"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowCertifyRestockModal(false)}
+                  disabled={submittingRestock}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                  disabled={submittingRestock}
+                >
+                  {submittingRestock ? 'Certifying & Restocking...' : 'Confirm Restock into Inventory'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 7.6 Modal: Batch Scrap Disposition Manifest */}
+      {showScrapBatchModal && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Recycle style={{ color: '#EF4444' }} />
+                <span>Generate Hazardous E-Waste Scrap Manifest</span>
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowScrapBatchModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleScrapBatch} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem' }}>
+                <div><strong>Selected Scrapped Units:</strong> {selectedScrapCores.length} cores</div>
+                <div style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                  CPCB-authorized hazardous e-waste recycler batch creation and statutory certificate logging.
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Authorized Recycler Vendor Name *
+                </label>
+                <input
+                  type="text"
+                  className="input"
+                  value={scrapBatchForm.recyclerVendorName}
+                  onChange={(e) => setScrapBatchForm({ ...scrapBatchForm, recyclerVendorName: e.target.value })}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    Pollution Control ID (CPCB)
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={scrapBatchForm.authorizedCpcbId}
+                    onChange={(e) => setScrapBatchForm({ ...scrapBatchForm, authorizedCpcbId: e.target.value })}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    Total Weight (kg) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    className="input"
+                    value={scrapBatchForm.totalWeightKg}
+                    onChange={(e) => setScrapBatchForm({ ...scrapBatchForm, totalWeightKg: parseFloat(e.target.value) || 0 })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Salvage Value Credit Realized (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input"
+                  value={scrapBatchForm.salvageCreditRealized}
+                  onChange={(e) => setScrapBatchForm({ ...scrapBatchForm, salvageCreditRealized: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Disposition & Destruction Notes
+                </label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={scrapBatchForm.dispositionNotes}
+                  onChange={(e) => setScrapBatchForm({ ...scrapBatchForm, dispositionNotes: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowScrapBatchModal(false)}
+                  disabled={submittingScrapBatch}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #EF4444, #DC2626)' }}
+                  disabled={submittingScrapBatch}
+                >
+                  {submittingScrapBatch ? 'Generating Manifest...' : 'Issue E-Waste Scrap Manifest'}
                 </button>
               </div>
             </form>
