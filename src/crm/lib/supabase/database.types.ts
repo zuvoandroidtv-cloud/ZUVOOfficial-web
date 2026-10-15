@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -5496,6 +5496,58 @@ export type Database = {
           to: "service_visits"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      fn_record_visit_location: {
+        Args: {
+          p_accuracy?: number | null
+          p_event_type: string
+          p_gps_error_reason?: string | null
+          p_is_gps_available?: boolean | null
+          p_latitude?: number | null
+          p_longitude?: number | null
+          p_visit_id: string
+        }
+        Returns: {
+          accuracy: number | null
+          captured_at: string
+          created_at: string
+          event_type: string
+          gps_error_reason: string | null
+          id: string
+          is_gps_available: boolean
+          latitude: number | null
+          longitude: number | null
+          service_visit_id: string
+          technician_id: string
+        }
+      }
+      fn_submit_visit_customer_signature: {
+        Args: {
+          p_signature_data: string
+          p_visit_id: string
+        }
+        Returns: {
+          arrived_at: string | null
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          customer_confirmation_otp: string | null
+          customer_confirmed_at: string | null
+          customer_notes: string | null
+          customer_signature_data: string | null
+          id: string
+          latitude: number | null
+          longitude: number | null
+          otp_expires_at: string | null
+          scheduled_at: string
+          service_ticket_id: string
+          started_at: string | null
+          status: string
+          technician_id: string
+          technician_notes: string | null
+          updated_at: string
+          visit_type: string
         }
       }
       fn_verify_visit_otp_and_complete: {

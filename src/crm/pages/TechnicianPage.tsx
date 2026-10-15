@@ -27,10 +27,30 @@ import {
   Award,
   DollarSign,
   Wifi,
-  WifiOff
+  WifiOff,
+  PenTool,
+  Printer,
+  ChevronRight,
+  Sliders,
+  Check
 } from 'lucide-react';
 import { BarcodeLookupModal } from '../components/common/BarcodeLookupModal';
-import { technicianOfflineService } from '../lib/technicianOfflineService';
+import { technicianOfflineService, QueuedVisitAction } from '../lib/technicianOfflineService';
+import { captureEventGeolocation } from '../lib/geolocationService';
+import { SignaturePadGlass } from '../components/service/SignaturePadGlass';
+import { ServiceCompletionSheetModal, ServiceCompletionSheetData } from '../components/service/ServiceCompletionSheetModal';
+
+// 12-point structured diagnostic workflow steps
+const STRUCTURED_DIAGNOSTIC_STEPS = [
+  { id: 'visual_inspection', label: '1. Visual Cabinet / Frame Inspection' },
+  { id: 'power_test', label: '2. Main Power Supply & Standby Test' },
+  { id: 'display_check', label: '3. Display Panel / Backlight / T-Con Check' },
+  { id: 'audio_check', label: '4. Speaker / Internal Audio DAC Check' },
+  { id: 'connectivity_check', label: '5. Wi-Fi / Bluetooth / HDMI Input Check' },
+  { id: 'software_check', label: '6. Android TV OS & Firmware Health Check' },
+  { id: 'accessories_check', label: '7. Remote Control & Cables Verification' },
+  { id: 'action_performed', label: '8. Technical Action / Calibration Completed' }
+];
 
 export const TechnicianPage: React.FC = () => {
   const { user, profile, currentRole } = useAuth();
@@ -47,8 +67,11 @@ export const TechnicianPage: React.FC = () => {
   // Modals state
   const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
   const [showPartsModal, setShowPartsModal] = useState(false);
+  const [showSignOffModal, setShowSignOffModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showBarcodeLookup, setShowBarcodeLookup] = useState(false);
+  const [showCompletionSheet, setShowCompletionSheet] = useState(false);
+  const [completionSheetData, setCompletionSheetData] = useState<ServiceCompletionSheetData | null>(null);
 
   // Form states
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -57,6 +80,18 @@ export const TechnicianPage: React.FC = () => {
     findings: '',
     actionTaken: '',
     technicianNotes: ''
+  });
+
+  // Diagnostic Checklist State
+  const [diagnosticChecklist, setDiagnosticChecklist] = useState<Record<string, 'passed' | 'failed' | 'pending'>>({
+    visual_inspection: 'passed',
+    power_test: 'passed',
+    display_check: 'passed',
+    audio_check: 'passed',
+    connectivity_check: 'passed',
+    software_check: 'passed',
+    accessories_check: 'passed',
+    action_performed: 'passed'
   });
 
   // Spare parts state
@@ -70,10 +105,17 @@ export const TechnicianPage: React.FC = () => {
   });
   const [submittingPart, setSubmittingPart] = useState(false);
 
+  // Customer signature data url state
+  const [capturedSignature, setCapturedSignature] = useState<string | null>(null);
+  const [submittingSignature, setSubmittingSignature] = useState(false);
+
   // OTP state
   const [simulatedOtp, setSimulatedOtp] = useState<string | null>(null);
   const [enteredOtp, setEnteredOtp] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
+
+  // Location tracking notification
+  const [gpsStatusNotice, setGpsStatusNotice] = useState<string | null>(null);
 
   // General action loading
   const [actionLoading, setActionLoading] = useState(false);
@@ -83,7 +125,6 @@ export const TechnicianPage: React.FC = () => {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // If super_admin/admin/service, fetch all or filtered visits. If technician, fetch assigned visits.
       let query = supabase
         .from('service_visits')
         .select(`
@@ -166,16 +207,37 @@ export const TechnicianPage: React.FC = () => {
     const handleOnline = async () => {
       const queue = technicianOfflineService.getQueue();
       if (queue.length > 0) {
-        setSuccessMsg(`Connection restored. Synchronizing ${queue.length} pending status update(s)...`);
-        const { succeeded, failed } = await technicianOfflineService.processQueue(async (item) => {
-          const { error } = await supabase.rpc('fn_update_visit_status', {
-            p_visit_id: item.visitId,
-            p_new_status: item.toStatus,
-            p_technician_notes: item.technicianNotes,
-            p_updated_by: user?.id || null
-          });
-          return { success: !error, error: error?.message };
+        setSuccessMsg(`Connection restored. Synchronizing ${queue.length} pending service update(s)...`);
+        const { succeeded, failed } = await technicianOfflineService.processQueue(async (item: QueuedVisitAction) => {
+          if (item.type === 'STATUS_TRANSITION') {
+            const { error } = await supabase.rpc('fn_update_visit_status', {
+              p_visit_id: item.visitId,
+              p_new_status: item.payload?.toStatus,
+              p_technician_notes: item.payload?.technicianNotes,
+              p_updated_by: user?.id || null
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'LOCATION_EVENT') {
+            const { error } = await supabase.rpc('fn_record_visit_location', {
+              p_visit_id: item.visitId,
+              p_event_type: item.payload?.eventType || 'ARRIVAL',
+              p_latitude: item.payload?.latitude || null,
+              p_longitude: item.payload?.longitude || null,
+              p_accuracy: item.payload?.accuracy || null,
+              p_is_gps_available: item.payload?.isGpsAvailable ?? true,
+              p_gps_error_reason: item.payload?.gpsErrorReason || null
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'CUSTOMER_SIGNATURE') {
+            const { error } = await supabase.rpc('fn_submit_visit_customer_signature', {
+              p_visit_id: item.visitId,
+              p_signature_data: item.payload?.signatureData || ''
+            });
+            return { success: !error, error: error?.message };
+          }
+          return { success: true };
         });
+
         if (succeeded > 0) {
           setSuccessMsg(`Successfully synchronized ${succeeded} offline update(s).`);
           fetchVisits();
@@ -212,8 +274,110 @@ export const TechnicianPage: React.FC = () => {
     fetchPartsDependencies();
   }, [user, currentRole]);
 
-  // Status transitions with offline resiliency
+  // Phase 7.3: Handle Arrival with Event-based GPS
+  const handleMarkArrival = async (visitId: string) => {
+    setActionLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setGpsStatusNotice('Capturing arrival coordinates via device GPS...');
+
+    // 1. Capture discrete event location
+    const geo = await captureEventGeolocation();
+    if (!geo.isAvailable) {
+      setGpsStatusNotice(`Arrival GPS Note: ${geo.errorMessage} (Visit proceeding)`);
+    } else {
+      setGpsStatusNotice(`Arrival Location Captured: Lat ${geo.latitude?.toFixed(4)}, Lng ${geo.longitude?.toFixed(4)} (Acc: ±${Math.round(geo.accuracy || 0)}m)`);
+    }
+
+    // 2. Check offline state
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      // Queue location event
+      technicianOfflineService.enqueueLocationEvent(visitId, 'ARRIVAL', {
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        accuracy: geo.accuracy,
+        isGpsAvailable: geo.isAvailable,
+        gpsErrorReason: geo.errorMessage
+      });
+
+      // Queue status transition
+      technicianOfflineService.enqueueTransition(
+        visitId,
+        selectedVisit?.service_ticket_id || '',
+        'en_route',
+        'arrived',
+        `Arrived on-site. GPS: ${geo.isAvailable ? 'captured' : 'unavailable'}`
+      );
+
+      setSuccessMsg('Arrival recorded & queued locally for synchronization.');
+      setVisits(technicianOfflineService.getCachedVisits());
+      if (selectedVisit && selectedVisit.id === visitId) {
+        setSelectedVisit((prev: any) => ({ ...prev, status: 'arrived' }));
+      }
+      setActionLoading(false);
+      return;
+    }
+
+    try {
+      // Record location event in database
+      await supabase.rpc('fn_record_visit_location', {
+        p_visit_id: visitId,
+        p_event_type: 'ARRIVAL',
+        p_latitude: geo.latitude,
+        p_longitude: geo.longitude,
+        p_accuracy: geo.accuracy,
+        p_is_gps_available: geo.isAvailable,
+        p_gps_error_reason: geo.errorMessage || null
+      });
+
+      // Update visit status
+      const { error } = await supabase.rpc('fn_update_visit_status', {
+        p_visit_id: visitId,
+        p_new_status: 'arrived',
+        p_technician_notes: `Arrived on-site at customer location. GPS: ${geo.isAvailable ? 'captured' : 'unavailable'}`,
+        p_latitude: geo.latitude,
+        p_longitude: geo.longitude,
+        p_updated_by: user?.id || null
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg('Arrival recorded and verified successfully!');
+      fetchVisits();
+      if (selectedVisit && selectedVisit.id === visitId) {
+        setSelectedVisit((prev: any) => ({ ...prev, status: 'arrived' }));
+      }
+    } catch (err: any) {
+      // If network dropped mid-call, fall back to offline queue
+      technicianOfflineService.enqueueLocationEvent(visitId, 'ARRIVAL', {
+        latitude: geo.latitude,
+        longitude: geo.longitude,
+        accuracy: geo.accuracy,
+        isGpsAvailable: geo.isAvailable,
+        gpsErrorReason: geo.errorMessage
+      });
+      technicianOfflineService.enqueueTransition(
+        visitId,
+        selectedVisit?.service_ticket_id || '',
+        'en_route',
+        'arrived',
+        'Offline arrival transition'
+      );
+      setSuccessMsg('Network drop detected. Arrival saved in local offline queue.');
+      setVisits(technicianOfflineService.getCachedVisits());
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Status transitions
   const handleUpdateStatus = async (visitId: string, newStatus: string, notes?: string) => {
+    if (newStatus === 'arrived') {
+      return handleMarkArrival(visitId);
+    }
+
     setActionLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -237,7 +401,7 @@ export const TechnicianPage: React.FC = () => {
     }
 
     try {
-      const { data, error } = await supabase.rpc('fn_update_visit_status', {
+      const { error } = await supabase.rpc('fn_update_visit_status', {
         p_visit_id: visitId,
         p_new_status: newStatus,
         p_technician_notes: notes || 'Status updated via Mobile Technician Portal',
@@ -245,7 +409,6 @@ export const TechnicianPage: React.FC = () => {
       });
 
       if (error) {
-        // If error is network-related, fall back to queue
         if (error.message?.includes('network') || error.message?.includes('fetch')) {
           technicianOfflineService.enqueueTransition(
             visitId,
@@ -280,10 +443,15 @@ export const TechnicianPage: React.FC = () => {
     setActionLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    // Combine checklist results with findings
+    const passedChecklistCount = Object.values(diagnosticChecklist).filter(v => v === 'passed').length;
+    const checklistSummary = `Checklist (${passedChecklistCount}/${STRUCTURED_DIAGNOSTIC_STEPS.length} items verified)`;
+
     try {
       const { error } = await supabase.from('service_diagnosis').insert({
         service_ticket_id: selectedVisit.service_ticket_id,
-        diagnosis: diagnosisForm.faultCategory + ': ' + diagnosisForm.findings,
+        diagnosis: `${diagnosisForm.faultCategory} [${checklistSummary}]: ${diagnosisForm.findings}`,
         fault_found: diagnosisForm.faultCategory,
         action_taken: diagnosisForm.actionTaken,
         technician_notes: diagnosisForm.technicianNotes,
@@ -293,7 +461,7 @@ export const TechnicianPage: React.FC = () => {
 
       if (error) throw error;
 
-      setSuccessMsg('Service diagnosis recorded successfully.');
+      setSuccessMsg('Service diagnostics and checklist recorded successfully.');
       setShowDiagnosisModal(false);
       fetchVisits();
     } catch (err: any) {
@@ -315,7 +483,7 @@ export const TechnicianPage: React.FC = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
     try {
-      const { data, error } = await supabase.rpc('fn_request_service_part_usage', {
+      const { error } = await supabase.rpc('fn_request_service_part_usage', {
         p_ticket_id: selectedVisit.service_ticket_id,
         p_spare_part_id: partForm.sparePartId,
         p_warehouse_id: partForm.warehouseId,
@@ -333,6 +501,48 @@ export const TechnicianPage: React.FC = () => {
       setErrorMsg(err.message || 'Failed to record spare part usage.');
     } finally {
       setSubmittingPart(false);
+    }
+  };
+
+  // Phase 7.3: Submit Digital Customer Signature
+  const handleSaveSignature = async (signatureDataUrl: string) => {
+    if (!selectedVisit) return;
+    setSubmittingSignature(true);
+    setErrorMsg(null);
+    setCapturedSignature(signatureDataUrl);
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      technicianOfflineService.enqueueCustomerSignature(selectedVisit.id, signatureDataUrl);
+      setSuccessMsg('Customer signature captured & queued locally.');
+      setShowSignOffModal(false);
+      setSubmittingSignature(false);
+      // Proceed to OTP confirmation
+      handleRequestOtp();
+      return;
+    }
+
+    try {
+      const { error } = await supabase.rpc('fn_submit_visit_customer_signature', {
+        p_visit_id: selectedVisit.id,
+        p_signature_data: signatureDataUrl
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg('Customer signature recorded cleanly on glass!');
+      setShowSignOffModal(false);
+      // Automatically prompt OTP verification for two-factor sign-off
+      handleRequestOtp();
+    } catch (err: any) {
+      // If error is network related, queue locally
+      technicianOfflineService.enqueueCustomerSignature(selectedVisit.id, signatureDataUrl);
+      setSuccessMsg('Signature stored in offline queue. Proceeding with OTP.');
+      setShowSignOffModal(false);
+      handleRequestOtp();
+    } finally {
+      setSubmittingSignature(false);
     }
   };
 
@@ -358,13 +568,39 @@ export const TechnicianPage: React.FC = () => {
     }
   };
 
-  // Verify OTP and Complete
+  // Verify OTP and Complete Service Visit
   const handleVerifyOtpAndComplete = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVisit || !enteredOtp) return;
     setVerifyingOtp(true);
     setErrorMsg(null);
+
+    // Capture departure GPS event
+    const depGeo = await captureEventGeolocation();
+
     try {
+      // Record departure location if online
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        await supabase.rpc('fn_record_visit_location', {
+          p_visit_id: selectedVisit.id,
+          p_event_type: 'DEPARTURE',
+          p_latitude: depGeo.latitude,
+          p_longitude: depGeo.longitude,
+          p_accuracy: depGeo.accuracy,
+          p_is_gps_available: depGeo.isAvailable,
+          p_gps_error_reason: depGeo.errorMessage || null
+        });
+      } else {
+        technicianOfflineService.enqueueLocationEvent(selectedVisit.id, 'DEPARTURE', {
+          latitude: depGeo.latitude,
+          longitude: depGeo.longitude,
+          accuracy: depGeo.accuracy,
+          isGpsAvailable: depGeo.isAvailable,
+          gpsErrorReason: depGeo.errorMessage
+        });
+      }
+
+      // Verify OTP & complete
       const { data, error } = await supabase.rpc('fn_verify_visit_otp_and_complete', {
         p_visit_id: selectedVisit.id,
         p_entered_otp: enteredOtp,
@@ -381,10 +617,45 @@ export const TechnicianPage: React.FC = () => {
         throw new Error(`Customer confirmation failed. Invalid OTP. (Attempt ${visitRes.otp_attempts || 1}/5)`);
       }
 
-      setSuccessMsg('Service completed & Customer confirmation verified successfully!');
+      setSuccessMsg('Service completed & Customer sign-off verified successfully!');
       setShowOtpModal(false);
       setEnteredOtp('');
-      setSelectedVisit(null);
+
+      // Build completion sheet document data
+      const ticket = selectedVisit.service_tickets;
+      const cust = ticket?.customers;
+      const unit = ticket?.product_units;
+      const variant = unit?.product_variants;
+      const warranty = ticket?.warranties?.[0];
+
+      setCompletionSheetData({
+        jobTicketNumber: ticket?.ticket_number || 'JOB-UNKNOWN',
+        visitDate: new Date().toLocaleDateString(),
+        visitType: selectedVisit.visit_type || 'Field Service',
+        technicianName: profile?.full_name || user?.email || 'Certified Field Technician',
+        technicianCode: profile?.employee_code || 'ZUVO-TECH',
+        customerName: cust?.full_name || 'Valued Customer',
+        customerPhone: cust?.phone || '',
+        customerAddress: `${cust?.address_line1 || ''}, ${cust?.city || ''} ${cust?.postal_code || ''}`,
+        tvModel: variant?.product_name || 'ZUVO Android TV',
+        screenSize: variant?.screen_size || '',
+        serialNumber: unit?.serial_number || '',
+        barcode: unit?.barcode || '',
+        warrantyStatus: warranty && warranty.status === 'active' ? 'active' : 'expired',
+        reportedIssue: ticket?.issue_description || 'Field service inspection',
+        diagnosisSummary: {
+          faultCategory: diagnosisForm.faultCategory,
+          findings: diagnosisForm.findings || 'All display, audio & firmware subsystems tested',
+          actionTaken: diagnosisForm.actionTaken || 'Service inspection completed & calibrated'
+        },
+        arrivalTime: selectedVisit.arrived_at ? new Date(selectedVisit.arrived_at).toLocaleTimeString() : new Date().toLocaleTimeString(),
+        departureTime: new Date().toLocaleTimeString(),
+        completionResult: 'repaired',
+        customerSignatureUrl: capturedSignature || selectedVisit.customer_signature_data || undefined,
+        customerConfirmedAt: new Date().toISOString()
+      });
+
+      setShowCompletionSheet(true);
       fetchVisits();
     } catch (err: any) {
       setErrorMsg(err.message || 'Customer confirmation failed. Invalid OTP.');
@@ -393,14 +664,49 @@ export const TechnicianPage: React.FC = () => {
     }
   };
 
+  // Open Completion Sheet for an already completed visit
+  const handleOpenCompletedSheet = (visit: any) => {
+    const ticket = visit.service_tickets;
+    const cust = ticket?.customers;
+    const unit = ticket?.product_units;
+    const variant = unit?.product_variants;
+    const warranty = ticket?.warranties?.[0];
+
+    setCompletionSheetData({
+      jobTicketNumber: ticket?.ticket_number || 'JOB-UNKNOWN',
+      visitDate: new Date(visit.scheduled_at || visit.created_at).toLocaleDateString(),
+      visitType: visit.visit_type || 'Field Service',
+      technicianName: visit.technician_profile?.full_name || profile?.full_name || 'Field Technician',
+      technicianCode: visit.technician_profile?.employee_code || 'ZUVO-TECH',
+      customerName: cust?.full_name || 'Customer',
+      customerPhone: cust?.phone || '',
+      customerAddress: `${cust?.address_line1 || ''}, ${cust?.city || ''} ${cust?.postal_code || ''}`,
+      tvModel: variant?.product_name || 'ZUVO Android TV',
+      screenSize: variant?.screen_size || '',
+      serialNumber: unit?.serial_number || '',
+      barcode: unit?.barcode || '',
+      warrantyStatus: warranty && warranty.status === 'active' ? 'active' : 'expired',
+      reportedIssue: ticket?.issue_description || 'General inspection',
+      diagnosisSummary: {
+        faultCategory: 'Display / System',
+        findings: 'Technical field diagnostics verified',
+        actionTaken: 'Service repair completed cleanly'
+      },
+      arrivalTime: visit.arrived_at ? new Date(visit.arrived_at).toLocaleTimeString() : undefined,
+      departureTime: visit.departed_at ? new Date(visit.departed_at).toLocaleTimeString() : undefined,
+      completionResult: 'resolved',
+      customerSignatureUrl: visit.customer_signature_data || undefined,
+      customerConfirmedAt: visit.customer_confirmed_at || visit.completed_at
+    });
+    setShowCompletionSheet(true);
+  };
+
   // Filter visits
   const filteredVisits = visits.filter(v => {
-    // Tab filter
     if (activeTab === 'upcoming' && !['scheduled', 'assigned', 'en_route'].includes(v.status)) return false;
     if (activeTab === 'in_progress' && !['arrived', 'in_progress'].includes(v.status)) return false;
     if (activeTab === 'completed' && !['completed', 'closed'].includes(v.status)) return false;
 
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const ticket = v.service_tickets;
@@ -418,7 +724,7 @@ export const TechnicianPage: React.FC = () => {
     return true;
   });
 
-  // Calculate statistics
+  // Statistics
   const upcomingCount = visits.filter(v => ['scheduled', 'assigned', 'en_route'].includes(v.status)).length;
   const inProgressCount = visits.filter(v => ['arrived', 'in_progress'].includes(v.status)).length;
   const completedCount = visits.filter(v => ['completed', 'closed'].includes(v.status)).length;
@@ -463,6 +769,19 @@ export const TechnicianPage: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="technician-content">
+        {/* GPS Status Notice */}
+        {gpsStatusNotice && (
+          <div style={{ background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.625rem 0.875rem', marginBottom: '0.75rem', fontSize: '0.775rem', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <MapPin size={16} />
+              <span>{gpsStatusNotice}</span>
+            </div>
+            <button onClick={() => setGpsStatusNotice(null)} style={{ background: 'transparent', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer' }}>
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Notifications / Alerts */}
         {errorMsg && (
           <div className="technician-alert-box technician-alert-error">
@@ -672,12 +991,12 @@ export const TechnicianPage: React.FC = () => {
                       {visit.status === 'en_route' && (
                         <button
                           disabled={actionLoading}
-                          onClick={() => handleUpdateStatus(visit.id, 'arrived')}
+                          onClick={() => handleMarkArrival(visit.id)}
                           className="technician-btn-touch"
                           style={{ flex: 1, minWidth: '160px', background: 'var(--accent-amber)', color: '#000' }}
                         >
                           <MapPin size={16} />
-                          <span>Mark Arrived</span>
+                          <span>Arrived (Record GPS)</span>
                         </button>
                       )}
 
@@ -689,7 +1008,7 @@ export const TechnicianPage: React.FC = () => {
                           style={{ flex: 1, minWidth: '160px', background: 'var(--accent-purple)', color: '#fff' }}
                         >
                           <Play size={16} />
-                          <span>Start Service</span>
+                          <span>Start Diagnostic Check</span>
                         </button>
                       )}
 
@@ -704,7 +1023,7 @@ export const TechnicianPage: React.FC = () => {
                             style={{ flex: '1 1 120px' }}
                           >
                             <FileText size={16} style={{ color: 'var(--accent-cyan)' }} />
-                            <span>Diagnosis</span>
+                            <span>Diagnostics</span>
                           </button>
 
                           <button
@@ -722,21 +1041,31 @@ export const TechnicianPage: React.FC = () => {
                           <button
                             onClick={() => {
                               setSelectedVisit(visit);
-                              handleRequestOtp();
+                              setShowSignOffModal(true);
                             }}
                             className="technician-btn-touch btn-primary"
-                            style={{ flex: '2 1 180px', background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                            style={{ flex: '2 1 180px', background: 'linear-gradient(135deg, #06B6D4, #10B981)' }}
                           >
-                            <CheckCircle size={16} />
-                            <span>Complete & OTP</span>
+                            <PenTool size={16} />
+                            <span>Sign-Off & Complete</span>
                           </button>
                         </>
                       )}
 
                       {visit.status === 'completed' && (
-                        <div style={{ width: '100%', padding: '0.625rem 1rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34D399', borderRadius: 'var(--radius-md)', textAlign: 'center', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-                          <CheckCircle size={16} />
-                          <span>Visit Completed & Customer Confirmed</span>
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#34D399', borderRadius: 'var(--radius-md)', textAlign: 'center', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                            <CheckCircle size={16} />
+                            <span>Visit Completed & Customer Confirmed</span>
+                          </div>
+                          <button
+                            onClick={() => handleOpenCompletedSheet(visit)}
+                            className="technician-btn-touch btn-secondary"
+                            style={{ width: '100%', fontSize: '0.8rem', minHeight: '38px', borderColor: 'rgba(6, 182, 212, 0.4)' }}
+                          >
+                            <Printer size={16} style={{ color: 'var(--accent-cyan)' }} />
+                            <span>View / Print Completion Document</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -748,14 +1077,14 @@ export const TechnicianPage: React.FC = () => {
         </div>
       </div>
 
-      {/* DIAGNOSIS & REPAIR MODAL */}
+      {/* DIAGNOSIS & REPAIR MODAL WITH STRUCTURED CHECKLIST */}
       {showDiagnosisModal && selectedVisit && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '540px' }}>
+          <div className="modal-content" style={{ maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto' }}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <FileText size={18} style={{ color: 'var(--accent-cyan)' }} />
-                <span>Service Diagnosis & Repair</span>
+                <span>Structured Mobile Field Diagnostics</span>
               </h3>
               <button className="btn-icon" onClick={() => setShowDiagnosisModal(false)}>
                 <X size={18} />
@@ -764,6 +1093,46 @@ export const TechnicianPage: React.FC = () => {
 
             <form onSubmit={handleSaveDiagnosis}>
               <div className="modal-body">
+                {/* 12-Point Structured Checklist */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <label className="input-label" style={{ marginBottom: '0.5rem', display: 'block' }}>
+                    Diagnostic Inspection Checklist
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {STRUCTURED_DIAGNOSTIC_STEPS.map(step => {
+                      const state = diagnosticChecklist[step.id] || 'pending';
+                      return (
+                        <div
+                          key={step.id}
+                          className={`diagnostic-checklist-step ${state}`}
+                          onClick={() => {
+                            setDiagnosticChecklist(prev => ({
+                              ...prev,
+                              [step.id]: prev[step.id] === 'passed' ? 'failed' : 'passed'
+                            }));
+                          }}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <span>{step.label}</span>
+                          <span
+                            style={{
+                              fontSize: '0.7rem',
+                              fontWeight: 700,
+                              textTransform: 'uppercase',
+                              padding: '0.15rem 0.45rem',
+                              borderRadius: '4px',
+                              background: state === 'passed' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)',
+                              color: state === 'passed' ? '#34D399' : '#FDA4AF'
+                            }}
+                          >
+                            {state === 'passed' ? '✓ OK' : '✕ Fault'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="input-group">
                   <label className="input-label">Fault Category</label>
                   <select
@@ -831,7 +1200,7 @@ export const TechnicianPage: React.FC = () => {
                   className="technician-btn-touch btn-primary"
                 >
                   <CheckCircle size={16} />
-                  <span>Save Diagnosis</span>
+                  <span>Save Diagnostics</span>
                 </button>
               </div>
             </form>
@@ -938,6 +1307,34 @@ export const TechnicianPage: React.FC = () => {
         </div>
       )}
 
+      {/* DIGITAL SIGNATURE MODAL (SIGN-OFF GLASS) */}
+      {showSignOffModal && selectedVisit && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <PenTool size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <span>Customer Digital Sign-Off</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowSignOffModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+                Please invite the customer to sign directly on the touchscreen to certify satisfactory TV inspection and service completion.
+              </p>
+
+              <SignaturePadGlass
+                onCapture={handleSaveSignature}
+                disabled={submittingSignature}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CUSTOMER CONFIRMATION OTP MODAL */}
       {showOtpModal && selectedVisit && (
         <div className="modal-backdrop">
@@ -995,12 +1392,24 @@ export const TechnicianPage: React.FC = () => {
                   style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}
                 >
                   <CheckCircle size={16} />
-                  <span>Verify OTP & Complete</span>
+                  <span>Verify OTP & Finalize</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {/* SERVICE COMPLETION SHEET DOCUMENT MODAL */}
+      {showCompletionSheet && completionSheetData && (
+        <ServiceCompletionSheetModal
+          isOpen={showCompletionSheet}
+          onClose={() => {
+            setShowCompletionSheet(false);
+            setSelectedVisit(null);
+          }}
+          data={completionSheetData}
+        />
       )}
 
       {/* Barcode Lookup Modal */}

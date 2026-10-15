@@ -2,8 +2,8 @@
  * ZUVO TV CRM — Technician Offline Queue & Synchronization Service
  * 
  * Manages local client caching for active field service visits and queues permitted
- * visit status transitions (en_route -> arrived -> in_progress -> completed) when
- * field mobile connectivity drops.
+ * visit status transitions (en_route -> arrived -> in_progress -> completed),
+ * location events, and customer signatures when field mobile connectivity drops.
  * 
  * Core Rules:
  * - Local queue never bypasses Supabase Auth, RLS, or server-side authorization.
@@ -12,18 +12,31 @@
  * - Idempotent replay prevents duplicate transitions.
  */
 
-export interface QueuedVisitTransition {
+export interface QueuedVisitAction {
   id: string; // Client idempotency UUID
+  type: 'STATUS_TRANSITION' | 'LOCATION_EVENT' | 'CUSTOMER_SIGNATURE';
   visitId: string;
-  ticketId: string;
-  fromStatus: string;
-  toStatus: string;
-  technicianNotes: string;
+  ticketId?: string;
+  payload: {
+    fromStatus?: string;
+    toStatus?: string;
+    technicianNotes?: string;
+    eventType?: 'ARRIVAL' | 'DEPARTURE' | 'CHECK_IN' | 'DIAGNOSIS_START';
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracy?: number | null;
+    isGpsAvailable?: boolean;
+    gpsErrorReason?: string;
+    signatureData?: string;
+  };
   queuedAt: string;
   status: 'pending' | 'syncing' | 'synced' | 'failed';
   attempts: number;
   lastError?: string;
 }
+
+// Retain compatibility alias
+export type QueuedVisitTransition = QueuedVisitAction;
 
 const STORAGE_KEY_VISITS = 'zuvo_technician_cached_visits';
 const STORAGE_KEY_QUEUE = 'zuvo_technician_sync_queue';
@@ -70,9 +83,9 @@ export class TechnicianOfflineService {
   }
 
   /**
-   * Gets pending transition queue
+   * Gets pending action queue
    */
-  public getQueue(): QueuedVisitTransition[] {
+  public getQueue(): QueuedVisitAction[] {
     try {
       if (typeof window === 'undefined' || !window.localStorage) return [];
       const item = localStorage.getItem(STORAGE_KEY_QUEUE);
@@ -87,7 +100,7 @@ export class TechnicianOfflineService {
   /**
    * Saves queue to localStorage
    */
-  private saveQueue(queue: QueuedVisitTransition[]) {
+  private saveQueue(queue: QueuedVisitAction[]) {
     try {
       if (typeof window === 'undefined' || !window.localStorage) return;
       localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(queue));
@@ -97,7 +110,7 @@ export class TechnicianOfflineService {
   }
 
   /**
-   * Adds a status transition to the queue
+   * Adds a status transition to the queue (Backward compatible)
    */
   public enqueueTransition(
     visitId: string,
@@ -105,24 +118,27 @@ export class TechnicianOfflineService {
     fromStatus: string,
     toStatus: string,
     notes: string
-  ): QueuedVisitTransition {
+  ): QueuedVisitAction {
     const queue = this.getQueue();
 
-    // Prevent duplicate duplicate pending submissions for the exact same visit & status
+    // Prevent duplicate pending submissions for the exact same visit & status
     const existing = queue.find(
-      q => q.visitId === visitId && q.toStatus === toStatus && q.status === 'pending'
+      q => q.visitId === visitId && q.payload?.toStatus === toStatus && q.status === 'pending'
     );
     if (existing) {
       return existing;
     }
 
-    const item: QueuedVisitTransition = {
+    const item: QueuedVisitAction = {
       id: `SYNC-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'STATUS_TRANSITION',
       visitId,
       ticketId,
-      fromStatus,
-      toStatus,
-      technicianNotes: notes,
+      payload: {
+        fromStatus,
+        toStatus,
+        technicianNotes: notes
+      },
       queuedAt: new Date().toISOString(),
       status: 'pending',
       attempts: 0
@@ -140,10 +156,88 @@ export class TechnicianOfflineService {
   }
 
   /**
+   * Queues an offline location event (ARRIVAL or DEPARTURE)
+   */
+  public enqueueLocationEvent(
+    visitId: string,
+    eventType: 'ARRIVAL' | 'DEPARTURE' | 'CHECK_IN' | 'DIAGNOSIS_START',
+    coords: {
+      latitude: number | null;
+      longitude: number | null;
+      accuracy: number | null;
+      isGpsAvailable: boolean;
+      gpsErrorReason?: string;
+    }
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+
+    const existing = queue.find(
+      q => q.visitId === visitId && q.type === 'LOCATION_EVENT' && q.payload?.eventType === eventType && q.status === 'pending'
+    );
+    if (existing) {
+      return existing;
+    }
+
+    const item: QueuedVisitAction = {
+      id: `LOC-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'LOCATION_EVENT',
+      visitId,
+      payload: {
+        eventType,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        accuracy: coords.accuracy,
+        isGpsAvailable: coords.isGpsAvailable,
+        gpsErrorReason: coords.gpsErrorReason
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+
+    queue.push(item);
+    this.saveQueue(queue);
+
+    return item;
+  }
+
+  /**
+   * Queues an offline customer digital signature capture
+   */
+  public enqueueCustomerSignature(
+    visitId: string,
+    signatureData: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+
+    const item: QueuedVisitAction = {
+      id: `SIG-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'CUSTOMER_SIGNATURE',
+      visitId,
+      payload: {
+        signatureData
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+
+    queue.push(item);
+    this.saveQueue(queue);
+
+    // Optimistically store signature in cached visit
+    const cached = this.getCachedVisits();
+    const updated = cached.map(v => v.id === visitId ? { ...v, customer_signature_data: signatureData } : v);
+    this.cacheVisits(updated);
+
+    return item;
+  }
+
+  /**
    * Synchronizes queued items when network returns
    */
   public async processQueue(
-    syncFunction: (item: QueuedVisitTransition) => Promise<{ success: boolean; error?: string }>
+    syncFunction: (item: QueuedVisitAction) => Promise<{ success: boolean; error?: string }>
   ): Promise<{ processed: number; succeeded: number; failed: number }> {
     if (this.syncInProgress) {
       return { processed: 0, succeeded: 0, failed: 0 };
@@ -155,7 +249,7 @@ export class TechnicianOfflineService {
     let succeeded = 0;
     let failed = 0;
 
-    const remainingQueue: QueuedVisitTransition[] = [];
+    const remainingQueue: QueuedVisitAction[] = [];
 
     for (const item of queue) {
       if (item.status === 'synced') continue;
@@ -169,7 +263,6 @@ export class TechnicianOfflineService {
         if (res.success) {
           succeeded++;
           item.status = 'synced';
-          // Successfully synced items are pruned from active pending queue
         } else {
           failed++;
           item.status = 'failed';
