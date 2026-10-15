@@ -237,6 +237,217 @@ export type Database = {
         }
         Relationships: []
       }
+      technician_defective_cores: {
+        Row: {
+          id: string
+          core_tag_number: string
+          technician_id: string
+          service_ticket_id: string | null
+          service_visit_id: string | null
+          item_type: 'SPARE_PART_CORE' | 'WHOLE_TV_UNIT'
+          spare_part_id: string | null
+          product_unit_id: string | null
+          serial_number: string | null
+          barcode: string | null
+          defect_symptom: string
+          custody_status: string
+          harvested_at: string
+          quarantine_warehouse_id: string | null
+          quarantine_notes: string | null
+          core_credit_amount: number
+          is_warranty_covered: boolean
+          idempotency_key: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          core_tag_number: string
+          technician_id: string
+          service_ticket_id?: string | null
+          service_visit_id?: string | null
+          item_type: 'SPARE_PART_CORE' | 'WHOLE_TV_UNIT'
+          spare_part_id?: string | null
+          product_unit_id?: string | null
+          serial_number?: string | null
+          barcode?: string | null
+          defect_symptom: string
+          custody_status?: string
+          harvested_at?: string
+          quarantine_warehouse_id?: string | null
+          quarantine_notes?: string | null
+          core_credit_amount?: number
+          is_warranty_covered?: boolean
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          core_tag_number?: string
+          technician_id?: string
+          service_ticket_id?: string | null
+          service_visit_id?: string | null
+          item_type?: 'SPARE_PART_CORE' | 'WHOLE_TV_UNIT'
+          spare_part_id?: string | null
+          product_unit_id?: string | null
+          serial_number?: string | null
+          barcode?: string | null
+          defect_symptom?: string
+          custody_status?: string
+          harvested_at?: string
+          quarantine_warehouse_id?: string | null
+          quarantine_notes?: string | null
+          core_credit_amount?: number
+          is_warranty_covered?: boolean
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technician_defective_cores_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technician_defective_cores_spare_part_id_fkey"
+            columns: ["spare_part_id"]
+            isOneToOne: false
+            referencedRelation: "spare_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technician_defective_cores_product_unit_id_fkey"
+            columns: ["product_unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      rma_reverse_manifests: {
+        Row: {
+          id: string
+          manifest_number: string
+          technician_id: string
+          destination_warehouse_id: string
+          status: string
+          total_items_count: number
+          received_items_count: number
+          discrepant_items_count: number
+          carrier_tracking_number: string | null
+          technician_notes: string | null
+          warehouse_intake_notes: string | null
+          dispatched_at: string | null
+          received_at: string | null
+          reconciled_at: string | null
+          received_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          manifest_number: string
+          technician_id: string
+          destination_warehouse_id: string
+          status?: string
+          total_items_count?: number
+          received_items_count?: number
+          discrepant_items_count?: number
+          carrier_tracking_number?: string | null
+          technician_notes?: string | null
+          warehouse_intake_notes?: string | null
+          dispatched_at?: string | null
+          received_at?: string | null
+          reconciled_at?: string | null
+          received_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          manifest_number?: string
+          technician_id?: string
+          destination_warehouse_id?: string
+          status?: string
+          total_items_count?: number
+          received_items_count?: number
+          discrepant_items_count?: number
+          carrier_tracking_number?: string | null
+          technician_notes?: string | null
+          warehouse_intake_notes?: string | null
+          dispatched_at?: string | null
+          received_at?: string | null
+          reconciled_at?: string | null
+          received_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rma_reverse_manifests_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rma_reverse_manifests_destination_warehouse_id_fkey"
+            columns: ["destination_warehouse_id"]
+            isOneToOne: false
+            referencedRelation: "warehouses"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      rma_reverse_manifest_items: {
+        Row: {
+          id: string
+          manifest_id: string
+          defective_core_id: string
+          item_status: string
+          received_condition: string | null
+          received_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          manifest_id: string
+          defective_core_id: string
+          item_status?: string
+          received_condition?: string | null
+          received_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          manifest_id?: string
+          defective_core_id?: string
+          item_status?: string
+          received_condition?: string | null
+          received_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rma_reverse_manifest_items_manifest_id_fkey"
+            columns: ["manifest_id"]
+            isOneToOne: false
+            referencedRelation: "rma_reverse_manifests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rma_reverse_manifest_items_defective_core_id_fkey"
+            columns: ["defective_core_id"]
+            isOneToOne: false
+            referencedRelation: "technician_defective_cores"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       brands: {
         Row: {
           created_at: string
@@ -5878,6 +6089,137 @@ export type Database = {
           technician_id: string
           technician_notes: string | null
           total_items_counted: number
+        }
+      }
+      fn_harvest_defective_core: {
+        Args: {
+          p_barcode?: string | null
+          p_core_credit_eligible?: boolean
+          p_defect_symptom: string
+          p_estimated_core_value?: number
+          p_item_type: string
+          p_notes?: string | null
+          p_product_unit_id?: string | null
+          p_serial_number?: string | null
+          p_spare_part_id?: string | null
+          p_technician_id: string
+          p_ticket_id?: string | null
+          p_visit_id?: string | null
+        }
+        Returns: {
+          barcode: string | null
+          core_credit_amount: number | null
+          core_credit_eligible: boolean
+          core_tag_number: string
+          created_at: string
+          custody_status: string
+          defect_symptom: string
+          estimated_core_value: number | null
+          harvested_at: string
+          id: string
+          inspection_notes: string | null
+          item_type: string
+          product_unit_id: string | null
+          qa_inspected_at: string | null
+          qa_inspected_by: string | null
+          qa_passed: boolean | null
+          reverse_manifest_id: string | null
+          serial_number: string | null
+          service_ticket_id: string | null
+          service_visit_id: string | null
+          spare_part_id: string | null
+          technician_id: string
+          updated_at: string
+        }
+      }
+      fn_create_rma_reverse_manifest: {
+        Args: {
+          p_carrier_tracking_number?: string | null
+          p_defective_core_ids: string[]
+          p_destination_warehouse_id: string
+          p_technician_id: string
+          p_technician_notes?: string | null
+        }
+        Returns: {
+          carrier_tracking_number: string | null
+          created_at: string
+          destination_warehouse_id: string
+          discrepant_items_count: number
+          dispatched_at: string | null
+          id: string
+          manifest_number: string
+          received_at: string | null
+          received_by: string | null
+          received_items_count: number
+          reconciled_at: string | null
+          status: string
+          technician_id: string
+          technician_notes: string | null
+          total_items_count: number
+          updated_at: string
+          warehouse_intake_notes: string | null
+        }
+      }
+      fn_receive_rma_reverse_manifest: {
+        Args: {
+          p_items: Json
+          p_manifest_id: string
+          p_received_by?: string | null
+          p_warehouse_intake_notes?: string | null
+        }
+        Returns: {
+          carrier_tracking_number: string | null
+          created_at: string
+          destination_warehouse_id: string
+          discrepant_items_count: number
+          dispatched_at: string | null
+          id: string
+          manifest_number: string
+          received_at: string | null
+          received_by: string | null
+          received_items_count: number
+          reconciled_at: string | null
+          status: string
+          technician_id: string
+          technician_notes: string | null
+          total_items_count: number
+          updated_at: string
+          warehouse_intake_notes: string | null
+        }
+      }
+      fn_inspect_and_settle_defective_core: {
+        Args: {
+          p_action: string
+          p_condition_grading?: string | null
+          p_core_credit_amount?: number
+          p_defective_core_id: string
+          p_inspection_notes?: string | null
+          p_qa_passed?: boolean
+        }
+        Returns: {
+          barcode: string | null
+          core_credit_amount: number | null
+          core_credit_eligible: boolean
+          core_tag_number: string
+          created_at: string
+          custody_status: string
+          defect_symptom: string
+          estimated_core_value: number | null
+          harvested_at: string
+          id: string
+          inspection_notes: string | null
+          item_type: string
+          product_unit_id: string | null
+          qa_inspected_at: string | null
+          qa_inspected_by: string | null
+          qa_passed: boolean | null
+          reverse_manifest_id: string | null
+          serial_number: string | null
+          service_ticket_id: string | null
+          service_visit_id: string | null
+          spare_part_id: string | null
+          technician_id: string
+          updated_at: string
         }
       }
       fn_verify_visit_otp_and_complete: {

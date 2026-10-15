@@ -20,7 +20,9 @@ export interface QueuedVisitAction {
     | 'CUSTOMER_SIGNATURE'
     | 'PART_CONSUMPTION'
     | 'PART_RETURN'
-    | 'RECONCILIATION_SUBMISSION';
+    | 'RECONCILIATION_SUBMISSION'
+    | 'HARVEST_DEFECTIVE_CORE'
+    | 'DISPATCH_RMA_MANIFEST';
   visitId?: string;
   ticketId?: string;
   payload: {
@@ -43,6 +45,17 @@ export interface QueuedVisitAction {
     statusType?: string;
     reason?: string;
     reconciliationItems?: any[];
+    // Phase 7.5 Defective Core & RMA Reverse Logistics fields
+    itemType?: 'SPARE_PART_CORE' | 'WHOLE_TV_UNIT';
+    productUnitId?: string;
+    serialNumber?: string;
+    barcode?: string;
+    defectSymptom?: string;
+    coreCreditEligible?: boolean;
+    estimatedCoreValue?: number;
+    destinationWarehouseId?: string;
+    carrierTrackingNumber?: string;
+    defectiveCoreIds?: string[];
   };
   queuedAt: string;
   status: 'pending' | 'syncing' | 'synced' | 'failed';
@@ -326,6 +339,82 @@ export class TechnicianOfflineService {
         technicianId,
         reconciliationItems: items,
         technicianNotes: notes
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Queues offline defective core harvesting or TV chassis swap
+   */
+  public enqueueHarvestDefectiveCore(
+    technicianId: string,
+    params: {
+      visitId?: string;
+      ticketId?: string;
+      itemType: 'SPARE_PART_CORE' | 'WHOLE_TV_UNIT';
+      sparePartId?: string;
+      productUnitId?: string;
+      serialNumber?: string;
+      barcode?: string;
+      defectSymptom: string;
+      coreCreditEligible?: boolean;
+      estimatedCoreValue?: number;
+      notes?: string;
+    }
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `CORE-HARVEST-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'HARVEST_DEFECTIVE_CORE',
+      visitId: params.visitId,
+      ticketId: params.ticketId,
+      payload: {
+        technicianId,
+        itemType: params.itemType,
+        sparePartId: params.sparePartId,
+        productUnitId: params.productUnitId,
+        serialNumber: params.serialNumber,
+        barcode: params.barcode,
+        defectSymptom: params.defectSymptom,
+        coreCreditEligible: params.coreCreditEligible !== false,
+        estimatedCoreValue: params.estimatedCoreValue || 0,
+        technicianNotes: params.notes
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Queues offline RMA reverse logistics manifest dispatch
+   */
+  public enqueueDispatchRmaManifest(
+    technicianId: string,
+    destinationWarehouseId: string,
+    defectiveCoreIds: string[],
+    carrierTrackingNumber?: string,
+    technicianNotes?: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `RLM-DISPATCH-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'DISPATCH_RMA_MANIFEST',
+      payload: {
+        technicianId,
+        destinationWarehouseId,
+        defectiveCoreIds,
+        carrierTrackingNumber,
+        technicianNotes
       },
       queuedAt: new Date().toISOString(),
       status: 'pending',

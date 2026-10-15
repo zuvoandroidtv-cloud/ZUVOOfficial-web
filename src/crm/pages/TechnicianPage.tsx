@@ -38,7 +38,8 @@ import {
   AlertOctagon,
   ClipboardCheck,
   History,
-  CheckCheck
+  CheckCheck,
+  ArrowRightLeft
 } from 'lucide-react';
 import { BarcodeLookupModal } from '../components/common/BarcodeLookupModal';
 import { technicianOfflineService, QueuedVisitAction } from '../lib/technicianOfflineService';
@@ -106,6 +107,30 @@ export const TechnicianPage: React.FC = () => {
   const [reconciliationCounts, setReconciliationCounts] = useState<Record<string, { count: number; reason: string }>>({});
   const [reconciliationNotes, setReconciliationNotes] = useState('');
   const [submittingReconciliation, setSubmittingReconciliation] = useState(false);
+
+  // Phase 7.5: Defective Cores & RMA Reverse Logistics state
+  const [defectiveCores, setDefectiveCores] = useState<any[]>([]);
+  const [loadingCores, setLoadingCores] = useState(false);
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
+  const [showDispatchManifestModal, setShowDispatchManifestModal] = useState(false);
+  const [selectedCoreIdsForManifest, setSelectedCoreIdsForManifest] = useState<string[]>([]);
+  const [harvestForm, setHarvestForm] = useState({
+    itemType: 'SPARE_PART_CORE' as 'SPARE_PART_CORE' | 'WHOLE_TV_UNIT',
+    sparePartId: '',
+    serialNumber: '',
+    barcode: '',
+    defectSymptom: '',
+    coreCreditEligible: true,
+    estimatedCoreValue: 0,
+    technicianNotes: ''
+  });
+  const [manifestForm, setManifestForm] = useState({
+    destinationWarehouseId: '',
+    carrierTrackingNumber: '',
+    technicianNotes: ''
+  });
+  const [submittingHarvest, setSubmittingHarvest] = useState(false);
+  const [submittingManifest, setSubmittingManifest] = useState(false);
 
   // Form states
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -296,6 +321,31 @@ export const TechnicianPage: React.FC = () => {
               p_technician_notes: item.payload?.technicianNotes || 'Submitted via offline sync'
             });
             return { success: !error, error: error?.message };
+          } else if (item.type === 'HARVEST_DEFECTIVE_CORE') {
+            const { error } = await supabase.rpc('fn_harvest_defective_core', {
+              p_technician_id: item.payload?.technicianId || user?.id,
+              p_ticket_id: item.ticketId || null,
+              p_visit_id: item.visitId || null,
+              p_item_type: item.payload?.itemType || 'SPARE_PART_CORE',
+              p_spare_part_id: item.payload?.sparePartId || null,
+              p_product_unit_id: item.payload?.productUnitId || null,
+              p_serial_number: item.payload?.serialNumber || null,
+              p_barcode: item.payload?.barcode || null,
+              p_defect_symptom: item.payload?.defectSymptom || 'Harvested via offline sync',
+              p_core_credit_eligible: item.payload?.coreCreditEligible !== false,
+              p_estimated_core_value: item.payload?.estimatedCoreValue || 0,
+              p_notes: item.payload?.technicianNotes || null
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'DISPATCH_RMA_MANIFEST') {
+            const { error } = await supabase.rpc('fn_create_rma_reverse_manifest', {
+              p_technician_id: item.payload?.technicianId || user?.id,
+              p_destination_warehouse_id: item.payload?.destinationWarehouseId!,
+              p_defective_core_ids: item.payload?.defectiveCoreIds || [],
+              p_carrier_tracking_number: item.payload?.carrierTrackingNumber || null,
+              p_technician_notes: item.payload?.technicianNotes || null
+            });
+            return { success: !error, error: error?.message };
           }
           return { success: true };
         });
@@ -393,6 +443,60 @@ export const TechnicianPage: React.FC = () => {
     }
   };
 
+  // Phase 7.5: Fetch defective cores held by technician
+  const fetchDefectiveCores = async () => {
+    if (!user?.id) return;
+    setLoadingCores(true);
+    try {
+      const { data, error } = await supabase
+        .from('technician_defective_cores')
+        .select(`
+          id,
+          core_tag_number,
+          technician_id,
+          service_ticket_id,
+          service_visit_id,
+          item_type,
+          spare_part_id,
+          product_unit_id,
+          serial_number,
+          barcode,
+          defect_symptom,
+          core_credit_eligible,
+          estimated_core_value,
+          custody_status,
+          reverse_manifest_id,
+          harvested_at,
+          spare_parts (
+            part_name,
+            part_code,
+            category
+          ),
+          product_units (
+            serial_number,
+            barcode,
+            product_variants (
+              product_name,
+              screen_size
+            )
+          ),
+          service_tickets (
+            ticket_number
+          )
+        `)
+        .eq('technician_id', user.id)
+        .order('harvested_at', { ascending: false });
+
+      if (!error && data) {
+        setDefectiveCores(data);
+      }
+    } catch (err) {
+      console.warn('Error fetching technician defective cores:', err);
+    } finally {
+      setLoadingCores(false);
+    }
+  };
+
   // Fetch spare parts & warehouses for parts usage
   const fetchPartsDependencies = async () => {
     try {
@@ -405,6 +509,7 @@ export const TechnicianPage: React.FC = () => {
       if (whRes.data && whRes.data.length > 0) {
         setPartForm(prev => ({ ...prev, warehouseId: whRes.data[0].id }));
         setReturnForm(prev => ({ ...prev, warehouseId: whRes.data[0].id }));
+        setManifestForm(prev => ({ ...prev, destinationWarehouseId: whRes.data[0].id }));
       }
     } catch (err) {
       console.error('Error fetching parts dependencies:', err);
@@ -416,6 +521,7 @@ export const TechnicianPage: React.FC = () => {
     fetchPartsDependencies();
     fetchTrunkInventory();
     fetchTrunkMovements();
+    fetchDefectiveCores();
   }, [user, currentRole]);
 
   // Phase 7.3: Handle Arrival with Event-based GPS
@@ -833,6 +939,148 @@ export const TechnicianPage: React.FC = () => {
       setErrorMsg(err.message || 'Failed to submit van reconciliation.');
     } finally {
       setSubmittingReconciliation(false);
+    }
+  };
+
+  // Phase 7.5: Harvest Defective Part Core or Whole TV Swap
+  const handleHarvestDefectiveCore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!harvestForm.defectSymptom || harvestForm.defectSymptom.trim().length < 3) {
+      setErrorMsg('Please enter a valid defect symptom.');
+      return;
+    }
+
+    if (harvestForm.itemType === 'SPARE_PART_CORE' && !harvestForm.sparePartId) {
+      setErrorMsg('Please select the harvested spare part component.');
+      return;
+    }
+
+    setSubmittingHarvest(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    const unit = selectedVisit?.service_tickets?.product_units;
+
+    if (isOffline) {
+      technicianOfflineService.enqueueHarvestDefectiveCore(user?.id || '', {
+        visitId: selectedVisit?.id,
+        ticketId: selectedVisit?.service_ticket_id,
+        itemType: harvestForm.itemType,
+        sparePartId: harvestForm.itemType === 'SPARE_PART_CORE' ? harvestForm.sparePartId : undefined,
+        productUnitId: harvestForm.itemType === 'WHOLE_TV_UNIT' ? unit?.id : undefined,
+        serialNumber: harvestForm.serialNumber || unit?.serial_number,
+        barcode: harvestForm.barcode || unit?.barcode,
+        defectSymptom: harvestForm.defectSymptom,
+        coreCreditEligible: harvestForm.coreCreditEligible,
+        estimatedCoreValue: Number(harvestForm.estimatedCoreValue) || 0,
+        notes: harvestForm.technicianNotes
+      });
+      setSuccessMsg('Defective core harvest queued locally. Chain-of-custody will synchronize once back online.');
+      setShowHarvestModal(false);
+      setSubmittingHarvest(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('fn_harvest_defective_core', {
+        p_technician_id: user?.id || '',
+        p_ticket_id: selectedVisit?.service_ticket_id || null,
+        p_visit_id: selectedVisit?.id || null,
+        p_item_type: harvestForm.itemType,
+        p_spare_part_id: harvestForm.itemType === 'SPARE_PART_CORE' ? harvestForm.sparePartId : null,
+        p_product_unit_id: harvestForm.itemType === 'WHOLE_TV_UNIT' ? unit?.id || null : null,
+        p_serial_number: harvestForm.serialNumber || unit?.serial_number || null,
+        p_barcode: harvestForm.barcode || unit?.barcode || null,
+        p_defect_symptom: harvestForm.defectSymptom,
+        p_core_credit_eligible: harvestForm.coreCreditEligible,
+        p_estimated_core_value: Number(harvestForm.estimatedCoreValue) || 0,
+        p_notes: harvestForm.technicianNotes || null
+      });
+
+      if (error) throw error;
+
+      const tag = (data as any)?.core_tag_number || 'CORE';
+      setSuccessMsg(`Defective core harvested successfully! Chain-of-custody tag generated: ${tag}`);
+      setShowHarvestModal(false);
+      setHarvestForm({
+        itemType: 'SPARE_PART_CORE',
+        sparePartId: '',
+        serialNumber: '',
+        barcode: '',
+        defectSymptom: '',
+        coreCreditEligible: true,
+        estimatedCoreValue: 0,
+        technicianNotes: ''
+      });
+      fetchDefectiveCores();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to harvest defective core.');
+    } finally {
+      setSubmittingHarvest(false);
+    }
+  };
+
+  // Phase 7.5: Dispatch RMA Reverse Logistics Manifest
+  const handleDispatchRmaManifest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedCoreIdsForManifest.length === 0) {
+      setErrorMsg('Please select at least one defective core to include in the RMA reverse manifest.');
+      return;
+    }
+
+    if (!manifestForm.destinationWarehouseId) {
+      setErrorMsg('Please choose the destination warehouse / quarantine facility.');
+      return;
+    }
+
+    setSubmittingManifest(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      technicianOfflineService.enqueueDispatchRmaManifest(
+        user?.id || '',
+        manifestForm.destinationWarehouseId,
+        selectedCoreIdsForManifest,
+        manifestForm.carrierTrackingNumber,
+        manifestForm.technicianNotes
+      );
+      setSuccessMsg('RMA Reverse Manifest queued locally. Will be transmitted to central depot once back online.');
+      setShowDispatchManifestModal(false);
+      setSelectedCoreIdsForManifest([]);
+      setSubmittingManifest(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('fn_create_rma_reverse_manifest', {
+        p_technician_id: user?.id || '',
+        p_destination_warehouse_id: manifestForm.destinationWarehouseId,
+        p_defective_core_ids: selectedCoreIdsForManifest,
+        p_carrier_tracking_number: manifestForm.carrierTrackingNumber || null,
+        p_technician_notes: manifestForm.technicianNotes || null
+      });
+
+      if (error) throw error;
+
+      const manifestNo = (data as any)?.manifest_number || 'RLM';
+      setSuccessMsg(`RMA Reverse Manifest created and dispatched: ${manifestNo} with ${selectedCoreIdsForManifest.length} item(s).`);
+      setShowDispatchManifestModal(false);
+      setSelectedCoreIdsForManifest([]);
+      setManifestForm({
+        destinationWarehouseId: warehousesList[0]?.id || '',
+        carrierTrackingNumber: '',
+        technicianNotes: ''
+      });
+      fetchDefectiveCores();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to create RMA reverse manifest.');
+    } finally {
+      setSubmittingManifest(false);
     }
   };
 
@@ -1351,6 +1599,161 @@ export const TechnicianPage: React.FC = () => {
                   })}
               </div>
             )}
+
+            {/* PHASE 7.5: DEFECTIVE CORES & RMA REVERSE LOGISTICS SECTION */}
+            <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                    <ArrowRightLeft size={18} style={{ color: 'var(--accent-amber)' }} />
+                    <span>Harvested Defective Cores & Swapped Chassis</span>
+                  </h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+                    Defective components and whole units in your custody awaiting return dispatch to depot.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => {
+                      const pendingCores = defectiveCores.filter(c => c.custody_status === 'WITH_TECHNICIAN').map(c => c.id);
+                      setSelectedCoreIdsForManifest(pendingCores);
+                      setShowDispatchManifestModal(true);
+                    }}
+                    disabled={defectiveCores.filter(c => c.custody_status === 'WITH_TECHNICIAN').length === 0}
+                    className="technician-btn-touch btn-primary"
+                    style={{
+                      fontSize: '0.8rem',
+                      padding: '0.45rem 0.85rem',
+                      background: 'linear-gradient(135deg, #F59E0B, #D97706)'
+                    }}
+                  >
+                    <Truck size={15} />
+                    <span>Dispatch RMA Manifest ({defectiveCores.filter(c => c.custody_status === 'WITH_TECHNICIAN').length})</span>
+                  </button>
+                </div>
+              </div>
+
+              {loadingCores ? (
+                <div style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)' }}>
+                  <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 0.5rem', color: 'var(--accent-amber)' }} />
+                  <p style={{ fontSize: '0.8rem' }}>Loading defective cores...</p>
+                </div>
+              ) : defectiveCores.length === 0 ? (
+                <div className="glass-card" style={{ textAlign: 'center', padding: '1.5rem 1rem', color: 'var(--text-muted)', background: 'rgba(255, 255, 255, 0.02)' }}>
+                  <CheckCircle size={28} style={{ margin: '0 auto 0.5rem', color: 'var(--accent-emerald)', opacity: 0.7 }} />
+                  <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>No Defective Cores in Custody</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>All harvested boards and swapped TV units have been dispatched or settled.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {defectiveCores.map((core) => {
+                    const isWithTech = core.custody_status === 'WITH_TECHNICIAN';
+                    const isSelected = selectedCoreIdsForManifest.includes(core.id);
+
+                    return (
+                      <div
+                        key={core.id}
+                        className="glass-card"
+                        style={{
+                          padding: '0.875rem',
+                          borderRadius: 'var(--radius-md)',
+                          border: isWithTech ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid var(--border-subtle)',
+                          background: isWithTech ? 'rgba(245, 158, 11, 0.04)' : 'var(--bg-glass)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {isWithTech && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCoreIdsForManifest(prev => [...prev, core.id]);
+                                  } else {
+                                    setSelectedCoreIdsForManifest(prev => prev.filter(id => id !== core.id));
+                                  }
+                                }}
+                                style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                              />
+                            )}
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 700, color: 'var(--accent-amber)' }}>
+                                  {core.core_tag_number}
+                                </span>
+                                <span style={{
+                                  fontSize: '0.675rem',
+                                  fontWeight: 700,
+                                  padding: '0.1rem 0.45rem',
+                                  borderRadius: '3px',
+                                  background:
+                                    core.custody_status === 'WITH_TECHNICIAN' ? 'rgba(245, 158, 11, 0.2)' :
+                                    core.custody_status === 'DISPATCHED_TO_DEPOT' ? 'rgba(59, 130, 246, 0.2)' :
+                                    core.custody_status === 'RECEIVED_AT_DEPOT' ? 'rgba(6, 182, 212, 0.2)' :
+                                    core.custody_status === 'REFURB_APPROVED' ? 'rgba(16, 185, 129, 0.2)' :
+                                    'rgba(239, 68, 68, 0.2)',
+                                  color:
+                                    core.custody_status === 'WITH_TECHNICIAN' ? 'var(--accent-amber)' :
+                                    core.custody_status === 'DISPATCHED_TO_DEPOT' ? 'var(--accent-blue)' :
+                                    core.custody_status === 'RECEIVED_AT_DEPOT' ? 'var(--accent-cyan)' :
+                                    core.custody_status === 'REFURB_APPROVED' ? 'var(--accent-emerald)' :
+                                    'var(--accent-rose)'
+                                }}>
+                                  {core.custody_status}
+                                </span>
+                                <span className="badge" style={{ fontSize: '0.675rem', background: 'rgba(255, 255, 255, 0.08)' }}>
+                                  {core.item_type === 'WHOLE_TV_UNIT' ? 'Whole TV Swap' : 'Spare Part Core'}
+                                </span>
+                              </div>
+
+                              <div style={{ marginTop: '0.3rem', fontSize: '0.825rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                {core.item_type === 'WHOLE_TV_UNIT' ? (
+                                  core.product_units?.product_variants?.product_name || 'ZUVO TV Unit'
+                                ) : (
+                                  core.spare_parts?.part_name || 'Harvested Component'
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            <div>Harvested: {new Date(core.harvested_at).toLocaleDateString()}</div>
+                            {core.service_tickets?.ticket_number && (
+                              <div style={{ color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)' }}>
+                                #{core.service_tickets.ticket_number}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-subtle)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', fontSize: '0.75rem' }}>
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>Defect Symptom: </span>
+                            <span style={{ color: 'var(--text-primary)' }}>{core.defect_symptom}</span>
+                          </div>
+                          {(core.serial_number || core.barcode) && (
+                            <div>
+                              <span style={{ color: 'var(--text-muted)' }}>Serial/Barcode: </span>
+                              <span style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                                {core.serial_number || core.barcode}
+                              </span>
+                            </div>
+                          )}
+                          <div>
+                            <span style={{ color: 'var(--text-muted)' }}>Core Credit: </span>
+                            <span style={{ color: core.core_credit_eligible ? 'var(--accent-emerald)' : 'var(--text-muted)', fontWeight: 600 }}>
+                              {core.core_credit_eligible ? `Eligible (Est. ₹${core.estimated_core_value || 0})` : 'Ineligible'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
         /* Visit Cards List */
@@ -1547,6 +1950,29 @@ export const TechnicianPage: React.FC = () => {
                           >
                             <Package size={16} style={{ color: 'var(--accent-amber)' }} />
                             <span>Request Parts</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSelectedVisit(visit);
+                              const u = visit.service_tickets?.product_units;
+                              setHarvestForm({
+                                itemType: 'SPARE_PART_CORE',
+                                sparePartId: '',
+                                serialNumber: u?.serial_number || '',
+                                barcode: u?.barcode || '',
+                                defectSymptom: visit.service_tickets?.issue_description || '',
+                                coreCreditEligible: true,
+                                estimatedCoreValue: 0,
+                                technicianNotes: ''
+                              });
+                              setShowHarvestModal(true);
+                            }}
+                            className="technician-btn-touch btn-secondary"
+                            style={{ flex: '1 1 140px', borderColor: 'rgba(245, 158, 11, 0.4)', color: 'var(--accent-amber)' }}
+                          >
+                            <ArrowRightLeft size={16} />
+                            <span>Harvest Core / Swap</span>
                           </button>
 
                           <button
@@ -2357,6 +2783,245 @@ export const TechnicianPage: React.FC = () => {
                 Close Ledger
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.5: HARVEST DEFECTIVE CORE / TV SWAP MODAL */}
+      {showHarvestModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ArrowRightLeft size={18} style={{ color: 'var(--accent-amber)' }} />
+                <span>Defective Core Harvest & Unit Swap</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowHarvestModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleHarvestDefectiveCore}>
+              <div className="modal-body">
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                  Harvesting records defective components or whole TV swaps into your field custody with an immutable chain-of-custody tag.
+                </p>
+
+                <div className="input-group">
+                  <label className="input-label">Harvest Item Type *</label>
+                  <select
+                    className="form-input"
+                    value={harvestForm.itemType}
+                    onChange={(e) => setHarvestForm({ ...harvestForm, itemType: e.target.value as any })}
+                  >
+                    <option value="SPARE_PART_CORE">Spare Part Defective Board / Core (Motherboard, Power Board, T-Con)</option>
+                    <option value="WHOLE_TV_UNIT">Whole TV Unit Swap (Chassis Replacement)</option>
+                  </select>
+                </div>
+
+                {harvestForm.itemType === 'SPARE_PART_CORE' ? (
+                  <div className="input-group">
+                    <label className="input-label">Defective Spare Part Component *</label>
+                    <select
+                      className="form-input"
+                      value={harvestForm.sparePartId}
+                      onChange={(e) => setHarvestForm({ ...harvestForm, sparePartId: e.target.value })}
+                      required
+                    >
+                      <option value="">-- Choose Spare Part --</option>
+                      {sparePartsList.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.part_name} ({p.part_code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent-amber)' }}>
+                      Whole TV Unit Swap Selected
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                      Unit: {selectedVisit?.service_tickets?.product_units?.serial_number || 'N/A'} (Barcode: {selectedVisit?.service_tickets?.product_units?.barcode || 'N/A'})
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="input-group">
+                    <label className="input-label">Defective Unit Serial #</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={harvestForm.serialNumber}
+                      onChange={(e) => setHarvestForm({ ...harvestForm, serialNumber: e.target.value })}
+                      placeholder="e.g. SN-ZUV-2026-991"
+                    />
+                  </div>
+
+                  <div className="input-group">
+                    <label className="input-label">Defective Unit Barcode</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={harvestForm.barcode}
+                      onChange={(e) => setHarvestForm({ ...harvestForm, barcode: e.target.value })}
+                      placeholder="e.g. 890123456789"
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Observed Defect Symptom / Failure Mode *</label>
+                  <textarea
+                    className="form-input"
+                    rows={2}
+                    value={harvestForm.defectSymptom}
+                    onChange={(e) => setHarvestForm({ ...harvestForm, defectSymptom: e.target.value })}
+                    placeholder="e.g. Blown backlight MOSFET, no display, audio normal"
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="input-group">
+                    <label className="input-label">Core Credit Eligible</label>
+                    <select
+                      className="form-input"
+                      value={harvestForm.coreCreditEligible ? 'yes' : 'no'}
+                      onChange={(e) => setHarvestForm({ ...harvestForm, coreCreditEligible: e.target.value === 'yes' })}
+                    >
+                      <option value="yes">Yes (Eligible for Refurb)</option>
+                      <option value="no">No (Physical Damage / Scrap)</option>
+                    </select>
+                  </div>
+
+                  <div className="input-group">
+                    <label className="input-label">Estimated Core Value (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      className="form-input"
+                      value={harvestForm.estimatedCoreValue}
+                      onChange={(e) => setHarvestForm({ ...harvestForm, estimatedCoreValue: Math.max(0, parseFloat(e.target.value) || 0) })}
+                    />
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Technician Harvesting Notes</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={harvestForm.technicianNotes}
+                    onChange={(e) => setHarvestForm({ ...harvestForm, technicianNotes: e.target.value })}
+                    placeholder="e.g. Extracted from customer home visit #VIS-1002"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowHarvestModal(false)}
+                  className="technician-btn-touch btn-secondary"
+                  disabled={submittingHarvest}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingHarvest}
+                  className="technician-btn-touch btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #F59E0B, #D97706)' }}
+                >
+                  {submittingHarvest ? 'Harvesting...' : 'Confirm Defective Harvest'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.5: DISPATCH RMA REVERSE LOGISTICS MANIFEST MODAL */}
+      {showDispatchManifestModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '540px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Truck size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <span>Dispatch RMA Reverse Manifest</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowDispatchManifestModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleDispatchRmaManifest}>
+              <div className="modal-body">
+                <div style={{ background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.8rem' }}>
+                  <strong>Selected Defective Cores for Dispatch:</strong> {selectedCoreIdsForManifest.length} item(s)
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Destination Central Depot / Quarantine Warehouse *</label>
+                  <select
+                    className="form-input"
+                    value={manifestForm.destinationWarehouseId}
+                    onChange={(e) => setManifestForm({ ...manifestForm, destinationWarehouseId: e.target.value })}
+                    required
+                  >
+                    <option value="">-- Choose Warehouse --</option>
+                    {warehousesList.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.warehouse_name} ({w.warehouse_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Courier / Logistics Tracking Number</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={manifestForm.carrierTrackingNumber}
+                    onChange={(e) => setManifestForm({ ...manifestForm, carrierTrackingNumber: e.target.value })}
+                    placeholder="e.g. DELHIVERY-992144810 or VAN-RETURN-DIRECT"
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Technician Dispatch Notes</label>
+                  <textarea
+                    className="form-input"
+                    rows={2}
+                    value={manifestForm.technicianNotes}
+                    onChange={(e) => setManifestForm({ ...manifestForm, technicianNotes: e.target.value })}
+                    placeholder="e.g. Dispatched 2 motherboards & 1 chassis via regional courier"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowDispatchManifestModal(false)}
+                  className="technician-btn-touch btn-secondary"
+                  disabled={submittingManifest}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingManifest}
+                  className="technician-btn-touch btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #0891B2)' }}
+                >
+                  {submittingManifest ? 'Dispatching...' : 'Dispatch RMA Manifest'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

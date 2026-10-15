@@ -15,14 +15,17 @@ import {
   Download,
   FileSpreadsheet,
   Truck,
-  ClipboardCheck
+  ClipboardCheck,
+  ArrowRightLeft,
+  ShieldCheck,
+  Check
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
 
 export const SparePartsPage: React.FC = () => {
-  const { currentRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<'catalog' | 'compatibility' | 'consumption' | 'trunk_management'>('catalog');
+  const { currentRole, user } = useAuth();
+  const [activeTab, setActiveTab] = useState<'catalog' | 'compatibility' | 'consumption' | 'trunk_management' | 'reverse_logistics'>('catalog');
   const [parts, setParts] = useState<any[]>([]);
   const [stockSummary, setStockSummary] = useState<any[]>([]);
   const [compatibilities, setCompatibilities] = useState<any[]>([]);
@@ -47,6 +50,28 @@ export const SparePartsPage: React.FC = () => {
   });
   const [submittingIssue, setSubmittingIssue] = useState(false);
   const [reviewingReconciliation, setReviewingReconciliation] = useState(false);
+
+  // Phase 7.5: Reverse Logistics & Core Quarantine State
+  const [reverseManifests, setReverseManifests] = useState<any[]>([]);
+  const [allDefectiveCores, setAllDefectiveCores] = useState<any[]>([]);
+  const [selectedManifest, setSelectedManifest] = useState<any | null>(null);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showInspectModal, setShowInspectModal] = useState(false);
+  const [selectedCoreToInspect, setSelectedCoreToInspect] = useState<any | null>(null);
+  const [receiveManifestForm, setReceiveManifestForm] = useState({
+    intakeNotes: '',
+    itemConditions: {} as Record<string, string>,
+    itemStatuses: {} as Record<string, string>
+  });
+  const [inspectCoreForm, setInspectCoreForm] = useState({
+    action: 'APPROVED_FOR_REFURB' as 'APPROVED_FOR_REFURB' | 'SCRAPPED',
+    qaPassed: true,
+    conditionGrading: 'GRADE_B',
+    coreCreditAmount: 0,
+    inspectionNotes: ''
+  });
+  const [submittingIntake, setSubmittingIntake] = useState(false);
+  const [submittingInspect, setSubmittingInspect] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -122,6 +147,47 @@ export const SparePartsPage: React.FC = () => {
         if (partsRes.data && partsRes.data.length > 0 && !issueForm.sparePartId) {
           setIssueForm(prev => ({ ...prev, sparePartId: partsRes.data[0].id }));
         }
+      } else if (activeTab === 'reverse_logistics') {
+        const [manifestsRes, coresRes, whRes] = await Promise.all([
+          supabase.from('rma_reverse_manifests').select(`
+            *,
+            profiles!rma_reverse_manifests_technician_id_fkey(full_name, employee_code, phone),
+            warehouses!rma_reverse_manifests_destination_warehouse_id_fkey(warehouse_name, warehouse_code),
+            rma_reverse_manifest_items(
+              id,
+              manifest_id,
+              defective_core_id,
+              item_status,
+              received_condition,
+              received_at,
+              technician_defective_cores(
+                id,
+                core_tag_number,
+                item_type,
+                serial_number,
+                barcode,
+                defect_symptom,
+                core_credit_eligible,
+                estimated_core_value,
+                custody_status,
+                spare_parts(part_name, part_code),
+                product_units(serial_number, barcode, product_variants(product_name))
+              )
+            )
+          `).order('created_at', { ascending: false }),
+          supabase.from('technician_defective_cores').select(`
+            *,
+            profiles!technician_defective_cores_technician_id_fkey(full_name, employee_code),
+            spare_parts(part_name, part_code, category),
+            product_units(serial_number, barcode, product_variants(product_name)),
+            service_tickets(ticket_number)
+          `).order('created_at', { ascending: false }),
+          supabase.from('warehouses').select('id, warehouse_name, warehouse_code').eq('is_active', true)
+        ]);
+
+        setReverseManifests(manifestsRes.data || []);
+        setAllDefectiveCores(coresRes.data || []);
+        setWarehousesList(whRes.data || []);
       }
     } catch (err: any) {
       console.error('Error fetching spare parts data:', err);
@@ -279,6 +345,74 @@ export const SparePartsPage: React.FC = () => {
     }
   };
 
+  // Phase 7.5: Receive RMA Reverse Manifest at Depot
+  const handleReceiveManifest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedManifest) return;
+
+    setSubmittingIntake(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const itemsPayload = selectedManifest.rma_reverse_manifest_items?.map((item: any) => ({
+        item_id: item.id,
+        item_status: receiveManifestForm.itemStatuses[item.id] || 'RECEIVED',
+        received_condition: receiveManifestForm.itemConditions[item.id] || 'Clean intact board'
+      })) || [];
+
+      const { data, error } = await supabase.rpc('fn_receive_rma_reverse_manifest', {
+        p_manifest_id: selectedManifest.id,
+        p_received_by: user?.id || null,
+        p_items: itemsPayload,
+        p_warehouse_intake_notes: receiveManifestForm.intakeNotes || 'Depot quarantine intake verified'
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Manifest #${(data as any)?.manifest_number || ''} received & processed at warehouse.`);
+      setShowReceiveModal(false);
+      setSelectedManifest(null);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to receive RMA reverse manifest.');
+    } finally {
+      setSubmittingIntake(false);
+    }
+  };
+
+  // Phase 7.5: QA Inspect & Settle Defective Core
+  const handleInspectCore = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCoreToInspect) return;
+
+    setSubmittingInspect(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const { data, error } = await supabase.rpc('fn_inspect_and_settle_defective_core', {
+        p_defective_core_id: selectedCoreToInspect.id,
+        p_action: inspectCoreForm.action,
+        p_qa_passed: inspectCoreForm.action === 'APPROVED_FOR_REFURB',
+        p_condition_grading: inspectCoreForm.conditionGrading,
+        p_core_credit_amount: Number(inspectCoreForm.coreCreditAmount) || 0,
+        p_inspection_notes: inspectCoreForm.inspectionNotes || 'Depot engineering assessment'
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Core tag ${(data as any)?.core_tag_number || ''} settled: ${inspectCoreForm.action}. Core credit: ₹${(data as any)?.core_credit_amount || 0}`);
+      setShowInspectModal(false);
+      setSelectedCoreToInspect(null);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to inspect & settle defective core.');
+    } finally {
+      setSubmittingInspect(false);
+    }
+  };
+
   return (
     <div className="module-container">
       {/* Top Header */}
@@ -329,6 +463,13 @@ export const SparePartsPage: React.FC = () => {
             onClick={() => setActiveTab('trunk_management')}
           >
             <Truck size={15} /> Field Trunk & Van Stock
+          </button>
+          <button
+            className={`btn ${activeTab === 'reverse_logistics' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('reverse_logistics')}
+            style={activeTab === 'reverse_logistics' ? { background: 'linear-gradient(135deg, #F59E0B, #D97706)', borderColor: '#F59E0B' } : {}}
+          >
+            <ArrowRightLeft size={15} /> Reverse Logistics & Core Quarantine
           </button>
         </div>
       </div>
@@ -677,6 +818,560 @@ export const SparePartsPage: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: Reverse Logistics & Core Quarantine */}
+      {activeTab === 'reverse_logistics' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Summary Stat Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #F59E0B' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Manifests Dispatched (In Transit)
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#F59E0B', marginTop: '0.25rem' }}>
+                {reverseManifests.filter(m => m.status === 'DISPATCHED').length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Awaiting depot warehouse receipt
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #06B6D4' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Cores in Depot Quarantine
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#06B6D4', marginTop: '0.25rem' }}>
+                {allDefectiveCores.filter(c => c.custody_status === 'RECEIVED_AT_DEPOT').length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Pending engineering QA inspection
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #10B981' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Approved For Refurbishment
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#10B981', marginTop: '0.25rem' }}>
+                {allDefectiveCores.filter(c => c.custody_status === 'REFURB_APPROVED').length}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Ready for component-level repair
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '1rem', borderLeft: '4px solid #EF4444' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Total Core Credit Value
+              </div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                ₹{allDefectiveCores.reduce((sum, c) => sum + (c.core_credit_amount || 0), 0).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                Settled core credits credited to accounts
+              </div>
+            </div>
+          </div>
+
+          {/* Section 1: RMA Reverse Logistics Manifests */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <Truck style={{ color: 'var(--brand-primary)' }} />
+                  <span>Reverse Logistics Manifests (Technician → Depot)</span>
+                </h3>
+                <p className="text-muted" style={{ fontSize: '0.75rem', margin: '0.25rem 0 0 0' }}>
+                  Track incoming shipment batches from field vans and process warehouse intake receipt.
+                </p>
+              </div>
+            </div>
+
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Manifest #</th>
+                    <th>Field Technician</th>
+                    <th>Destination Depot</th>
+                    <th>Tracking #</th>
+                    <th>Items</th>
+                    <th>Status</th>
+                    <th>Dispatched At</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reverseManifests.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>
+                        <p className="text-muted">No reverse logistics manifests found.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    reverseManifests.map((m) => {
+                      const isDispatched = m.status === 'DISPATCHED';
+
+                      return (
+                        <tr key={m.id}>
+                          <td>
+                            <strong style={{ fontFamily: 'var(--font-mono)', color: 'var(--brand-primary)' }}>
+                              {m.manifest_number}
+                            </strong>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{m.profiles?.full_name || 'Technician'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{m.profiles?.employee_code || m.profiles?.phone || ''}</div>
+                          </td>
+                          <td>
+                            <div>{m.warehouses?.warehouse_name || 'Central Depot'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{m.warehouses?.warehouse_code}</div>
+                          </td>
+                          <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                            {m.carrier_tracking_number || <span className="text-muted">Direct Van Transfer</span>}
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 600 }}>{m.total_items_count} item(s)</span>
+                            {m.discrepant_items_count > 0 && (
+                              <div style={{ color: 'var(--status-danger)', fontSize: '0.75rem' }}>
+                                {m.discrepant_items_count} discrepant
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <span className={`badge ${
+                              m.status === 'DISPATCHED' ? 'badge-warning' :
+                              m.status === 'RECEIVED' ? 'badge-success' :
+                              m.status === 'RECONCILED' ? 'badge-primary' : 'badge-neutral'
+                            }`}>
+                              {m.status}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                            {m.dispatched_at ? new Date(m.dispatched_at).toLocaleString() : 'N/A'}
+                          </td>
+                          <td>
+                            {isDispatched ? (
+                              <button
+                                className="btn btn-primary"
+                                style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}
+                                onClick={() => {
+                                  setSelectedManifest(m);
+                                  const initialConditions: Record<string, string> = {};
+                                  const initialStatuses: Record<string, string> = {};
+                                  m.rma_reverse_manifest_items?.forEach((item: any) => {
+                                    initialConditions[item.id] = 'Intact condition';
+                                    initialStatuses[item.id] = 'RECEIVED';
+                                  });
+                                  setReceiveManifestForm({
+                                    intakeNotes: '',
+                                    itemConditions: initialConditions,
+                                    itemStatuses: initialStatuses
+                                  });
+                                  setShowReceiveModal(true);
+                                }}
+                              >
+                                Receive & Inspect
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--status-success)', fontWeight: 600 }}>
+                                ✓ Received
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 2: Defective Cores Quarantine & QA Inspection Registry */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <ArrowRightLeft style={{ color: '#F59E0B' }} />
+                  <span>Defective Cores & Harvested Units Quarantine Registry</span>
+                </h3>
+                <p className="text-muted" style={{ fontSize: '0.75rem', margin: '0.25rem 0 0 0' }}>
+                  Full lifecycle custody tracking, engineering QA triage, core credit settlements & scrap logging.
+                </p>
+              </div>
+            </div>
+
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Core Tag #</th>
+                    <th>Type</th>
+                    <th>Part / Unit Details</th>
+                    <th>Custody State</th>
+                    <th>Field Technician</th>
+                    <th>Defect Symptom</th>
+                    <th>Core Credit</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allDefectiveCores.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '2rem' }}>
+                        <p className="text-muted">No defective cores currently registered.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    allDefectiveCores.map((core) => {
+                      const canInspect = core.custody_status === 'RECEIVED_AT_DEPOT';
+
+                      return (
+                        <tr key={core.id}>
+                          <td>
+                            <strong style={{ fontFamily: 'var(--font-mono)', color: '#F59E0B' }}>
+                              {core.core_tag_number}
+                            </strong>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              {new Date(core.harvested_at).toLocaleDateString()}
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge badge-neutral" style={{ fontSize: '0.7rem' }}>
+                              {core.item_type === 'WHOLE_TV_UNIT' ? 'Whole TV Swap' : 'Spare Part Core'}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>
+                              {core.item_type === 'WHOLE_TV_UNIT' ? (
+                                core.product_units?.product_variants?.product_name || 'ZUVO TV Unit'
+                              ) : (
+                                core.spare_parts?.part_name || 'Component Board'
+                              )}
+                            </div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                              {core.serial_number || core.barcode || core.spare_parts?.part_code || 'N/A'}
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`badge ${
+                              core.custody_status === 'WITH_TECHNICIAN' ? 'badge-warning' :
+                              core.custody_status === 'DISPATCHED_TO_DEPOT' ? 'badge-primary' :
+                              core.custody_status === 'RECEIVED_AT_DEPOT' ? 'badge-neutral' :
+                              core.custody_status === 'REFURB_APPROVED' ? 'badge-success' : 'badge-danger'
+                            }`}>
+                              {core.custody_status}
+                            </span>
+                          </td>
+                          <td>
+                            <div>{core.profiles?.full_name || 'Technician'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{core.profiles?.employee_code || ''}</div>
+                          </td>
+                          <td style={{ fontSize: '0.8125rem', maxWidth: '220px' }}>
+                            {core.defect_symptom}
+                          </td>
+                          <td>
+                            {core.core_credit_amount > 0 ? (
+                              <span style={{ fontWeight: 700, color: 'var(--status-success)' }}>
+                                ₹{core.core_credit_amount}
+                              </span>
+                            ) : core.core_credit_eligible ? (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+                                Est. ₹{core.estimated_core_value || 0}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Ineligible</span>
+                            )}
+                          </td>
+                          <td>
+                            {canInspect ? (
+                              <button
+                                className="btn btn-primary"
+                                style={{ fontSize: '0.75rem', padding: '0.35rem 0.65rem', background: 'linear-gradient(135deg, #10B981, #059669)' }}
+                                onClick={() => {
+                                  setSelectedCoreToInspect(core);
+                                  setInspectCoreForm({
+                                    action: 'APPROVED_FOR_REFURB',
+                                    qaPassed: true,
+                                    conditionGrading: 'GRADE_B',
+                                    coreCreditAmount: core.estimated_core_value || 500,
+                                    inspectionNotes: ''
+                                  });
+                                  setShowInspectModal(true);
+                                }}
+                              >
+                                QA Inspect & Settle
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                {core.custody_status === 'REFURB_APPROVED' ? 'Settled (Refurb)' :
+                                 core.custody_status === 'SCRAPPED' ? 'Settled (Scrapped)' :
+                                 'In Field Custody'}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Receive RMA Reverse Manifest at Depot */}
+      {showReceiveModal && selectedManifest && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '620px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Truck style={{ color: 'var(--brand-primary)' }} />
+                <span>Receive Reverse Manifest #{selectedManifest.manifest_number}</span>
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowReceiveModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleReceiveManifest} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem' }}>
+                <div><strong>Technician:</strong> {selectedManifest.profiles?.full_name} ({selectedManifest.profiles?.employee_code || 'Field Tech'})</div>
+                <div><strong>Carrier Tracking:</strong> {selectedManifest.carrier_tracking_number || 'Direct Handover'}</div>
+                <div><strong>Items in Shipment:</strong> {selectedManifest.rma_reverse_manifest_items?.length || 0}</div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                  Verify Received Items & Physical Condition *
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {selectedManifest.rma_reverse_manifest_items?.map((item: any) => {
+                    const core = item.technician_defective_cores;
+
+                    return (
+                      <div key={item.id} style={{ border: '1px solid var(--border-color)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.5rem', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                            {core?.core_tag_number} — {core?.item_type === 'WHOLE_TV_UNIT' ? 'Whole TV Unit' : core?.spare_parts?.part_name}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {core?.serial_number || core?.barcode || 'N/A'} • {core?.defect_symptom}
+                          </div>
+                        </div>
+
+                        <div>
+                          <select
+                            className="input"
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                            value={receiveManifestForm.itemStatuses[item.id] || 'RECEIVED'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setReceiveManifestForm(prev => ({
+                                ...prev,
+                                itemStatuses: { ...prev.itemStatuses, [item.id]: val }
+                              }));
+                            }}
+                          >
+                            <option value="RECEIVED">✓ Received</option>
+                            <option value="MISSING">✕ Missing</option>
+                            <option value="DISCREPANT">⚠ Discrepant</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <input
+                            type="text"
+                            className="input"
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}
+                            placeholder="Condition notes..."
+                            value={receiveManifestForm.itemConditions[item.id] || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setReceiveManifestForm(prev => ({
+                                ...prev,
+                                itemConditions: { ...prev.itemConditions, [item.id]: val }
+                              }));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Depot Warehouse Intake Notes
+                </label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={receiveManifestForm.intakeNotes}
+                  onChange={(e) => setReceiveManifestForm({ ...receiveManifestForm, intakeNotes: e.target.value })}
+                  placeholder="e.g. Shipment delivered in intact cartons, all security seals intact"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowReceiveModal(false)}
+                  disabled={submittingIntake}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submittingIntake}
+                >
+                  {submittingIntake ? 'Processing Intake...' : 'Confirm Shipment Intake'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: QA Inspect & Settle Defective Core */}
+      {showInspectModal && selectedCoreToInspect && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ShieldCheck style={{ color: 'var(--brand-primary)' }} />
+                <span>Engineering QA Assessment: {selectedCoreToInspect.core_tag_number}</span>
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowInspectModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleInspectCore} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8125rem' }}>
+                <div><strong>Item:</strong> {selectedCoreToInspect.item_type === 'WHOLE_TV_UNIT' ? 'Whole TV Swap' : selectedCoreToInspect.spare_parts?.part_name}</div>
+                <div><strong>Reported Defect:</strong> {selectedCoreToInspect.defect_symptom}</div>
+                <div><strong>Harvested By:</strong> {selectedCoreToInspect.profiles?.full_name} ({selectedCoreToInspect.profiles?.employee_code || 'Technician'})</div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  QA Disposition Decision *
+                </label>
+                <select
+                  className="input"
+                  value={inspectCoreForm.action}
+                  onChange={(e) => setInspectCoreForm({ ...inspectCoreForm, action: e.target.value as any })}
+                  required
+                >
+                  <option value="APPROVED_FOR_REFURB">Approved for In-House Refurbishment / Component Replacement</option>
+                  <option value="SCRAPPED">Scrapped (Beyond Economical Repair / Hazardous E-Waste)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    Condition Grading *
+                  </label>
+                  <select
+                    className="input"
+                    value={inspectCoreForm.conditionGrading}
+                    onChange={(e) => setInspectCoreForm({ ...inspectCoreForm, conditionGrading: e.target.value })}
+                  >
+                    <option value="GRADE_A">Grade A (Minor cosmetic / quick rework)</option>
+                    <option value="GRADE_B">Grade B (Standard component failure)</option>
+                    <option value="GRADE_C">Grade C (Heavy wear / extensive soldering needed)</option>
+                    <option value="GRADE_F">Grade F (Scrap / burnt traces)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    Core Credit Settlement Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input"
+                    value={inspectCoreForm.coreCreditAmount}
+                    onChange={(e) => setInspectCoreForm({ ...inspectCoreForm, coreCreditAmount: Math.max(0, parseFloat(e.target.value) || 0) })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Engineering Inspection Notes
+                </label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={inspectCoreForm.inspectionNotes}
+                  onChange={(e) => setInspectCoreForm({ ...inspectCoreForm, inspectionNotes: e.target.value })}
+                  placeholder="e.g. Diode D3 replaced, bench tested with 12V rail OK"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowInspectModal(false)}
+                  disabled={submittingInspect}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submittingInspect}
+                  style={inspectCoreForm.action === 'APPROVED_FOR_REFURB' ? { background: 'linear-gradient(135deg, #10B981, #059669)' } : { background: 'var(--status-danger)' }}
+                >
+                  {submittingInspect ? 'Saving Assessment...' : `Confirm: ${inspectCoreForm.action === 'APPROVED_FOR_REFURB' ? 'Approve Refurb' : 'Scrap Core'}`}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
