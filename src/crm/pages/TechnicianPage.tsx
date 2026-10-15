@@ -32,7 +32,13 @@ import {
   Printer,
   ChevronRight,
   Sliders,
-  Check
+  Check,
+  Truck,
+  RotateCcw,
+  AlertOctagon,
+  ClipboardCheck,
+  History,
+  CheckCheck
 } from 'lucide-react';
 import { BarcodeLookupModal } from '../components/common/BarcodeLookupModal';
 import { technicianOfflineService, QueuedVisitAction } from '../lib/technicianOfflineService';
@@ -56,7 +62,7 @@ export const TechnicianPage: React.FC = () => {
   const { user, profile, currentRole } = useAuth();
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'in_progress' | 'completed' | 'all'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'in_progress' | 'completed' | 'trunk' | 'all'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -72,6 +78,34 @@ export const TechnicianPage: React.FC = () => {
   const [showBarcodeLookup, setShowBarcodeLookup] = useState(false);
   const [showCompletionSheet, setShowCompletionSheet] = useState(false);
   const [completionSheetData, setCompletionSheetData] = useState<ServiceCompletionSheetData | null>(null);
+
+  // Phase 7.4: Trunk Stock & Reconciliation state
+  const [trunkInventory, setTrunkInventory] = useState<any[]>([]);
+  const [trunkMovements, setTrunkMovements] = useState<any[]>([]);
+  const [loadingTrunk, setLoadingTrunk] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [showDamagedLostModal, setShowDamagedLostModal] = useState(false);
+  const [showReconcileModal, setShowReconcileModal] = useState(false);
+  const [showMovementsModal, setShowMovementsModal] = useState(false);
+  const [selectedTrunkItem, setSelectedTrunkItem] = useState<any | null>(null);
+
+  // Return & Damaged/Lost forms
+  const [returnForm, setReturnForm] = useState({
+    warehouseId: '',
+    quantity: 1,
+    reason: 'Unused part returned to main warehouse'
+  });
+  const [damagedLostForm, setDamagedLostForm] = useState({
+    statusType: 'PART_DAMAGED' as 'PART_DAMAGED' | 'PART_LOST',
+    quantity: 1,
+    reason: ''
+  });
+  const [submittingTrunkAction, setSubmittingTrunkAction] = useState(false);
+
+  // Reconciliation form state
+  const [reconciliationCounts, setReconciliationCounts] = useState<Record<string, { count: number; reason: string }>>({});
+  const [reconciliationNotes, setReconciliationNotes] = useState('');
+  const [submittingReconciliation, setSubmittingReconciliation] = useState(false);
 
   // Form states
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -234,6 +268,34 @@ export const TechnicianPage: React.FC = () => {
               p_signature_data: item.payload?.signatureData || ''
             });
             return { success: !error, error: error?.message };
+          } else if (item.type === 'PART_CONSUMPTION') {
+            const { error } = await supabase.rpc('fn_consume_technician_trunk_part', {
+              p_ticket_id: item.ticketId!,
+              p_visit_id: item.visitId!,
+              p_spare_part_id: item.payload?.sparePartId!,
+              p_quantity: item.payload?.quantity || 1,
+              p_warranty_covered: item.payload?.warrantyCovered ?? true,
+              p_technician_notes: item.payload?.technicianNotes || 'Consumed via offline sync',
+              p_idempotency_key: item.id
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'PART_RETURN') {
+            const { error } = await supabase.rpc('fn_return_technician_part', {
+              p_technician_id: item.payload?.technicianId || user?.id,
+              p_warehouse_id: item.payload?.warehouseId!,
+              p_spare_part_id: item.payload?.sparePartId!,
+              p_quantity: item.payload?.quantity || 1,
+              p_reason: item.payload?.reason || 'Returned via offline sync',
+              p_idempotency_key: item.id
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'RECONCILIATION_SUBMISSION') {
+            const { error } = await supabase.rpc('fn_submit_van_reconciliation', {
+              p_technician_id: item.payload?.technicianId || user?.id,
+              p_items: item.payload?.reconciliationItems || [],
+              p_technician_notes: item.payload?.technicianNotes || 'Submitted via offline sync'
+            });
+            return { success: !error, error: error?.message };
           }
           return { success: true };
         });
@@ -241,6 +303,7 @@ export const TechnicianPage: React.FC = () => {
         if (succeeded > 0) {
           setSuccessMsg(`Successfully synchronized ${succeeded} offline update(s).`);
           fetchVisits();
+          fetchTrunkInventory();
         }
         if (failed > 0) {
           setErrorMsg(`${failed} offline update(s) could not be synchronized.`);
@@ -251,6 +314,84 @@ export const TechnicianPage: React.FC = () => {
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
   }, [user]);
+
+  // Phase 7.4: Fetch technician trunk inventory
+  const fetchTrunkInventory = async () => {
+    if (!user?.id) return;
+    setLoadingTrunk(true);
+    try {
+      const { data, error } = await supabase
+        .from('technician_trunk_inventory')
+        .select(`
+          id,
+          technician_id,
+          spare_part_id,
+          quantity_on_hand,
+          quantity_reserved,
+          min_trunk_threshold,
+          last_reconciled_at,
+          updated_at,
+          spare_parts (
+            id,
+            part_name,
+            part_code,
+            category,
+            selling_price,
+            standard_cost,
+            is_active
+          )
+        `)
+        .eq('technician_id', user.id);
+
+      if (error) {
+        console.warn('Could not query technician_trunk_inventory:', error.message);
+        setTrunkInventory([]);
+      } else {
+        setTrunkInventory(data || []);
+      }
+    } catch (err: any) {
+      console.warn('Error fetching trunk inventory:', err);
+    } finally {
+      setLoadingTrunk(false);
+    }
+  };
+
+  // Phase 7.4: Fetch technician trunk movement ledger
+  const fetchTrunkMovements = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase
+        .from('technician_trunk_movements')
+        .select(`
+          id,
+          movement_type,
+          quantity,
+          balance_before,
+          balance_after,
+          reason,
+          created_at,
+          spare_parts (
+            part_name,
+            part_code
+          ),
+          warehouses (
+            warehouse_name
+          ),
+          service_tickets (
+            ticket_number
+          )
+        `)
+        .eq('technician_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (!error && data) {
+        setTrunkMovements(data);
+      }
+    } catch (err) {
+      console.warn('Error fetching trunk movements:', err);
+    }
+  };
 
   // Fetch spare parts & warehouses for parts usage
   const fetchPartsDependencies = async () => {
@@ -263,6 +404,7 @@ export const TechnicianPage: React.FC = () => {
       setWarehousesList(whRes.data || []);
       if (whRes.data && whRes.data.length > 0) {
         setPartForm(prev => ({ ...prev, warehouseId: whRes.data[0].id }));
+        setReturnForm(prev => ({ ...prev, warehouseId: whRes.data[0].id }));
       }
     } catch (err) {
       console.error('Error fetching parts dependencies:', err);
@@ -272,6 +414,8 @@ export const TechnicianPage: React.FC = () => {
   useEffect(() => {
     fetchVisits();
     fetchPartsDependencies();
+    fetchTrunkInventory();
+    fetchTrunkMovements();
   }, [user, currentRole]);
 
   // Phase 7.3: Handle Arrival with Event-based GPS
@@ -471,36 +615,224 @@ export const TechnicianPage: React.FC = () => {
     }
   };
 
-  // Part Usage Submission
+  // Phase 7.4: Service Part Usage from Technician Trunk Stock
   const handleUsePart = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVisit || !partForm.sparePartId || !partForm.warehouseId) {
-      setErrorMsg('Please select a spare part and warehouse.');
+    if (!selectedVisit || !partForm.sparePartId) {
+      setErrorMsg('Please select a spare part to consume from your trunk.');
       return;
     }
 
     setSubmittingPart(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-    try {
-      const { error } = await supabase.rpc('fn_request_service_part_usage', {
-        p_ticket_id: selectedVisit.service_ticket_id,
-        p_spare_part_id: partForm.sparePartId,
-        p_warehouse_id: partForm.warehouseId,
-        p_quantity: Number(partForm.quantity),
-        p_warranty_covered: partForm.warrantyCovered,
-        p_performed_by: user?.id || null
-      });
 
-      if (error) throw error;
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-      setSuccessMsg('Spare part logged & stock deducted successfully!');
+    if (isOffline) {
+      technicianOfflineService.enqueuePartConsumption(
+        selectedVisit.service_ticket_id,
+        selectedVisit.id,
+        partForm.sparePartId,
+        Number(partForm.quantity),
+        partForm.warrantyCovered,
+        'Consumed from mobile trunk stock (offline)'
+      );
+      setSuccessMsg('Trunk part consumption queued locally. Stock will synchronize automatically.');
       setShowPartsModal(false);
       setPartForm(prev => ({ ...prev, sparePartId: '', quantity: 1 }));
+      setSubmittingPart(false);
+      return;
+    }
+
+    try {
+      // 1. Try atomic Phase 7.4 trunk consumption RPC
+      const { data: trunkConsumed, error: trunkErr } = await supabase.rpc('fn_consume_technician_trunk_part', {
+        p_ticket_id: selectedVisit.service_ticket_id,
+        p_visit_id: selectedVisit.id,
+        p_spare_part_id: partForm.sparePartId,
+        p_quantity: Number(partForm.quantity),
+        p_warranty_covered: partForm.warrantyCovered,
+        p_technician_notes: 'Part installed from technician van trunk during service',
+        p_idempotency_key: `USE-${selectedVisit.id}-${partForm.sparePartId}-${Date.now()}`
+      });
+
+      if (trunkErr) {
+        // Fallback to warehouse request RPC if trunk inventory row not yet seeded
+        if (partForm.warehouseId && (trunkErr.message?.includes('Insufficient stock') || trunkErr.message?.includes('not found') || trunkErr.message?.includes('schema cache'))) {
+          const { error: whErr } = await supabase.rpc('fn_request_service_part_usage', {
+            p_ticket_id: selectedVisit.service_ticket_id,
+            p_spare_part_id: partForm.sparePartId,
+            p_warehouse_id: partForm.warehouseId,
+            p_quantity: Number(partForm.quantity),
+            p_warranty_covered: partForm.warrantyCovered,
+            p_performed_by: user?.id || null
+          });
+          if (whErr) throw whErr;
+        } else {
+          throw trunkErr;
+        }
+      }
+
+      setSuccessMsg('Spare part logged & trunk stock deducted successfully!');
+      setShowPartsModal(false);
+      setPartForm(prev => ({ ...prev, sparePartId: '', quantity: 1 }));
+      fetchTrunkInventory();
+      fetchTrunkMovements();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to record spare part usage.');
     } finally {
       setSubmittingPart(false);
+    }
+  };
+
+  // Phase 7.4: Return Part to Warehouse
+  const handleReturnPart = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrunkItem || !returnForm.warehouseId) {
+      setErrorMsg('Please select a destination warehouse.');
+      return;
+    }
+
+    setSubmittingTrunkAction(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      technicianOfflineService.enqueuePartReturn(
+        user?.id || '',
+        returnForm.warehouseId,
+        selectedTrunkItem.spare_part_id,
+        Number(returnForm.quantity),
+        returnForm.reason
+      );
+      setSuccessMsg('Part return queued locally. Will sync upon reconnection.');
+      setShowReturnModal(false);
+      setSubmittingTrunkAction(false);
+      return;
+    }
+
+    try {
+      const { error } = await supabase.rpc('fn_return_technician_part', {
+        p_technician_id: user?.id || '',
+        p_warehouse_id: returnForm.warehouseId,
+        p_spare_part_id: selectedTrunkItem.spare_part_id,
+        p_quantity: Number(returnForm.quantity),
+        p_reason: returnForm.reason,
+        p_idempotency_key: `RET-${user?.id}-${selectedTrunkItem.spare_part_id}-${Date.now()}`
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg('Part returned to warehouse successfully. Trunk stock updated.');
+      setShowReturnModal(false);
+      fetchTrunkInventory();
+      fetchTrunkMovements();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to return spare part.');
+    } finally {
+      setSubmittingTrunkAction(false);
+    }
+  };
+
+  // Phase 7.4: Report Damaged or Lost Part
+  const handleRecordDamagedLost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTrunkItem) return;
+    if (!damagedLostForm.reason || damagedLostForm.reason.trim().length < 5) {
+      setErrorMsg('A detailed explanation (at least 5 characters) is required for damaged or lost parts.');
+      return;
+    }
+
+    setSubmittingTrunkAction(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const { error } = await supabase.rpc('fn_record_damaged_or_lost_part', {
+        p_technician_id: user?.id || '',
+        p_spare_part_id: selectedTrunkItem.spare_part_id,
+        p_quantity: Number(damagedLostForm.quantity),
+        p_status_type: damagedLostForm.statusType,
+        p_reason: damagedLostForm.reason,
+        p_idempotency_key: `DMG-${user?.id}-${selectedTrunkItem.spare_part_id}-${Date.now()}`
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Reported ${damagedLostForm.statusType === 'PART_DAMAGED' ? 'damaged' : 'lost'} part. Movement logged in audit ledger.`);
+      setShowDamagedLostModal(false);
+      setDamagedLostForm({ statusType: 'PART_DAMAGED', quantity: 1, reason: '' });
+      fetchTrunkInventory();
+      fetchTrunkMovements();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to record damaged/lost part.');
+    } finally {
+      setSubmittingTrunkAction(false);
+    }
+  };
+
+  // Phase 7.4: Submit Van Inventory Reconciliation
+  const handleSubmitReconciliation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (trunkInventory.length === 0) {
+      setErrorMsg('No items in trunk inventory to reconcile.');
+      return;
+    }
+
+    setSubmittingReconciliation(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const itemsPayload = trunkInventory.map(item => {
+      const state = reconciliationCounts[item.spare_part_id] || { count: item.quantity_on_hand, reason: '' };
+      return {
+        spare_part_id: item.spare_part_id,
+        physical_count: Number(state.count),
+        reason: state.reason || null
+      };
+    });
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+    if (isOffline) {
+      technicianOfflineService.enqueueReconciliation(
+        user?.id || '',
+        itemsPayload,
+        reconciliationNotes
+      );
+      setSuccessMsg('Van inventory reconciliation queued locally. Will be submitted once back online.');
+      setShowReconcileModal(false);
+      setSubmittingReconciliation(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('fn_submit_van_reconciliation', {
+        p_technician_id: user?.id || '',
+        p_items: itemsPayload,
+        p_technician_notes: reconciliationNotes || 'Field van physical count audit'
+      });
+
+      if (error) throw error;
+
+      const rec = data as any;
+      if (rec?.status === 'COMPLETED') {
+        setSuccessMsg('Physical count matched perfectly! Van stock reconciliation completed automatically.');
+      } else {
+        setSuccessMsg(`Reconciliation submitted with discrepancies (${rec?.discrepancy_count || 'non-zero'} items). Sent for manager review.`);
+      }
+
+      setShowReconcileModal(false);
+      setReconciliationNotes('');
+      fetchTrunkInventory();
+      fetchTrunkMovements();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to submit van reconciliation.');
+    } finally {
+      setSubmittingReconciliation(false);
     }
   };
 
@@ -828,6 +1160,23 @@ export const TechnicianPage: React.FC = () => {
             <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>{completedCount}</div>
             <div style={{ fontSize: '0.75rem' }}>Completed</div>
           </button>
+
+          <button
+            onClick={() => setActiveTab('trunk')}
+            className={`technician-tab-btn ${activeTab === 'trunk' ? 'active-in-progress' : ''}`}
+            style={{
+              borderColor: activeTab === 'trunk' ? 'var(--accent-cyan)' : 'var(--border-subtle)',
+              background: activeTab === 'trunk' ? 'rgba(6, 182, 212, 0.12)' : 'var(--bg-glass)'
+            }}
+          >
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: activeTab === 'trunk' ? 'var(--accent-cyan)' : 'var(--text-primary)' }}>
+              {trunkInventory.reduce((acc, item) => acc + (item.quantity_on_hand || 0), 0)}
+            </div>
+            <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+              <Truck size={12} />
+              <span>Trunk Stock</span>
+            </div>
+          </button>
         </div>
 
         {/* Search Bar */}
@@ -842,7 +1191,169 @@ export const TechnicianPage: React.FC = () => {
           />
         </div>
 
-        {/* Visit Cards List */}
+        {/* Main Content: Field Visits vs My Trunk Stock */}
+        {activeTab === 'trunk' ? (
+          <div>
+            {/* Trunk Top Action Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                  <Truck size={20} style={{ color: 'var(--accent-cyan)' }} />
+                  <span>My Van Trunk Stock</span>
+                </h2>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+                  Live physical inventory assigned to vehicle / field trunk.
+                </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  onClick={() => setShowMovementsModal(true)}
+                  className="technician-btn-touch btn-secondary"
+                  style={{ fontSize: '0.8rem', padding: '0.45rem 0.75rem' }}
+                >
+                  <History size={15} />
+                  <span>Audit History</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const counts: Record<string, { count: number; reason: string }> = {};
+                    trunkInventory.forEach(item => {
+                      counts[item.spare_part_id] = { count: item.quantity_on_hand, reason: '' };
+                    });
+                    setReconciliationCounts(counts);
+                    setShowReconcileModal(true);
+                  }}
+                  className="technician-btn-touch btn-primary"
+                  style={{ fontSize: '0.8rem', padding: '0.45rem 0.85rem' }}
+                >
+                  <ClipboardCheck size={15} />
+                  <span>Reconcile Stock</span>
+                </button>
+              </div>
+            </div>
+
+            {loadingTrunk ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                <RefreshCw size={32} className="animate-spin" style={{ margin: '0 auto 0.75rem', color: 'var(--accent-cyan)' }} />
+                <p style={{ fontSize: '0.875rem' }}>Loading assigned trunk parts...</p>
+              </div>
+            ) : trunkInventory.length === 0 ? (
+              <div className="glass-card" style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+                <Truck size={40} style={{ margin: '0 auto 0.75rem', opacity: 0.5 }} />
+                <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>Trunk is empty</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: '400px', margin: '0 auto' }}>
+                  No spare parts currently assigned to your vehicle trunk. Parts can be issued by inventory management or received from the central warehouse.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {trunkInventory
+                  .filter(item => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    const part = item.spare_parts;
+                    return (
+                      part?.part_name?.toLowerCase().includes(q) ||
+                      part?.part_code?.toLowerCase().includes(q) ||
+                      part?.category?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(item => {
+                    const part = item.spare_parts;
+                    const isLow = item.quantity_on_hand <= (item.min_trunk_threshold || 1);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="glass-card"
+                        style={{
+                          padding: '1rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.75rem',
+                          border: isLow ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-subtle)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.1)', padding: '0.15rem 0.45rem', borderRadius: '4px' }}>
+                                {part?.part_code || 'PART-CODE'}
+                              </span>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                                {part?.category || 'Spare Part'}
+                              </span>
+                            </div>
+                            <h3 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.35rem' }}>
+                              {part?.part_name || 'Component'}
+                            </h3>
+                          </div>
+
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: isLow ? 'var(--accent-amber)' : 'var(--accent-emerald)', lineHeight: 1 }}>
+                              {item.quantity_on_hand}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                              Available
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div>
+                            <span>Reserved: </span>
+                            <strong style={{ color: 'var(--text-secondary)' }}>{item.quantity_reserved || 0}</strong>
+                            <span style={{ margin: '0 0.5rem' }}>•</span>
+                            <span>Min Buffer: </span>
+                            <strong style={{ color: 'var(--text-secondary)' }}>{item.min_trunk_threshold || 1}</strong>
+                          </div>
+
+                          <div>
+                            <span>Last Reconciled: </span>
+                            <strong style={{ color: 'var(--text-secondary)' }}>
+                              {item.last_reconciled_at ? new Date(item.last_reconciled_at).toLocaleDateString() : 'Never'}
+                            </strong>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+                          <button
+                            onClick={() => {
+                              setSelectedTrunkItem(item);
+                              setReturnForm(prev => ({ ...prev, quantity: 1 }));
+                              setShowReturnModal(true);
+                            }}
+                            className="technician-btn-touch btn-secondary"
+                            style={{ flex: 1, minHeight: '38px', fontSize: '0.775rem' }}
+                          >
+                            <RotateCcw size={14} />
+                            <span>Return to Warehouse</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setSelectedTrunkItem(item);
+                              setDamagedLostForm({ statusType: 'PART_DAMAGED', quantity: 1, reason: '' });
+                              setShowDamagedLostModal(true);
+                            }}
+                            className="technician-btn-touch btn-secondary"
+                            style={{ flex: 1, minHeight: '38px', fontSize: '0.775rem', borderColor: 'rgba(239, 68, 68, 0.4)', color: 'var(--accent-rose)' }}
+                          >
+                            <AlertOctagon size={14} />
+                            <span>Report Damaged / Lost</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        ) : (
+        /* Visit Cards List */
         <div>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
@@ -1075,6 +1586,7 @@ export const TechnicianPage: React.FC = () => {
             })
           )}
         </div>
+        )}
       </div>
 
       {/* DIAGNOSIS & REPAIR MODAL WITH STRUCTURED CHECKLIST */}
@@ -1225,7 +1737,7 @@ export const TechnicianPage: React.FC = () => {
             <form onSubmit={handleUsePart}>
               <div className="modal-body">
                 <div className="input-group">
-                  <label className="input-label">Select Spare Part *</label>
+                  <label className="input-label">Select Spare Part from Trunk Stock *</label>
                   <select
                     value={partForm.sparePartId}
                     onChange={(e) => setPartForm({ ...partForm, sparePartId: e.target.value })}
@@ -1233,33 +1745,42 @@ export const TechnicianPage: React.FC = () => {
                     required
                   >
                     <option value="">-- Choose Spare Part --</option>
-                    {sparePartsList.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.part_name} ({p.part_code}) - ₹{p.selling_price || p.standard_cost}
-                      </option>
-                    ))}
+                    {trunkInventory.length > 0 ? (
+                      trunkInventory.map((item) => (
+                        <option key={item.spare_part_id} value={item.spare_part_id}>
+                          {item.spare_parts?.part_name} ({item.spare_parts?.part_code}) — In Trunk: {item.quantity_on_hand}
+                        </option>
+                      ))
+                    ) : (
+                      sparePartsList.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.part_name} ({p.part_code})
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
 
-                <div className="input-group">
-                  <label className="input-label">Source Warehouse *</label>
-                  <select
-                    value={partForm.warehouseId}
-                    onChange={(e) => setPartForm({ ...partForm, warehouseId: e.target.value })}
-                    className="form-input"
-                    required
-                  >
-                    {warehousesList.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.warehouse_name} ({w.warehouse_code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {trunkInventory.length === 0 && (
+                  <div className="input-group">
+                    <label className="input-label">Source Warehouse (Trunk Stock Empty) *</label>
+                    <select
+                      value={partForm.warehouseId}
+                      onChange={(e) => setPartForm({ ...partForm, warehouseId: e.target.value })}
+                      className="form-input"
+                    >
+                      {warehousesList.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.warehouse_name} ({w.warehouse_code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div className="input-group">
-                    <label className="input-label">Quantity *</label>
+                    <label className="input-label">Quantity to Install *</label>
                     <input
                       type="number"
                       min={1}
@@ -1295,11 +1816,11 @@ export const TechnicianPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={submittingPart}
-                  className="technician-btn-touch"
-                  style={{ background: 'var(--accent-amber)', color: '#000' }}
+                  className="technician-btn-touch btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #0891B2)' }}
                 >
                   <Package size={16} />
-                  <span>Deduct & Issue Part</span>
+                  <span>Install from Trunk Stock</span>
                 </button>
               </div>
             </form>
@@ -1418,6 +1939,426 @@ export const TechnicianPage: React.FC = () => {
           isOpen={showBarcodeLookup}
           onClose={() => setShowBarcodeLookup(false)}
         />
+      )}
+
+      {/* PHASE 7.4: RETURN PART MODAL */}
+      {showReturnModal && selectedTrunkItem && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <RotateCcw size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <span>Return Spare Part to Warehouse</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowReturnModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleReturnPart}>
+              <div className="modal-body">
+                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.75rem', marginBottom: '1rem' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Selected Part:</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {selectedTrunkItem.spare_parts?.part_name} ({selectedTrunkItem.spare_parts?.part_code})
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--accent-emerald)', marginTop: '0.25rem' }}>
+                    Current Trunk Balance: <strong>{selectedTrunkItem.quantity_on_hand}</strong>
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Destination Warehouse *</label>
+                  <select
+                    value={returnForm.warehouseId}
+                    onChange={(e) => setReturnForm({ ...returnForm, warehouseId: e.target.value })}
+                    className="form-input"
+                    required
+                  >
+                    {warehousesList.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.warehouse_name} ({w.warehouse_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Return Quantity *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedTrunkItem.quantity_on_hand}
+                    value={returnForm.quantity}
+                    onChange={(e) => setReturnForm({ ...returnForm, quantity: Math.min(selectedTrunkItem.quantity_on_hand, Math.max(1, parseInt(e.target.value) || 1)) })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Return Reason / Notes *</label>
+                  <input
+                    type="text"
+                    value={returnForm.reason}
+                    onChange={(e) => setReturnForm({ ...returnForm, reason: e.target.value })}
+                    placeholder="e.g., Unused surplus returned to central depot"
+                    className="form-input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowReturnModal(false)}
+                  className="technician-btn-touch btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingTrunkAction}
+                  className="technician-btn-touch btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #0891B2)' }}
+                >
+                  <RotateCcw size={16} />
+                  <span>Confirm Return</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.4: REPORT DAMAGED OR LOST PART MODAL */}
+      {showDamagedLostModal && selectedTrunkItem && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <AlertOctagon size={18} style={{ color: 'var(--accent-rose)' }} />
+                <span>Report Damaged or Lost Part</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowDamagedLostModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordDamagedLost}>
+              <div className="modal-body">
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: '0.75rem', marginBottom: '1rem', color: '#FDA4AF', fontSize: '0.8rem' }}>
+                  <strong>Mandatory Audit Trail Notice:</strong> All damaged or lost part reports trigger an immutable ledger entry. A detailed justification reason is required.
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Report Status Type *</label>
+                  <select
+                    value={damagedLostForm.statusType}
+                    onChange={(e) => setDamagedLostForm({ ...damagedLostForm, statusType: e.target.value as any })}
+                    className="form-input"
+                    required
+                  >
+                    <option value="PART_DAMAGED">Damaged (Defective / Transit / Installation Damage)</option>
+                    <option value="PART_LOST">Lost (Missing from vehicle trunk count)</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Quantity Affected *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={selectedTrunkItem.quantity_on_hand}
+                    value={damagedLostForm.quantity}
+                    onChange={(e) => setDamagedLostForm({ ...damagedLostForm, quantity: Math.min(selectedTrunkItem.quantity_on_hand, Math.max(1, parseInt(e.target.value) || 1)) })}
+                    className="form-input"
+                    required
+                  />
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Detailed Reason & Description *</label>
+                  <textarea
+                    rows={3}
+                    value={damagedLostForm.reason}
+                    onChange={(e) => setDamagedLostForm({ ...damagedLostForm, reason: e.target.value })}
+                    placeholder="Provide specific details (e.g., Cracked connector during transport / Physical drop)"
+                    className="form-input"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowDamagedLostModal(false)}
+                  className="technician-btn-touch btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingTrunkAction}
+                  className="technician-btn-touch btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #EF4444, #DC2626)' }}
+                >
+                  <AlertOctagon size={16} />
+                  <span>Submit Incident Report</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.4: VAN INVENTORY RECONCILIATION MODAL */}
+      {showReconcileModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '640px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <ClipboardCheck size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <span>Van Inventory Physical Reconciliation</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowReconcileModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitReconciliation}>
+              <div className="modal-body">
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.75rem' }}>
+                  Perform physical count of all spare parts in your service vehicle. The system automatically computes variances and logs an auditable reconciliation.
+                </p>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', marginBottom: '1rem' }}>
+                  {trunkInventory.map((item) => {
+                    const part = item.spare_parts;
+                    const state = reconciliationCounts[item.spare_part_id] || { count: item.quantity_on_hand, reason: '' };
+                    const variance = Number(state.count) - item.quantity_on_hand;
+
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.02)',
+                          border: variance !== 0 ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '0.75rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                              {part?.part_name}
+                            </div>
+                            <div style={{ fontSize: '0.725rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                              {part?.part_code}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>System</div>
+                              <div style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                {item.quantity_on_hand}
+                              </div>
+                            </div>
+
+                            <div style={{ width: '80px' }}>
+                              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block', marginBottom: '2px' }}>Count</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={state.count}
+                                onChange={(e) => {
+                                  const val = Math.max(0, parseInt(e.target.value) || 0);
+                                  setReconciliationCounts(prev => ({
+                                    ...prev,
+                                    [item.spare_part_id]: { ...state, count: val }
+                                  }));
+                                }}
+                                className="form-input"
+                                style={{ padding: '0.35rem 0.5rem', textAlign: 'center', fontSize: '0.9rem', fontWeight: 700 }}
+                                required
+                              />
+                            </div>
+
+                            <div style={{ width: '70px', textAlign: 'right' }}>
+                              <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Variance</div>
+                              <div style={{
+                                fontSize: '0.95rem',
+                                fontWeight: 800,
+                                color: variance === 0 ? 'var(--accent-emerald)' : variance > 0 ? 'var(--accent-cyan)' : 'var(--accent-rose)'
+                              }}>
+                                {variance > 0 ? `+${variance}` : variance}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {variance !== 0 && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            <input
+                              type="text"
+                              placeholder="Explanation for discrepancy (required for review)..."
+                              value={state.reason}
+                              onChange={(e) => {
+                                setReconciliationCounts(prev => ({
+                                  ...prev,
+                                  [item.spare_part_id]: { ...state, reason: e.target.value }
+                                }));
+                              }}
+                              className="form-input"
+                              style={{ fontSize: '0.75rem', padding: '0.35rem 0.5rem' }}
+                              required
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">General Reconciliation Notes</label>
+                  <textarea
+                    rows={2}
+                    value={reconciliationNotes}
+                    onChange={(e) => setReconciliationNotes(e.target.value)}
+                    placeholder="Optional notes regarding vehicle condition, tools, or audit circumstances..."
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  onClick={() => setShowReconcileModal(false)}
+                  className="technician-btn-touch btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingReconciliation}
+                  className="technician-btn-touch btn-primary"
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #10B981)' }}
+                >
+                  <CheckCheck size={16} />
+                  <span>Submit Physical Count</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 7.4: AUDIT HISTORY MODAL */}
+      {showMovementsModal && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '680px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <History size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <span>Trunk Inventory Custody & Audit Ledger</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowMovementsModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body">
+              {trunkMovements.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)' }}>
+                  No historical movements recorded yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {trunkMovements.map((mov) => (
+                    <div
+                      key={mov.id}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        border: '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '0.625rem 0.75rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.75rem',
+                        fontSize: '0.775rem'
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{
+                            fontSize: '0.675rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '3px',
+                            background:
+                              mov.movement_type === 'STOCK_ISSUED' ? 'rgba(16, 185, 129, 0.15)' :
+                              mov.movement_type === 'PART_CONSUMED' ? 'rgba(59, 130, 246, 0.15)' :
+                              mov.movement_type === 'PART_RETURNED' ? 'rgba(6, 182, 212, 0.15)' :
+                              mov.movement_type === 'PART_DAMAGED' || mov.movement_type === 'PART_LOST' ? 'rgba(239, 68, 68, 0.15)' :
+                              'rgba(245, 158, 11, 0.15)',
+                            color:
+                              mov.movement_type === 'STOCK_ISSUED' ? 'var(--accent-emerald)' :
+                              mov.movement_type === 'PART_CONSUMED' ? 'var(--accent-blue)' :
+                              mov.movement_type === 'PART_RETURNED' ? 'var(--accent-cyan)' :
+                              mov.movement_type === 'PART_DAMAGED' || mov.movement_type === 'PART_LOST' ? 'var(--accent-rose)' :
+                              'var(--accent-amber)'
+                          }}>
+                            {mov.movement_type}
+                          </span>
+                          <strong style={{ color: 'var(--text-primary)' }}>{mov.spare_parts?.part_name}</strong>
+                          <span style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                            ({mov.spare_parts?.part_code})
+                          </span>
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', marginTop: '0.2rem', fontSize: '0.725rem' }}>
+                          {mov.reason}
+                          {mov.service_tickets?.ticket_number && (
+                            <span style={{ marginLeft: '0.5rem', color: 'var(--accent-cyan)' }}>
+                              • Ticket: #{mov.service_tickets.ticket_number}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Qty: {mov.quantity}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                          {mov.balance_before} → {mov.balance_after}
+                        </div>
+                        <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                          {new Date(mov.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button
+                type="button"
+                onClick={() => setShowMovementsModal(false)}
+                className="technician-btn-touch btn-secondary"
+              >
+                Close Ledger
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

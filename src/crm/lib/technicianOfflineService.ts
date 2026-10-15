@@ -14,8 +14,14 @@
 
 export interface QueuedVisitAction {
   id: string; // Client idempotency UUID
-  type: 'STATUS_TRANSITION' | 'LOCATION_EVENT' | 'CUSTOMER_SIGNATURE';
-  visitId: string;
+  type:
+    | 'STATUS_TRANSITION'
+    | 'LOCATION_EVENT'
+    | 'CUSTOMER_SIGNATURE'
+    | 'PART_CONSUMPTION'
+    | 'PART_RETURN'
+    | 'RECONCILIATION_SUBMISSION';
+  visitId?: string;
   ticketId?: string;
   payload: {
     fromStatus?: string;
@@ -28,6 +34,15 @@ export interface QueuedVisitAction {
     isGpsAvailable?: boolean;
     gpsErrorReason?: string;
     signatureData?: string;
+    // Phase 7.4 Trunk fields
+    technicianId?: string;
+    sparePartId?: string;
+    warehouseId?: string;
+    quantity?: number;
+    warrantyCovered?: boolean;
+    statusType?: string;
+    reason?: string;
+    reconciliationItems?: any[];
   };
   queuedAt: string;
   status: 'pending' | 'syncing' | 'synced' | 'failed';
@@ -230,6 +245,94 @@ export class TechnicianOfflineService {
     const updated = cached.map(v => v.id === visitId ? { ...v, customer_signature_data: signatureData } : v);
     this.cacheVisits(updated);
 
+    return item;
+  }
+
+  /**
+   * Queues offline part consumption from technician trunk
+   */
+  public enqueuePartConsumption(
+    ticketId: string,
+    visitId: string,
+    sparePartId: string,
+    quantity: number,
+    warrantyCovered: boolean,
+    notes?: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `TRUNK-USE-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'PART_CONSUMPTION',
+      visitId,
+      ticketId,
+      payload: {
+        sparePartId,
+        quantity,
+        warrantyCovered,
+        technicianNotes: notes
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Queues offline part return to warehouse
+   */
+  public enqueuePartReturn(
+    technicianId: string,
+    warehouseId: string,
+    sparePartId: string,
+    quantity: number,
+    reason: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `TRUNK-RET-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'PART_RETURN',
+      payload: {
+        technicianId,
+        warehouseId,
+        sparePartId,
+        quantity,
+        reason
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Queues offline van inventory reconciliation
+   */
+  public enqueueReconciliation(
+    technicianId: string,
+    items: any[],
+    notes?: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `TRUNK-REC-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'RECONCILIATION_SUBMISSION',
+      payload: {
+        technicianId,
+        reconciliationItems: items,
+        technicianNotes: notes
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
     return item;
   }
 

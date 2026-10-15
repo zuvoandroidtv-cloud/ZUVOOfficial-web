@@ -39,6 +39,204 @@ export type Database = {
   }
   public: {
     Tables: {
+      technician_trunk_inventory: {
+        Row: {
+          id: string
+          technician_id: string
+          spare_part_id: string
+          quantity_on_hand: number
+          quantity_reserved: number
+          min_trunk_threshold: number
+          last_reconciled_at: string | null
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          technician_id: string
+          spare_part_id: string
+          quantity_on_hand?: number
+          quantity_reserved?: number
+          min_trunk_threshold?: number
+          last_reconciled_at?: string | null
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          technician_id?: string
+          spare_part_id?: string
+          quantity_on_hand?: number
+          quantity_reserved?: number
+          min_trunk_threshold?: number
+          last_reconciled_at?: string | null
+          updated_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technician_trunk_inventory_spare_part_id_fkey"
+            columns: ["spare_part_id"]
+            isOneToOne: false
+            referencedRelation: "spare_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technician_trunk_inventory_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      technician_trunk_movements: {
+        Row: {
+          id: string
+          technician_id: string
+          spare_part_id: string
+          movement_type: string
+          quantity: number
+          balance_before: number
+          balance_after: number
+          warehouse_id: string | null
+          service_ticket_id: string | null
+          service_visit_id: string | null
+          reconciliation_id: string | null
+          reason: string
+          idempotency_key: string | null
+          performed_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          technician_id: string
+          spare_part_id: string
+          movement_type: string
+          quantity: number
+          balance_before: number
+          balance_after: number
+          warehouse_id?: string | null
+          service_ticket_id?: string | null
+          service_visit_id?: string | null
+          reconciliation_id?: string | null
+          reason: string
+          idempotency_key?: string | null
+          performed_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          technician_id?: string
+          spare_part_id?: string
+          movement_type?: string
+          quantity?: number
+          balance_before?: number
+          balance_after?: number
+          warehouse_id?: string | null
+          service_ticket_id?: string | null
+          service_visit_id?: string | null
+          reconciliation_id?: string | null
+          reason?: string
+          idempotency_key?: string | null
+          performed_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technician_trunk_movements_spare_part_id_fkey"
+            columns: ["spare_part_id"]
+            isOneToOne: false
+            referencedRelation: "spare_parts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "technician_trunk_movements_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      technician_van_reconciliations: {
+        Row: {
+          id: string
+          reconciliation_number: string
+          technician_id: string
+          total_items_counted: number
+          discrepancy_count: number
+          status: string
+          technician_notes: string | null
+          review_notes: string | null
+          reviewed_by: string | null
+          reviewed_at: string | null
+          submitted_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reconciliation_number: string
+          technician_id: string
+          total_items_counted?: number
+          discrepancy_count?: number
+          status?: string
+          technician_notes?: string | null
+          review_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          submitted_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reconciliation_number?: string
+          technician_id?: string
+          total_items_counted?: number
+          discrepancy_count?: number
+          status?: string
+          technician_notes?: string | null
+          review_notes?: string | null
+          reviewed_by?: string | null
+          reviewed_at?: string | null
+          submitted_at?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      technician_van_reconciliation_lines: {
+        Row: {
+          id: string
+          reconciliation_id: string
+          spare_part_id: string
+          system_quantity: number
+          physical_count: number
+          variance: number
+          reason: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          reconciliation_id: string
+          spare_part_id: string
+          system_quantity: number
+          physical_count: number
+          variance: number
+          reason?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          reconciliation_id?: string
+          spare_part_id?: string
+          system_quantity?: number
+          physical_count?: number
+          variance?: number
+          reason?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       brands: {
         Row: {
           created_at: string
@@ -5548,6 +5746,138 @@ export type Database = {
           technician_notes: string | null
           updated_at: string
           visit_type: string
+        }
+      }
+      fn_issue_spare_part_to_technician: {
+        Args: {
+          p_idempotency_key?: string | null
+          p_quantity: number
+          p_reason?: string | null
+          p_spare_part_id: string
+          p_technician_id: string
+          p_warehouse_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          last_reconciled_at: string | null
+          min_trunk_threshold: number
+          quantity_on_hand: number
+          quantity_reserved: number
+          spare_part_id: string
+          technician_id: string
+          updated_at: string
+        }
+      }
+      fn_consume_technician_trunk_part: {
+        Args: {
+          p_idempotency_key?: string | null
+          p_quantity: number
+          p_spare_part_id: string
+          p_technician_notes?: string | null
+          p_ticket_id: string
+          p_visit_id: string
+          p_warranty_covered?: boolean
+        }
+        Returns: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          id: string
+          part_code: string
+          part_name: string
+          quantity: number
+          requested_at: string | null
+          requested_by: string | null
+          service_ticket_id: string
+          spare_part_id: string
+          status: string | null
+          unit_cost: number
+          warranty_covered: boolean | null
+        }
+      }
+      fn_return_technician_part: {
+        Args: {
+          p_idempotency_key?: string | null
+          p_quantity: number
+          p_reason?: string | null
+          p_spare_part_id: string
+          p_technician_id: string
+          p_warehouse_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          last_reconciled_at: string | null
+          min_trunk_threshold: number
+          quantity_on_hand: number
+          quantity_reserved: number
+          spare_part_id: string
+          technician_id: string
+          updated_at: string
+        }
+      }
+      fn_record_damaged_or_lost_part: {
+        Args: {
+          p_idempotency_key?: string | null
+          p_quantity: number
+          p_reason: string
+          p_spare_part_id: string
+          p_status_type: string
+          p_technician_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          last_reconciled_at: string | null
+          min_trunk_threshold: number
+          quantity_on_hand: number
+          quantity_reserved: number
+          spare_part_id: string
+          technician_id: string
+          updated_at: string
+        }
+      }
+      fn_submit_van_reconciliation: {
+        Args: {
+          p_items: Json
+          p_technician_id: string
+          p_technician_notes?: string | null
+        }
+        Returns: {
+          created_at: string
+          discrepancy_count: number
+          id: string
+          reconciliation_number: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+          technician_id: string
+          technician_notes: string | null
+          total_items_counted: number
+        }
+      }
+      fn_review_van_reconciliation: {
+        Args: {
+          p_action: string
+          p_reconciliation_id: string
+          p_review_notes?: string | null
+        }
+        Returns: {
+          created_at: string
+          discrepancy_count: number
+          id: string
+          reconciliation_number: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+          technician_id: string
+          technician_notes: string | null
+          total_items_counted: number
         }
       }
       fn_verify_visit_otp_and_complete: {

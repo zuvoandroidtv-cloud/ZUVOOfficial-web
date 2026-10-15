@@ -13,14 +13,16 @@ import {
   DollarSign,
   AlertCircle,
   Download,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Truck,
+  ClipboardCheck
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
 
 export const SparePartsPage: React.FC = () => {
   const { currentRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<'catalog' | 'compatibility' | 'consumption'>('catalog');
+  const [activeTab, setActiveTab] = useState<'catalog' | 'compatibility' | 'consumption' | 'trunk_management'>('catalog');
   const [parts, setParts] = useState<any[]>([]);
   const [stockSummary, setStockSummary] = useState<any[]>([]);
   const [compatibilities, setCompatibilities] = useState<any[]>([]);
@@ -28,6 +30,23 @@ export const SparePartsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Phase 7.4: Admin Trunk Management State
+  const [techniciansList, setTechniciansList] = useState<any[]>([]);
+  const [warehousesList, setWarehousesList] = useState<any[]>([]);
+  const [allTrunkStocks, setAllTrunkStocks] = useState<any[]>([]);
+  const [pendingReconciliations, setPendingReconciliations] = useState<any[]>([]);
+  const [showIssueModal, setShowIssueModal] = useState(false);
+  const [issueForm, setIssueForm] = useState({
+    technicianId: '',
+    warehouseId: '',
+    sparePartId: '',
+    quantity: 1,
+    reason: 'Initial stock issuance to field van'
+  });
+  const [submittingIssue, setSubmittingIssue] = useState(false);
+  const [reviewingReconciliation, setReviewingReconciliation] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -63,6 +82,46 @@ export const SparePartsPage: React.FC = () => {
           .order('total_quantity_used', { ascending: false });
         if (error) throw error;
         setConsumptions(data || []);
+      } else if (activeTab === 'trunk_management') {
+        const [techsRes, whRes, partsRes, trunkRes, recRes] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, phone, employee_code, roles(name)').eq('roles.name', 'technician'),
+          supabase.from('warehouses').select('id, warehouse_name, warehouse_code').eq('is_active', true),
+          supabase.from('spare_parts').select('id, part_name, part_code').eq('is_active', true),
+          supabase.from('technician_trunk_inventory').select(`
+            *,
+            profiles!technician_trunk_inventory_technician_id_fkey(full_name, employee_code),
+            spare_parts!technician_trunk_inventory_spare_part_id_fkey(part_name, part_code, category)
+          `),
+          supabase.from('technician_van_reconciliations').select(`
+            *,
+            profiles!technician_van_reconciliations_technician_id_fkey(full_name, employee_code),
+            technician_van_reconciliation_lines(
+              id,
+              spare_part_id,
+              system_quantity,
+              physical_count,
+              variance,
+              reason,
+              spare_parts(part_name, part_code)
+            )
+          `).order('created_at', { ascending: false })
+        ]);
+
+        setTechniciansList(techsRes.data || []);
+        setWarehousesList(whRes.data || []);
+        setParts(partsRes.data || []);
+        setAllTrunkStocks(trunkRes.data || []);
+        setPendingReconciliations(recRes.data || []);
+
+        if (techsRes.data && techsRes.data.length > 0 && !issueForm.technicianId) {
+          setIssueForm(prev => ({ ...prev, technicianId: techsRes.data[0].id }));
+        }
+        if (whRes.data && whRes.data.length > 0 && !issueForm.warehouseId) {
+          setIssueForm(prev => ({ ...prev, warehouseId: whRes.data[0].id }));
+        }
+        if (partsRes.data && partsRes.data.length > 0 && !issueForm.sparePartId) {
+          setIssueForm(prev => ({ ...prev, sparePartId: partsRes.data[0].id }));
+        }
       }
     } catch (err: any) {
       console.error('Error fetching spare parts data:', err);
@@ -160,6 +219,66 @@ export const SparePartsPage: React.FC = () => {
     }
   };
 
+  // Phase 7.4: Issue Stock to Technician Van
+  const handleIssueStock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!issueForm.technicianId || !issueForm.warehouseId || !issueForm.sparePartId) {
+      setErrorMsg('Please select a technician, warehouse, and spare part.');
+      return;
+    }
+
+    setSubmittingIssue(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const { data, error } = await supabase.rpc('fn_issue_spare_part_to_technician', {
+        p_technician_id: issueForm.technicianId,
+        p_warehouse_id: issueForm.warehouseId,
+        p_spare_part_id: issueForm.sparePartId,
+        p_quantity: Number(issueForm.quantity),
+        p_reason: issueForm.reason || 'Warehouse stock issued to technician trunk',
+        p_idempotency_key: `ISSUE-${issueForm.technicianId}-${issueForm.sparePartId}-${Date.now()}`
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg('Spare parts successfully issued to technician trunk!');
+      setShowIssueModal(false);
+      setIssueForm(prev => ({ ...prev, quantity: 1 }));
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to issue spare part to technician.');
+    } finally {
+      setSubmittingIssue(false);
+    }
+  };
+
+  // Phase 7.4: Review Van Reconciliation (Approve / Reject)
+  const handleReviewReconciliation = async (recId: string, action: 'APPROVE' | 'REJECT') => {
+    const notes = prompt(`Enter review notes for ${action.toLowerCase()}ing this van reconciliation:`, `Audited and ${action.toLowerCase()}ed by management`);
+    if (notes === null) return; // User cancelled prompt
+
+    setReviewingReconciliation(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      const { data, error } = await supabase.rpc('fn_review_van_reconciliation', {
+        p_reconciliation_id: recId,
+        p_action: action,
+        p_review_notes: notes || undefined
+      });
+
+      if (error) throw error;
+
+      setSuccessMsg(`Van reconciliation #${(data as any)?.reconciliation_number || ''} was ${action}D successfully.`);
+      fetchPartsData();
+    } catch (err: any) {
+      setErrorMsg(err.message || `Failed to ${action.toLowerCase()} reconciliation.`);
+    } finally {
+      setReviewingReconciliation(false);
+    }
+  };
+
   return (
     <div className="module-container">
       {/* Top Header */}
@@ -204,6 +323,12 @@ export const SparePartsPage: React.FC = () => {
             onClick={() => setActiveTab('consumption')}
           >
             <TrendingDown size={15} /> RMA Consumption
+          </button>
+          <button
+            className={`btn ${activeTab === 'trunk_management' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setActiveTab('trunk_management')}
+          >
+            <Truck size={15} /> Field Trunk & Van Stock
           </button>
         </div>
       </div>
@@ -360,63 +485,334 @@ export const SparePartsPage: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: RMA Consumption (spare_parts_consumption) */}
-      {activeTab === 'consumption' && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Spare Parts Service Consumption</h3>
-            <p className="text-muted" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-              Historical consumption across RMA repairs with warranty vs chargeable cost distribution
-            </p>
+      {/* TAB 4: Phase 7.4 Field Trunk & Van Stock Management */}
+      {activeTab === 'trunk_management' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Action Bar */}
+          <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', background: 'var(--bg-secondary)' }}>
+            <div>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Truck style={{ color: 'var(--brand-primary)' }} /> Technician Trunk & Van Stock Custody
+              </h2>
+              <p className="text-muted" style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
+                Central warehouse spare part allocations, field vehicle inventory balances & audit reconciliation review
+              </p>
+            </div>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowIssueModal(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              <Plus size={16} /> Issue Parts to Technician Van
+            </button>
           </div>
-          <div className="table-responsive">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Part Code</th>
-                  <th>Part Name</th>
-                  <th>Category</th>
-                  <th>Qty Used</th>
-                  <th>Repairs Count</th>
-                  <th>Warranty Cost</th>
-                  <th>Chargeable Cost</th>
-                  <th>Total Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+
+          {/* Section 1: Pending Van Reconciliations Requiring Review */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <ClipboardCheck size={18} style={{ color: 'var(--brand-accent)' }} /> Van Reconciliations Audit & Review
+                </h3>
+                <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                  Field counts with non-zero physical variance requiring manager authorization
+                </span>
+              </div>
+              <span className="badge badge-warning">
+                {pendingReconciliations.filter(r => r.status === 'PENDING_REVIEW').length} Pending Review
+              </span>
+            </div>
+
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
-                      <p className="text-muted">Loading consumption metrics...</p>
-                    </td>
+                    <th>Rec #</th>
+                    <th>Technician</th>
+                    <th>Discrepant Items</th>
+                    <th>Net Variance</th>
+                    <th>Status</th>
+                    <th>Submitted At</th>
+                    <th>Review Actions</th>
                   </tr>
-                ) : consumptions.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
-                      <Package size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 0.5rem', opacity: 0.5 }} />
-                      <p className="text-muted">Zero spare parts consumed yet in service repairs.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  consumptions.map((cs, idx) => (
-                    <tr key={idx}>
-                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{cs.part_code}</td>
-                      <td style={{ fontWeight: 600 }}>{cs.part_name}</td>
-                      <td>
-                        <span className="badge badge-neutral" style={{ textTransform: 'uppercase' }}>
-                          {cs.category}
-                        </span>
+                </thead>
+                <tbody>
+                  {pendingReconciliations.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem' }}>
+                        <p className="text-muted">No van reconciliations logged yet.</p>
                       </td>
-                      <td style={{ fontWeight: 700 }}>{cs.total_quantity_used}</td>
-                      <td>{cs.usage_count}</td>
-                      <td style={{ color: 'var(--status-success)' }}>₹{cs.warranty_covered_cost?.toLocaleString()}</td>
-                      <td style={{ color: 'var(--brand-accent)' }}>₹{cs.chargeable_cost?.toLocaleString()}</td>
-                      <td style={{ fontWeight: 700 }}>₹{cs.total_cost?.toLocaleString()}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    pendingReconciliations.map((rec) => {
+                      const lines = rec.technician_van_reconciliation_lines || [];
+                      const netVariance = lines.reduce((acc: number, l: any) => acc + (l.variance || 0), 0);
+                      return (
+                        <tr key={rec.id}>
+                          <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{rec.reconciliation_number}</td>
+                          <td>
+                            <div style={{ fontWeight: 600 }}>{rec.profiles?.full_name || 'Technician'}</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{rec.profiles?.employee_code || ''}</div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              {lines.map((l: any, idx: number) => (
+                                <div key={idx} style={{ fontSize: '0.8125rem' }}>
+                                  <span style={{ fontWeight: 500 }}>{l.spare_parts?.part_name || l.spare_part_id}</span>: System {l.system_quantity} → Counted {l.physical_count} (
+                                  <span style={{ color: l.variance > 0 ? 'var(--status-success)' : l.variance < 0 ? 'var(--status-danger)' : 'var(--text-muted)', fontWeight: 600 }}>
+                                    {l.variance > 0 ? `+${l.variance}` : l.variance}
+                                  </span>)
+                                  {l.reason && <span className="text-muted" style={{ fontStyle: 'italic', marginLeft: '0.25rem' }}>— {l.reason}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{
+                              fontWeight: 700,
+                              color: netVariance === 0 ? 'var(--status-success)' : netVariance > 0 ? 'var(--brand-accent)' : 'var(--status-danger)'
+                            }}>
+                              {netVariance > 0 ? `+${netVariance}` : netVariance}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`badge ${
+                              rec.status === 'APPROVED' ? 'badge-success' :
+                              rec.status === 'COMPLETED' ? 'badge-neutral' :
+                              rec.status === 'REJECTED' ? 'badge-danger' : 'badge-warning'
+                            }`}>
+                              {rec.status}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: '0.8125rem' }}>{new Date(rec.created_at).toLocaleString()}</td>
+                          <td>
+                            {rec.status === 'PENDING_REVIEW' ? (
+                              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--status-success)' }}
+                                  disabled={reviewingReconciliation}
+                                  onClick={() => handleReviewReconciliation(rec.id, 'APPROVE')}
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  className="btn btn-secondary"
+                                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: 'var(--status-danger)' }}
+                                  disabled={reviewingReconciliation}
+                                  onClick={() => handleReviewReconciliation(rec.id, 'REJECT')}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                                {rec.status} {rec.reviewed_at ? `on ${new Date(rec.reviewed_at).toLocaleDateString()}` : ''}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Section 2: Active Trunk Balances across all Technicians */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-secondary)' }}>
+              <h3 style={{ fontSize: '0.9375rem', fontWeight: 600 }}>All Field Technician Trunk Balances</h3>
+              <p className="text-muted" style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                Real-time active spare parts in service vans across the entire technician fleet
+              </p>
+            </div>
+            <div className="table-responsive">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Technician</th>
+                    <th>Part Code</th>
+                    <th>Part Name</th>
+                    <th>Category</th>
+                    <th>Available in Van</th>
+                    <th>Allocated / Reserved</th>
+                    <th>Last Reconciled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allTrunkStocks.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
+                        <p className="text-muted">No technician van stock assigned yet. Click "Issue Parts to Technician Van" above.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    allTrunkStocks.map((stk) => (
+                      <tr key={stk.id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{stk.profiles?.full_name || 'Technician'}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{stk.profiles?.employee_code || ''}</div>
+                        </td>
+                        <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{stk.spare_parts?.part_code}</td>
+                        <td style={{ fontWeight: 600 }}>{stk.spare_parts?.part_name}</td>
+                        <td>
+                          <span className="badge badge-neutral" style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                            {stk.spare_parts?.category}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: stk.quantity_available > 0 ? 'var(--status-success)' : 'var(--status-danger)' }}>
+                            {stk.quantity_available}
+                          </span>
+                        </td>
+                        <td>{stk.quantity_allocated || 0}</td>
+                        <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                          {stk.last_reconciled_at ? new Date(stk.last_reconciled_at).toLocaleString() : 'Never'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Issue Spare Part to Technician Van */}
+      {showIssueModal && (
+        <div className="modal-backdrop" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div className="card" style={{ width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Truck style={{ color: 'var(--brand-primary)' }} /> Issue Stock to Technician Van
+              </h2>
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '0.25rem 0.5rem' }}
+                onClick={() => setShowIssueModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleIssueStock} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Target Field Technician *
+                </label>
+                <select
+                  className="input"
+                  value={issueForm.technicianId}
+                  onChange={(e) => setIssueForm({ ...issueForm, technicianId: e.target.value })}
+                  required
+                >
+                  <option value="">Select Technician...</option>
+                  {techniciansList.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.full_name} ({t.employee_code || t.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Source Warehouse Location *
+                </label>
+                <select
+                  className="input"
+                  value={issueForm.warehouseId}
+                  onChange={(e) => setIssueForm({ ...issueForm, warehouseId: e.target.value })}
+                  required
+                >
+                  <option value="">Select Source Warehouse...</option>
+                  {warehousesList.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.warehouse_name} ({w.warehouse_code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Spare Part / Component *
+                </label>
+                <select
+                  className="input"
+                  value={issueForm.sparePartId}
+                  onChange={(e) => setIssueForm({ ...issueForm, sparePartId: e.target.value })}
+                  required
+                >
+                  <option value="">Select Spare Part...</option>
+                  {parts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.part_name} [{p.part_code}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Issuance Quantity *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  className="input"
+                  value={issueForm.quantity}
+                  onChange={(e) => setIssueForm({ ...issueForm, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                  Custody Transfer Reason / Dispatch Note
+                </label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={issueForm.reason}
+                  onChange={(e) => setIssueForm({ ...issueForm, reason: e.target.value })}
+                  placeholder="e.g. Monthly replenishment for South Region field van"
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowIssueModal(false)}
+                  disabled={submittingIssue}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submittingIssue}
+                >
+                  {submittingIssue ? 'Transferring Stock...' : 'Confirm Stock Issuance'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
