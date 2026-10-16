@@ -63,7 +63,7 @@ export const TechnicianPage: React.FC = () => {
   const { user, profile, currentRole } = useAuth();
   const [visits, setVisits] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'in_progress' | 'completed' | 'trunk' | 'all'>('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'in_progress' | 'completed' | 'trunk' | 'travel' | 'all'>('upcoming');
   const [searchQuery, setSearchQuery] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -175,6 +175,149 @@ export const TechnicianPage: React.FC = () => {
 
   // Location tracking notification
   const [gpsStatusNotice, setGpsStatusNotice] = useState<string | null>(null);
+
+  // Phase 7.9: Geo-tracking, Territories & Travel Claims State
+  const [isGpsActive, setIsGpsActive] = useState(false);
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  const [lastBreadcrumbTime, setLastBreadcrumbTime] = useState<string | null>(null);
+  const [todayTravelClaim, setTodayTravelClaim] = useState<any | null>(null);
+  const [travelClaimsHistory, setTravelClaimsHistory] = useState<any[]>([]);
+  const [assignedTerritories, setAssignedTerritories] = useState<any[]>([]);
+  const [travelPolicy, setTravelPolicy] = useState<any | null>(null);
+  const [submittingClaim, setSubmittingClaim] = useState(false);
+  const [capturingGps, setCapturingGps] = useState(false);
+
+  // Fetch travel claims, policies & territories
+  const fetchTravelData = async () => {
+    if (!user?.id) return;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const [claimRes, histRes, policyRes, terrRes] = await Promise.all([
+        (supabase as any)
+          .from('technician_travel_claims')
+          .select('*')
+          .eq('technician_id', user.id)
+          .eq('claim_date', today)
+          .maybeSingle(),
+        (supabase as any)
+          .from('technician_travel_claims')
+          .select('*')
+          .eq('technician_id', user.id)
+          .order('claim_date', { ascending: false })
+          .limit(10),
+        (supabase as any)
+          .from('technician_travel_policies')
+          .select('*')
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle(),
+        (supabase as any)
+          .from('technician_territory_assignments')
+          .select('*, service_territories(*)')
+          .eq('technician_id', user.id)
+          .eq('is_active', true)
+      ]);
+
+      if (claimRes.data) setTodayTravelClaim(claimRes.data);
+      if (histRes.data) setTravelClaimsHistory(histRes.data);
+      if (policyRes.data) setTravelPolicy(policyRes.data);
+      if (terrRes.data) setAssignedTerritories(terrRes.data);
+    } catch (e) {
+      console.warn('Failed to load travel economics data:', e);
+    }
+  };
+
+  // Capture & send real-time GPS breadcrumb
+  const handleSendBreadcrumb = async () => {
+    if (!user?.id) return;
+    setCapturingGps(true);
+    setGpsStatusNotice(null);
+
+    const geoResult = await captureEventGeolocation();
+    if (!geoResult.isAvailable || geoResult.latitude === null || geoResult.longitude === null) {
+      setCapturingGps(false);
+      setGpsStatusNotice(geoResult.errorMessage || 'Unable to acquire accurate GPS position.');
+      return;
+    }
+
+    setGpsAccuracy(geoResult.accuracy);
+    const clientUuid = `BC-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      technicianOfflineService.enqueueGeoBreadcrumb(user.id, {
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+        accuracy: geoResult.accuracy || 10,
+        visitId: selectedVisit?.id
+      });
+      setLastBreadcrumbTime(new Date().toLocaleTimeString());
+      setIsGpsActive(true);
+      setCapturingGps(false);
+      setGpsStatusNotice('GPS breadcrumb recorded in offline queue. Will sync automatically.');
+      return;
+    }
+
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_record_technician_geo_breadcrumb', {
+        p_technician_id: user.id,
+        p_latitude: geoResult.latitude,
+        p_longitude: geoResult.longitude,
+        p_accuracy: geoResult.accuracy || 10,
+        p_service_visit_id: selectedVisit?.id || null,
+        p_service_ticket_id: selectedVisit?.ticket_id || null,
+        p_client_uuid: clientUuid
+      });
+
+      if (error) throw error;
+      setLastBreadcrumbTime(new Date().toLocaleTimeString());
+      setIsGpsActive(true);
+      setGpsStatusNotice(`GPS coordinates updated (Accuracy ±${Math.round(geoResult.accuracy || 0)}m).`);
+      fetchTravelData();
+    } catch (err: any) {
+      technicianOfflineService.enqueueGeoBreadcrumb(user.id, {
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+        accuracy: geoResult.accuracy || 10,
+        visitId: selectedVisit?.id
+      });
+      setGpsStatusNotice('Server unreachable; breadcrumb queued locally.');
+    } finally {
+      setCapturingGps(false);
+    }
+  };
+
+  // Submit today's travel claim
+  const handleSubmitTodayClaim = async () => {
+    if (!user?.id) return;
+    setSubmittingClaim(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await (supabase.rpc as any)('fn_calculate_daily_travel_claim', {
+        p_technician_id: user.id,
+        p_claim_date: today
+      });
+      if (error) throw error;
+
+      // Update to SUBMITTED
+      if (data?.claim_id) {
+        await (supabase as any)
+          .from('technician_travel_claims')
+          .update({
+            status: 'SUBMITTED',
+            submitted_at: new Date().toISOString(),
+            notes: 'Submitted by technician via mobile app'
+          })
+          .eq('id', data.claim_id);
+      }
+
+      setSuccessMsg(`Today's travel claim calculated (₹${data?.total_reimbursement || 0}) and submitted for manager review.`);
+      fetchTravelData();
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Failed to submit travel claim.');
+    } finally {
+      setSubmittingClaim(false);
+    }
+  };
 
   // General action loading
   const [actionLoading, setActionLoading] = useState(false);
@@ -347,6 +490,29 @@ export const TechnicianPage: React.FC = () => {
               p_defective_core_ids: item.payload?.defectiveCoreIds || [],
               p_carrier_tracking_number: item.payload?.carrierTrackingNumber || null,
               p_technician_notes: item.payload?.technicianNotes || null
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'GEO_BREADCRUMB') {
+            const { error } = await (supabase.rpc as any)('fn_record_technician_geo_breadcrumb', {
+              p_technician_id: item.payload?.technicianId || user?.id,
+              p_latitude: item.payload?.latitude,
+              p_longitude: item.payload?.longitude,
+              p_accuracy: item.payload?.accuracy || 10,
+              p_speed: item.payload?.speed || null,
+              p_heading: item.payload?.heading || null,
+              p_altitude: item.payload?.altitude || null,
+              p_service_visit_id: item.visitId || null,
+              p_service_ticket_id: item.ticketId || null,
+              p_battery_level: item.payload?.batteryLevel || null,
+              p_is_charging: item.payload?.isCharging || null,
+              p_network_status: item.payload?.networkStatus || 'online',
+              p_client_uuid: item.id
+            });
+            return { success: !error, error: error?.message };
+          } else if (item.type === 'TRAVEL_CLAIM_SUBMIT') {
+            const { error } = await (supabase.rpc as any)('fn_calculate_daily_travel_claim', {
+              p_technician_id: item.payload?.technicianId || user?.id,
+              p_claim_date: item.payload?.claimDate || new Date().toISOString().split('T')[0]
             });
             return { success: !error, error: error?.message };
           }
@@ -1428,6 +1594,26 @@ export const TechnicianPage: React.FC = () => {
               <span>Trunk Stock</span>
             </div>
           </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('travel');
+              fetchTravelData();
+            }}
+            className={`technician-tab-btn ${activeTab === 'travel' ? 'active-completed' : ''}`}
+            style={{
+              borderColor: activeTab === 'travel' ? 'var(--accent-emerald)' : 'var(--border-subtle)',
+              background: activeTab === 'travel' ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-glass)'
+            }}
+          >
+            <div style={{ fontSize: '1.25rem', fontWeight: 800, color: activeTab === 'travel' ? 'var(--accent-emerald)' : 'var(--text-primary)' }}>
+              ₹{todayTravelClaim?.total_reimbursement ? Math.round(todayTravelClaim.total_reimbursement) : 0}
+            </div>
+            <div style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+              <DollarSign size={12} />
+              <span>Travel & TA</span>
+            </div>
+          </button>
         </div>
 
         {/* Search Bar */}
@@ -1750,6 +1936,195 @@ export const TechnicianPage: React.FC = () => {
                               {core.core_credit_eligible ? `Eligible (Est. ₹${core.estimated_core_value || 0})` : 'Ineligible'}
                             </span>
                           </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : activeTab === 'travel' ? (
+          /* Travel Economics, Territory Status & Real-time GPS Tracker Panel */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Live GPS Breadcrumb & Real-time Tracking Box */}
+            <div className="glass-card" style={{ padding: '1.25rem', border: '1px solid var(--border-subtle)', background: 'var(--bg-glass)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                    <Navigation size={18} style={{ color: 'var(--accent-blue)' }} />
+                    <span>Live GPS Breadcrumb Tracking</span>
+                  </h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+                    Secure technician location capture for customer ETA and mileage computation.
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleSendBreadcrumb}
+                  disabled={capturingGps}
+                  className="technician-btn-touch btn-primary"
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '0.5rem 1rem',
+                    background: 'linear-gradient(135deg, #06B6D4, #3B82F6)'
+                  }}
+                >
+                  <MapPin size={16} />
+                  <span>{capturingGps ? 'Locating...' : 'Update Current Location'}</span>
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: 'var(--bg-input)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>GPS Status</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: isGpsActive ? 'var(--accent-emerald)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.25rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isGpsActive ? '#10B981' : '#94A3B8' }} />
+                    {isGpsActive ? 'GPS Signal Fix' : 'Idle / Standby'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Accuracy</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-cyan)', marginTop: '0.25rem' }}>
+                    {gpsAccuracy ? `±${Math.round(gpsAccuracy)} meters` : 'High Precision'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Last Location Sync</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                    {lastBreadcrumbTime || 'Not captured yet'}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Queued Offline</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--accent-amber)', marginTop: '0.25rem' }}>
+                    {technicianOfflineService.getQueue().filter(q => q.type === 'GEO_BREADCRUMB').length} events
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Travel Economics: Today's Claim & Mileage */}
+            <div className="glass-card" style={{ padding: '1.25rem', border: '1px solid var(--border-subtle)', background: 'var(--bg-glass)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}>
+                    <DollarSign size={18} style={{ color: 'var(--accent-emerald)' }} />
+                    <span>Today's Travel Allowance & Mileage</span>
+                  </h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.2rem 0 0 0' }}>
+                    Rate: ₹{travelPolicy?.rate_per_km || 4.5}/km • Daily Allowance: ₹{travelPolicy?.daily_allowance_amount || 250}
+                  </p>
+                </div>
+
+                <button
+                  onClick={handleSubmitTodayClaim}
+                  disabled={submittingClaim || todayTravelClaim?.status === 'APPROVED' || todayTravelClaim?.status === 'SETTLED'}
+                  className="technician-btn-touch btn-primary"
+                  style={{
+                    fontSize: '0.8rem',
+                    padding: '0.5rem 1rem',
+                    background: todayTravelClaim?.status === 'SUBMITTED' ? 'rgba(59, 130, 246, 0.2)' : 'linear-gradient(135deg, #10B981, #059669)',
+                    borderColor: todayTravelClaim?.status === 'SUBMITTED' ? 'var(--accent-blue)' : undefined
+                  }}
+                >
+                  <CheckCircle size={16} />
+                  <span>
+                    {submittingClaim
+                      ? 'Submitting...'
+                      : todayTravelClaim?.status === 'SUBMITTED'
+                      ? 'Claim Submitted (Under Review)'
+                      : todayTravelClaim?.status === 'APPROVED'
+                      ? 'Claim Approved'
+                      : 'Calculate & Submit Claim'}
+                  </span>
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ background: 'var(--bg-input)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Eligible Distance</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                    {todayTravelClaim?.eligible_km ? todayTravelClaim.eligible_km.toFixed(1) : '0.0'} km
+                  </div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                    Total: {todayTravelClaim?.total_km_travelled ? todayTravelClaim.total_km_travelled.toFixed(1) : '0.0'} km
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mileage Reimbursable</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-blue)', marginTop: '0.25rem' }}>
+                    ₹{todayTravelClaim?.total_km_amount ? Math.round(todayTravelClaim.total_km_amount) : 0}
+                  </div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                    @ ₹{todayTravelClaim?.rate_per_km || 4.5}/km
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Daily DA Allowance</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-purple)', marginTop: '0.25rem' }}>
+                    ₹{todayTravelClaim?.daily_allowance_amount ? Math.round(todayTravelClaim.daily_allowance_amount) : 0}
+                  </div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                    {todayTravelClaim?.total_service_visits_count || 0} visits completed
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-input)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Daily Payout</div>
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--accent-emerald)', marginTop: '0.25rem' }}>
+                    ₹{todayTravelClaim?.total_reimbursement ? Math.round(todayTravelClaim.total_reimbursement) : 0}
+                  </div>
+                  <div style={{ fontSize: '0.675rem', color: 'var(--accent-emerald)', fontWeight: 600, marginTop: '0.1rem' }}>
+                    Status: {todayTravelClaim?.status || 'NOT_CALCULATED'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Assigned Service Territories */}
+            <div className="glass-card" style={{ padding: '1.25rem', border: '1px solid var(--border-subtle)', background: 'var(--bg-glass)' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 0.75rem 0' }}>
+                <MapPin size={18} style={{ color: 'var(--accent-purple)' }} />
+                <span>My Authorized Service Territories</span>
+              </h3>
+
+              {assignedTerritories.length === 0 ? (
+                <p style={{ fontSize: '0.825rem', color: 'var(--text-muted)', margin: 0 }}>
+                  Assigned to general citywide roaming pool.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                  {assignedTerritories.map((assignment) => {
+                    const terr = assignment.service_territories;
+                    return (
+                      <div
+                        key={assignment.id}
+                        style={{
+                          background: 'var(--bg-input)',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 'var(--radius-sm)',
+                          padding: '0.75rem'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--text-primary)' }}>
+                            {terr?.territory_name || 'Territory'}
+                          </span>
+                          <span className={`badge ${assignment.assignment_type === 'PRIMARY' ? 'badge-primary' : 'badge-secondary'}`} style={{ fontSize: '0.675rem' }}>
+                            {assignment.assignment_type}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                          Region: {terr?.service_region || 'Metro'} • Radius: {terr?.boundary_radius_km || 15} km
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--accent-cyan)', marginTop: '0.25rem' }}>
+                          Out-of-territory policy: {terr?.out_of_territory_policy || 'WARN'}
                         </div>
                       </div>
                     );

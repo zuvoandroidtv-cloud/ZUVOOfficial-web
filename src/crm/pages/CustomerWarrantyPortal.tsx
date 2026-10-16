@@ -15,7 +15,9 @@ import {
   ArrowRight,
   RotateCcw,
   Sparkles,
-  Lock
+  Lock,
+  Navigation,
+  Clock
 } from 'lucide-react';
 
 export const CustomerWarrantyPortal: React.FC = () => {
@@ -31,6 +33,9 @@ export const CustomerWarrantyPortal: React.FC = () => {
   const [warrantyStartDate, setWarrantyStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [registering, setRegistering] = useState(false);
   const [registeredWarranty, setRegisteredWarranty] = useState<any | null>(null);
+
+  // Phase 7.9: Privacy-Safe Active Service ETA State
+  const [activeServiceEta, setActiveServiceEta] = useState<any | null>(null);
 
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -87,6 +92,30 @@ export const CustomerWarrantyPortal: React.FC = () => {
 
       if (res?.valid && res?.already_registered) {
         setRegisteredWarranty(res.warranty);
+
+        // Phase 7.9: Check for any active service ticket ETA for this customer/product
+        try {
+          if (res.product?.unit_id) {
+            const { data: ticketData } = await (supabase as any)
+              .from('service_tickets')
+              .select('id, ticket_number, status, service_visits(id, status, current_eta_minutes, eta_status, technician_eta_events(eta_status, estimated_arrival_window_start, estimated_arrival_window_end, is_delayed, created_at))')
+              .eq('product_unit_id', res.product.unit_id)
+              .in('status', ['assigned', 'in_progress'])
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (ticketData?.service_visits?.[0]) {
+              setActiveServiceEta({
+                ticketNumber: ticketData.ticket_number,
+                ticketStatus: ticketData.status,
+                visit: ticketData.service_visits[0]
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('ETA fetch skipped:', e);
+        }
       } else if (res?.valid && res?.sale) {
         // Pre-fill customer info if available from sale
         if (res.sale.customer_name) setCustomerName(res.sale.customer_name);
@@ -502,6 +531,63 @@ export const CustomerWarrantyPortal: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* PHASE 7.9: CUSTOMER-SAFE SERVICE VISIT ETA TRACKER */}
+            {activeServiceEta && (
+              <div
+                style={{
+                  marginTop: '1.5rem',
+                  padding: '1.25rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%)',
+                  border: '1px solid rgba(6, 182, 212, 0.3)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.75rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Navigation size={18} style={{ color: 'var(--accent-cyan)' }} />
+                    <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                      Doorstep Service Visit Status (Ticket #{activeServiceEta.ticketNumber})
+                    </span>
+                  </div>
+                  <span className={`badge ${activeServiceEta.visit?.eta_status === 'ARRIVED' ? 'badge-success' : 'badge-primary'}`} style={{ fontSize: '0.75rem' }}>
+                    {activeServiceEta.visit?.eta_status === 'ARRIVED'
+                      ? 'TECHNICIAN ARRIVED'
+                      : activeServiceEta.visit?.eta_status === 'EN_ROUTE'
+                      ? 'TECHNICIAN EN ROUTE'
+                      : 'SERVICE ASSIGNED'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.25rem' }}>
+                  <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Estimated Arrival Window</div>
+                    <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--brand-primary)', marginTop: '0.25rem' }}>
+                      {activeServiceEta.visit?.current_eta_minutes
+                        ? `Approx. ${activeServiceEta.visit.current_eta_minutes} minutes`
+                        : 'Arrival Pending Confirmation'}
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Service Progress</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                      {activeServiceEta.visit?.status?.toUpperCase() || 'SCHEDULED'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <Clock size={14} />
+                  <span>
+                    Privacy-safe proximity tracking. Exact coordinates are protected by ZUVO Privacy Policy.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* PHASE 7.7: EXTENDED WARRANTY UPSELL SHOWCASE */}
             <div

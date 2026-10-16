@@ -18,6 +18,8 @@ export const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [territoryEvaluation, setTerritoryEvaluation] = useState<any | null>(null);
+  const [evaluatingTerritory, setEvaluatingTerritory] = useState(false);
 
   useEffect(() => {
     const fetchTechnicians = async () => {
@@ -44,10 +46,43 @@ export const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
     fetchTechnicians();
   }, [ticket]);
 
+  // Evaluate territory fit whenever selected technician changes
+  useEffect(() => {
+    if (!selectedTechId || !ticket?.id) {
+      setTerritoryEvaluation(null);
+      return;
+    }
+
+    const checkTerritory = async () => {
+      setEvaluatingTerritory(true);
+      try {
+        const { data, error } = await (supabase.rpc as any)('fn_evaluate_service_ticket_territory', {
+          p_ticket_id: ticket.id,
+          p_technician_id: selectedTechId
+        });
+        if (!error && data) {
+          setTerritoryEvaluation(data);
+        }
+      } catch (e) {
+        console.warn('Territory evaluation skipped:', e);
+      } finally {
+        setEvaluatingTerritory(false);
+      }
+    };
+
+    checkTerritory();
+  }, [selectedTechId, ticket?.id]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTechId) {
       setErrorMsg('Please select a technician.');
+      return;
+    }
+
+    // Check if BLOCK policy applies
+    if (territoryEvaluation && territoryEvaluation.allowed === false && territoryEvaluation.policy === 'BLOCK') {
+      setErrorMsg(`Dispatch Blocked: ${territoryEvaluation.message}`);
       return;
     }
 
@@ -114,6 +149,47 @@ export const AssignTechnicianModal: React.FC<AssignTechnicianModalProps> = ({
               </select>
             )}
           </div>
+
+          {/* Phase 7.9: Territory Optimization Signal */}
+          {evaluatingTerritory && (
+            <div className="text-slate-400 py-1 flex items-center space-x-1.5">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+              <span>Checking service territory optimization...</span>
+            </div>
+          )}
+
+          {territoryEvaluation && !evaluatingTerritory && (
+            <div
+              className={`p-3 rounded-lg border flex flex-col space-y-1.5 ${
+                territoryEvaluation.in_territory
+                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+                  : territoryEvaluation.policy === 'BLOCK'
+                  ? 'bg-red-950/80 border-red-500/50 text-red-200'
+                  : 'bg-amber-950/60 border-amber-500/40 text-amber-200'
+              }`}
+            >
+              <div className="flex items-center justify-between font-semibold">
+                <span className="flex items-center space-x-1.5">
+                  {territoryEvaluation.in_territory ? (
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  )}
+                  <span>
+                    {territoryEvaluation.in_territory
+                      ? `In-Territory Match: ${territoryEvaluation.territory_name}`
+                      : `Out-of-Territory Dispatch (${territoryEvaluation.policy})`}
+                  </span>
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/40 uppercase">
+                  {territoryEvaluation.policy || 'ALLOW'}
+                </span>
+              </div>
+              <p className="text-[11px] opacity-90 leading-tight">
+                {territoryEvaluation.message}
+              </p>
+            </div>
+          )}
 
           <div className="pt-2 flex justify-end space-x-2">
             <button

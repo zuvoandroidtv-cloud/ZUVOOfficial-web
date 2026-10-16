@@ -24,7 +24,9 @@ export interface QueuedVisitAction {
     | 'HARVEST_DEFECTIVE_CORE'
     | 'DISPATCH_RMA_MANIFEST'
     | 'SLA_EVALUATION'
-    | 'ESCALATE_TICKET';
+    | 'ESCALATE_TICKET'
+    | 'GEO_BREADCRUMB'
+    | 'TRAVEL_CLAIM_SUBMIT';
   visitId?: string;
   ticketId?: string;
   payload: {
@@ -62,6 +64,16 @@ export interface QueuedVisitAction {
     toLevel?: number;
     escalationReason?: string;
     actionTaken?: string;
+    // Phase 7.9 Geo-Breadcrumb & Travel Economics fields
+    speed?: number | null;
+    heading?: number | null;
+    altitude?: number | null;
+    batteryLevel?: number | null;
+    isCharging?: boolean | null;
+    networkStatus?: string | null;
+    claimDate?: string;
+    dailyAllowance?: number;
+    claimNotes?: string;
   };
   queuedAt: string;
   status: 'pending' | 'syncing' | 'synced' | 'failed';
@@ -449,6 +461,76 @@ export class TechnicianOfflineService {
         toLevel,
         escalationReason,
         actionTaken
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Phase 7.9: Queues offline technician GPS breadcrumb
+   */
+  public enqueueGeoBreadcrumb(
+    technicianId: string,
+    params: {
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      speed?: number;
+      heading?: number;
+      altitude?: number;
+      visitId?: string;
+      batteryLevel?: number;
+      isCharging?: boolean;
+      networkStatus?: string;
+    }
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `BREADCRUMB-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'GEO_BREADCRUMB',
+      visitId: params.visitId,
+      payload: {
+        technicianId,
+        latitude: params.latitude,
+        longitude: params.longitude,
+        accuracy: params.accuracy || 10,
+        speed: params.speed || null,
+        heading: params.heading || null,
+        altitude: params.altitude || null,
+        batteryLevel: params.batteryLevel || null,
+        isCharging: params.isCharging || null,
+        networkStatus: params.networkStatus || (navigator.onLine ? 'online' : 'offline')
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Phase 7.9: Queues offline travel reimbursement claim submission
+   */
+  public enqueueTravelClaimSubmit(
+    technicianId: string,
+    claimDate: string,
+    notes?: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `TRAVEL-CLAIM-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'TRAVEL_CLAIM_SUBMIT',
+      payload: {
+        technicianId,
+        claimDate,
+        claimNotes: notes
       },
       queuedAt: new Date().toISOString(),
       status: 'pending',
