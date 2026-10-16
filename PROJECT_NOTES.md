@@ -503,6 +503,48 @@
 | **TypeScript & Production Build** | Full TypeScript type check and production bundle compilation | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static routes + 404.html generated cleanly |
 | **Public Website Isolation** | Public routes (`/`, `/products/*`, `/warranty`, `/dealership`) remain unaffected and isolated within `.crm-app-scope` | **PASS** | Verified via static prerender, route isolation tests, and scoped CSS classes |
 
+---
+
+## Phase 7.9: Technician Real-Time Geo-Tracking, Travel Economics, Service Territory Optimization & Customer ETA
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 16, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017190000_phase_7_9_geo_tracking_travel_territory_eta.sql`  
+**Test Suite**: `scripts-crm/test_phase_7_9_geo_tracking_travel_territory.mjs` — **30/30 PASS**
+
+### 1. Phase 7.9 Architectural & Functional Summary
+- **Technician Breadcrumb Telemetry**: Privacy-preserving stream logging (`technician_geo_breadcrumbs`), GPS coordinate validation, accuracy thresholding, and battery level capture.
+- **Service Route Segments**: Server-side Haversine geodesic distance calculation preventing client-manipulated travel metrics.
+- **Travel Economics & DA**: Dynamic per-km mileage reimbursement and daily dearness allowances evaluated via `fn_calculate_daily_travel_claim`.
+- **Territory Optimization & Geofencing**: Postal code geofences with configurable out-of-territory dispatch policies (`ALLOW`, `WARN`, `REQUIRE_APPROVAL`, `BLOCK`).
+- **Privacy-Safe Customer ETA**: Formatted ETA arrival window generated on customer warranty portal without revealing raw technician GPS coordinates.
+
+---
+
+## Phase 8.0: Enterprise Landed Cost Accounting, 3-Way Procurement Matching & Vendor Accounts Payable Ledger
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 16, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017200000_phase_8_0_landed_cost_ap_matching.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_0_procurement_finance.mjs` — **50/50 PASS**
+
+### 1. Phase 8.0 Implementation Summary & Verification Matrix
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Commercial Vendor Invoices** | Commercial tax invoices linked to Purchase Orders & GRN receipts (`vendor_invoices`, `vendor_invoice_items`) | **PASS** | Auto-calculated due dates based on contractual payment terms (`NET_15`, `NET_30`, `NET_60`, `NET_90`); unique invoice enforcement per vendor |
+| **3-Way Matching Engine** | Automated validation of PO unit prices and quantities against GRN receipts and vendor tax invoices | **PASS** | `fn_evaluate_three_way_match` RPC; exact and within-tolerance (±0.5%) invoices automatically post to AP ledger; variances flagged |
+| **CFO Governance Gate** | Exceptions exceeding ±0.5% price tolerance or quantity discrepancies require authorized executive approval | **PASS** | `fn_adjudicate_invoice_variance_cfo` RPC restricted to `super_admin` and `admin` roles; logs audit rationale; blocks ordinary users |
+| **Inbound Landed Cost Engine** | Capitalize freight, customs duties, port handling, and transit insurance into serialized inventory | **PASS** | `landed_cost_vouchers` and `landed_cost_unit_allocations` tables + `fn_allocate_landed_costs` RPC atomically updating `product_units.purchase_cost` |
+| **Vendor AP Ledger & Balances** | Centralized accounts payable liability ledger tracking original balance, debit offsets, and disbursements | **PASS** | `vendor_ap_ledger` and `vendor_ap_transactions` tables; balance integrity constraints prevent overpayments or negative balances |
+| **Supplier Debit Memo Offsets** | Seamless offsetting of Phase 7.2 Vendor Debit Memos against open Accounts Payable liabilities | **PASS** | `vendor_debit_memo_applications` table + `fn_apply_debit_memo_to_ap` RPC; partial and full consumption with zero double-counting |
+| **Contractual AP Aging Schedule** | Aging schedule broken down into Current, 1-30, 31-60, 61-90, and 90+ days past contractual due date | **PASS** | `fn_get_vendor_ap_aging_summary` RPC; aggregates live vendor liabilities and identifies oldest overdue balances |
+| **CRM User Interface** | Integrated Procurement workbench tabs for Invoices & 3-Way Match, Landed Costs, and Vendor AP Ledger | **PASS** | `ProcurementPage.tsx` updated with 3 dedicated Phase 8.0 tabs, live Aging metrics cards, and 5 interactive modals |
+| **Security & RLS Governance** | Strict Row Level Security on all Phase 8.0 financial tables; technicians, dealers, and anonymous users completely blocked | **PASS** | 7 new tables protected under RLS; anonymous access denied; role-based policies enforce least privilege; `SET search_path = public` on all RPCs |
+| **Dedicated Test Suite** | Comprehensive 50-test automated suite covering RLS, PO/GRN linkage, 3-way match, tolerances, CFO gates, landed cost, AP ledger, and aging | **PASS** | `node ./scripts-crm/test_phase_8_0_procurement_finance.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across Phase 7.9, 7.8, 7.7, 7.6, 7.5, and Website/CRM integration suites | **PASS** | 100% clean (50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.38s) |
+
 
 
 

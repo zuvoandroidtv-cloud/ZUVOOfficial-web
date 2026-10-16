@@ -26,12 +26,26 @@ import {
   FileCheck,
   ShieldCheck,
   Percent,
-  Sliders
+  Sliders,
+  Receipt,
+  Scale,
+  CreditCard,
+  DollarSign
 } from 'lucide-react';
 import { exportToCSV } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
 
-type ProcurementTab = 'purchase_orders' | 'goods_receipts' | 'reorder_points' | 'factory_qa' | 'vendors' | 'vendor_returns' | 'reports';
+type ProcurementTab =
+  | 'purchase_orders'
+  | 'goods_receipts'
+  | 'vendor_invoices'
+  | 'landed_costs'
+  | 'ap_ledger'
+  | 'reorder_points'
+  | 'factory_qa'
+  | 'vendors'
+  | 'vendor_returns'
+  | 'reports';
 
 interface LineItemInput {
   product_variant_id: string;
@@ -174,6 +188,57 @@ export const ProcurementPage: React.FC = () => {
   // Feedback Notification
   const [bannerMsg, setBannerMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Phase 8.0: Vendor Invoices & 3-Way Matching State
+  const [vendorInvoices, setVendorInvoices] = useState<any[]>([]);
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invVendorId, setInvVendorId] = useState('');
+  const [invPoId, setInvPoId] = useState('');
+  const [invGrnId, setInvGrnId] = useState('');
+  const [invNumber, setInvNumber] = useState('');
+  const [invDate, setInvDate] = useState(new Date().toISOString().split('T')[0]);
+  const [invSubtotal, setInvSubtotal] = useState<number>(0);
+  const [invTaxAmount, setInvTaxAmount] = useState<number>(0);
+  const [invTotalAmount, setInvTotalAmount] = useState<number>(0);
+  const [invPaymentTerms, setInvPaymentTerms] = useState('NET_30');
+  const [invLines, setInvLines] = useState<any[]>([
+    { po_item_id: '', product_variant_id: '', invoiced_quantity: 10, unit_price: 15000, tax_rate: 18 }
+  ]);
+  const [savingInvoice, setSavingInvoice] = useState(false);
+  const [cfoModalOpen, setCfoModalOpen] = useState(false);
+  const [cfoDecisionInvoice, setCfoDecisionInvoice] = useState<any | null>(null);
+  const [cfoNotes, setCfoNotes] = useState('');
+
+  // Phase 8.0: Landed Cost State
+  const [landedCostVouchers, setLandedCostVouchers] = useState<any[]>([]);
+  const [showLandedCostModal, setShowLandedCostModal] = useState(false);
+  const [lcvPoId, setLcvPoId] = useState('');
+  const [lcvBillNum, setLcvBillNum] = useState('');
+  const [lcvCategory, setLcvCategory] = useState<'FREIGHT' | 'CUSTOMS_DUTY' | 'PORT_HANDLING' | 'TRANSIT_INSURANCE' | 'OTHER'>('FREIGHT');
+  const [lcvAmount, setLcvAmount] = useState<number>(25000);
+  const [lcvTax, setLcvTax] = useState<number>(4500);
+  const [lcvMethod, setLcvMethod] = useState<'VALUE_BASED' | 'QUANTITY_BASED'>('VALUE_BASED');
+  const [savingLcv, setSavingLcv] = useState(false);
+
+  // Phase 8.0: Vendor AP Ledger State
+  const [apLedger, setApLedger] = useState<any[]>([]);
+  const [apAging, setApAging] = useState<any[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentApEntry, setPaymentApEntry] = useState<any | null>(null);
+  const [payAmount, setPayAmount] = useState<number>(0);
+  const [payMethod, setPayMethod] = useState('NEFT_RTGS');
+  const [payRef, setPayRef] = useState('');
+  const [payNotes, setPayNotes] = useState('');
+  const [savingPayment, setSavingPayment] = useState(false);
+
+  // Debit Memo Offset Modal State
+  const [showDebitOffsetModal, setShowDebitOffsetModal] = useState(false);
+  const [offsetApEntry, setOffsetApEntry] = useState<any | null>(null);
+  const [selectedDebitMemoId, setSelectedDebitMemoId] = useState('');
+  const [offsetAmount, setOffsetAmount] = useState<number>(0);
+  const [savingOffset, setSavingOffset] = useState(false);
+
   // Load Primary Reference Data
   useEffect(() => {
     const fetchMasterData = async () => {
@@ -258,6 +323,38 @@ export const ProcurementPage: React.FC = () => {
           } finally {
             setLoadingReorder(false);
           }
+        } else if (activeTab === 'vendor_invoices') {
+          const { data, error } = await (supabase.from as any)('vendor_invoices')
+            .select(`
+              *,
+              vendors (display_name, legal_name, vendor_code),
+              purchase_orders (po_number, total_amount),
+              purchase_receipts (receipt_number)
+            `)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          setVendorInvoices(data || []);
+        } else if (activeTab === 'landed_costs') {
+          const { data, error } = await (supabase.from as any)('landed_cost_vouchers')
+            .select(`
+              *,
+              purchase_orders (po_number, total_amount)
+            `)
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          setLandedCostVouchers(data || []);
+        } else if (activeTab === 'ap_ledger') {
+          const [apRes, agingRes] = await Promise.all([
+            (supabase.from as any)('vendor_ap_ledger')
+              .select(`
+                *,
+                vendors (display_name, legal_name, vendor_code)
+              `)
+              .order('due_date', { ascending: true }),
+            (supabase.rpc as any)('fn_get_vendor_ap_aging_summary')
+          ]);
+          if (apRes.data) setApLedger(apRes.data);
+          if (agingRes.data) setApAging(agingRes.data);
         } else if (activeTab === 'factory_qa') {
           const [inspRes, dmRes] = await Promise.all([
             (supabase.from as any)('factory_intake_inspections')
@@ -867,6 +964,54 @@ export const ProcurementPage: React.FC = () => {
           }}
         >
           <Package size={16} style={{ display: 'inline', marginRight: '6px' }} /> Goods Receipts (GRN)
+        </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'vendor_invoices' ? 'active' : ''}`}
+          onClick={() => setActiveTab('vendor_invoices')}
+          style={{
+            padding: '0.75rem 1.25rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            borderBottom: activeTab === 'vendor_invoices' ? '2px solid var(--brand-primary)' : 'none',
+            color: activeTab === 'vendor_invoices' ? 'var(--brand-primary)' : 'var(--text-muted)'
+          }}
+        >
+          <Receipt size={16} style={{ display: 'inline', marginRight: '6px' }} /> Invoices & 3-Way Match ({vendorInvoices.length})
+        </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'landed_costs' ? 'active' : ''}`}
+          onClick={() => setActiveTab('landed_costs')}
+          style={{
+            padding: '0.75rem 1.25rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            borderBottom: activeTab === 'landed_costs' ? '2px solid var(--brand-primary)' : 'none',
+            color: activeTab === 'landed_costs' ? 'var(--brand-primary)' : 'var(--text-muted)'
+          }}
+        >
+          <Scale size={16} style={{ display: 'inline', marginRight: '6px' }} /> Landed Costs ({landedCostVouchers.length})
+        </button>
+
+        <button
+          className={`tab-btn ${activeTab === 'ap_ledger' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ap_ledger')}
+          style={{
+            padding: '0.75rem 1.25rem',
+            border: 'none',
+            background: 'none',
+            cursor: 'pointer',
+            fontWeight: 600,
+            borderBottom: activeTab === 'ap_ledger' ? '2px solid var(--brand-primary)' : 'none',
+            color: activeTab === 'ap_ledger' ? 'var(--brand-primary)' : 'var(--text-muted)'
+          }}
+        >
+          <CreditCard size={16} style={{ display: 'inline', marginRight: '6px' }} /> Vendor AP Ledger ({apLedger.length})
         </button>
 
         <button
@@ -1693,6 +1838,343 @@ export const ProcurementPage: React.FC = () => {
                     <tr>
                       <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                         No debit memos issued. Debit memos are created automatically when units fail intake inspection.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 TAB: VENDOR INVOICES & 3-WAY MATCHING */}
+      {activeTab === 'vendor_invoices' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Vendor Commercial Tax Invoices & 3-Way Match</h2>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                Match Purchase Orders against Goods Receipts (GRN) and Vendor Invoices with automated ±0.5% price tolerance.
+              </p>
+            </div>
+            {isAllowed(['super_admin', 'admin', 'inventory']) && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setInvNumber(`INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+                  setShowInvoiceModal(true);
+                }}
+              >
+                <Plus size={14} /> Ingest Vendor Invoice
+              </button>
+            )}
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Invoice #</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Vendor</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>PO Ref</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Total (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Match Status</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Price Var %</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>AP Status</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {vendorInvoices.map((inv) => (
+                    <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--brand-primary)' }}>
+                        {inv.invoice_number}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{inv.vendors?.display_name || 'Vendor'}</td>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{inv.purchase_orders?.po_number || '-'}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700 }}>
+                        ₹{Number(inv.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                        <span
+                          className={`badge badge-${
+                            ['MATCHED', 'MATCHED_WITHIN_TOLERANCE'].includes(inv.match_status)
+                              ? 'success'
+                              : inv.match_status === 'APPROVED_EXCEPTION'
+                              ? 'info'
+                              : ['PRICE_VARIANCE', 'QUANTITY_VARIANCE', 'BOTH_VARIANCE'].includes(inv.match_status)
+                              ? 'danger'
+                              : 'secondary'
+                          }`}
+                        >
+                          {inv.match_status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                        {Number(inv.price_variance_pct || 0) > 0 ? `+${inv.price_variance_pct}%` : `${inv.price_variance_pct || 0}%`}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className="badge badge-secondary">{inv.status}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Run 3-Way Match Verification"
+                            onClick={async () => {
+                              try {
+                                const { data, error } = await (supabase.rpc as any)('fn_evaluate_three_way_match', { p_invoice_id: inv.id });
+                                if (error) throw error;
+                                setBannerMsg({ type: 'success', text: `3-Way Match: ${data?.match_status || 'Evaluated'}` });
+                                setRefreshKey((k) => k + 1);
+                              } catch (e: any) {
+                                alert(`Error running 3-way match: ${e.message}`);
+                              }
+                            }}
+                          >
+                            Verify Match
+                          </button>
+                          {isAllowed(['super_admin', 'admin']) && ['PRICE_VARIANCE', 'QUANTITY_VARIANCE', 'BOTH_VARIANCE'].includes(inv.match_status) && inv.status !== 'POSTED_TO_AP' && (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => {
+                                setCfoDecisionInvoice(inv);
+                                setCfoModalOpen(true);
+                              }}
+                            >
+                              CFO Gate
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {vendorInvoices.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No vendor invoices ingested yet. Click "Ingest Vendor Invoice" to create commercial tax invoice.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 TAB: LANDED COST ALLOCATION */}
+      {activeTab === 'landed_costs' && (
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Inbound Landed Cost Accounting</h2>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                Capitalize freight, customs duties, port handling, and transit insurance into true serialized TV inventory cost.
+              </p>
+            </div>
+            {isAllowed(['super_admin', 'admin', 'inventory']) && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setLcvBillNum(`BILL-${Math.floor(100000 + Math.random() * 900000)}`);
+                  setShowLandedCostModal(true);
+                }}
+              >
+                <Plus size={14} /> New Landed Cost Voucher
+              </button>
+            )}
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Voucher #</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>PO Ref</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Category</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Bill / Ref</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Total Landed Cost (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Method</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>Allocated Units</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {landedCostVouchers.map((v) => (
+                    <tr key={v.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--brand-primary)' }}>
+                        {v.voucher_number}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{v.purchase_orders?.po_number || '-'}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className="badge badge-secondary">{v.cost_category}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{v.reference_bill_number}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700 }}>
+                        ₹{Number(v.total_cost).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>{v.allocation_method}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 600 }}>{v.allocated_units_count}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className={`badge badge-${v.allocation_status === 'ALLOCATED' ? 'success' : 'warning'}`}>
+                          {v.allocation_status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        {v.allocation_status === 'DRAFT' && (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={async () => {
+                              try {
+                                const { data, error } = await (supabase.rpc as any)('fn_allocate_landed_costs', { p_voucher_id: v.id });
+                                if (error) throw error;
+                                setBannerMsg({ type: 'success', text: `Allocated landed costs across ${data?.allocated_units || 0} product units` });
+                                setRefreshKey((k) => k + 1);
+                              } catch (e: any) {
+                                alert(`Error allocating landed cost: ${e.message}`);
+                              }
+                            }}
+                          >
+                            Allocate to Stock
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {landedCostVouchers.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No landed cost vouchers recorded. Click "New Landed Cost Voucher" to apportion inbound shipping & duty charges.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 TAB: VENDOR ACCOUNTS PAYABLE LEDGER & AGING */}
+      {activeTab === 'ap_ledger' && (
+        <div>
+          {/* AP Aging Metrics */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div className="card" style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Total AP Liability</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--brand-primary)' }}>
+                ₹{apLedger.reduce((sum, e) => sum + (Number(e.outstanding_balance) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="card" style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Current (Net Terms)</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--status-success)' }}>
+                ₹{apAging.reduce((sum, a) => sum + (Number(a.current_payable) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="card" style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>1 - 30 Days Overdue</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--status-warning)' }}>
+                ₹{apAging.reduce((sum, a) => sum + (Number(a.days_1_30) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="card" style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>31 - 60 Days Overdue</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: 'var(--status-danger)' }}>
+                ₹{apAging.reduce((sum, a) => sum + (Number(a.days_31_60) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+            <div className="card" style={{ padding: '1rem' }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>90+ Days Critical</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, marginTop: '0.25rem', color: '#991b1b' }}>
+                ₹{apAging.reduce((sum, a) => sum + (Number(a.days_90_plus) || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
+
+          {/* AP Ledger Table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', fontWeight: 700 }}>
+              Vendor Payables Ledger ({apLedger.length})
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)', textAlign: 'left' }}>
+                    <th style={{ padding: '0.75rem 1rem' }}>Invoice #</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Vendor</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Due Date</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Original (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Debit Offset (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Paid (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Outstanding (₹)</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>Status</th>
+                    <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {apLedger.map((entry) => (
+                    <tr key={entry.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--brand-primary)' }}>
+                        {entry.invoice_number}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{entry.vendors?.display_name || 'Vendor'}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>{entry.due_date}</td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        ₹{Number(entry.original_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: 'var(--brand-primary)' }}>
+                        ₹{Number(entry.debit_offset_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', color: 'var(--status-success)' }}>
+                        ₹{Number(entry.paid_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', fontWeight: 700, color: Number(entry.outstanding_balance) > 0 ? 'var(--status-danger)' : 'var(--text-muted)' }}>
+                        ₹{Number(entry.outstanding_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className={`badge badge-${entry.status === 'SETTLED' ? 'success' : entry.status === 'PARTIALLY_SETTLED' ? 'warning' : 'secondary'}`}>
+                          {entry.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                        {entry.status !== 'SETTLED' && (
+                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => {
+                                setOffsetApEntry(entry);
+                                setOffsetAmount(Number(entry.outstanding_balance));
+                                setShowDebitOffsetModal(true);
+                              }}
+                            >
+                              Offset Debit Memo
+                            </button>
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => {
+                                setPaymentApEntry(entry);
+                                setPayAmount(Number(entry.outstanding_balance));
+                                setPayRef(`NEFT-${Math.floor(100000 + Math.random() * 900000)}`);
+                                setShowPaymentModal(true);
+                              }}
+                            >
+                              Pay Invoice
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {apLedger.length === 0 && (
+                    <tr>
+                      <td colSpan={9} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                        No active vendor AP records found. Approved invoices will automatically post here for disbursement.
                       </td>
                     </tr>
                   )}
@@ -2560,6 +3042,568 @@ export const ProcurementPage: React.FC = () => {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={savingReturn}>
                   {savingReturn ? 'Initiating Return...' : 'Submit Vendor Return Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 MODAL 1: INGEST VENDOR COMMERCIAL INVOICE */}
+      {showInvoiceModal && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '700px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Ingest Vendor Commercial Tax Invoice</h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowInvoiceModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!invVendorId || !invPoId || !invNumber) {
+                  alert('Please fill all mandatory invoice fields');
+                  return;
+                }
+                setSavingInvoice(true);
+                try {
+                  const { data: inv, error: invErr } = await (supabase.from as any)('vendor_invoices')
+                    .insert({
+                      invoice_number: invNumber,
+                      vendor_id: invVendorId,
+                      purchase_order_id: invPoId,
+                      purchase_receipt_id: invGrnId || null,
+                      invoice_date: invDate,
+                      due_date: new Date(new Date(invDate).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                      subtotal: Number(invSubtotal),
+                      tax_amount: Number(invTaxAmount),
+                      total_amount: Number(invTotalAmount),
+                      payment_terms: invPaymentTerms,
+                      match_status: 'PENDING',
+                      status: 'UNPOSTED'
+                    })
+                    .select()
+                    .single();
+                  if (invErr) throw invErr;
+
+                  // Insert line items
+                  for (const line of invLines) {
+                    if (line.product_variant_id) {
+                      const lineTax = (Number(line.invoiced_quantity) * Number(line.unit_price) * (Number(line.tax_rate) / 100));
+                      const lineTot = (Number(line.invoiced_quantity) * Number(line.unit_price) + lineTax);
+                      await (supabase.from as any)('vendor_invoice_items').insert({
+                        vendor_invoice_id: inv.id,
+                        purchase_order_item_id: line.po_item_id || null,
+                        product_variant_id: line.product_variant_id,
+                        invoiced_quantity: Number(line.invoiced_quantity),
+                        unit_price: Number(line.unit_price),
+                        tax_rate: Number(line.tax_rate),
+                        tax_amount: lineTax,
+                        line_total: lineTot
+                      });
+                    }
+                  }
+
+                  // Auto run 3-way match
+                  await (supabase.rpc as any)('fn_evaluate_three_way_match', { p_invoice_id: inv.id });
+
+                  setBannerMsg({ type: 'success', text: `Vendor Invoice ${invNumber} ingested and 3-way matched!` });
+                  setShowInvoiceModal(false);
+                  setRefreshKey((k) => k + 1);
+                } catch (err: any) {
+                  alert(`Error creating invoice: ${err.message}`);
+                } finally {
+                  setSavingInvoice(false);
+                }
+              }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Vendor Supplier *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={invVendorId}
+                    onChange={(e) => setInvVendorId(e.target.value)}
+                  >
+                    <option value="">Select Vendor...</option>
+                    {vendors.map((v) => (
+                      <option key={v.id} value={v.id}>{v.display_name} ({v.vendor_code})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Purchase Order *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={invPoId}
+                    onChange={(e) => {
+                      const poId = e.target.value;
+                      setInvPoId(poId);
+                      const po = purchaseOrders.find((p) => p.id === poId);
+                      if (po) {
+                        setInvSubtotal(Number(po.subtotal));
+                        setInvTaxAmount(Number(po.tax_amount));
+                        setInvTotalAmount(Number(po.total_amount));
+                      }
+                    }}
+                  >
+                    <option value="">Select PO...</option>
+                    {purchaseOrders.map((p) => (
+                      <option key={p.id} value={p.id}>{p.po_number} (₹{p.total_amount})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Vendor Invoice # *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    required
+                    value={invNumber}
+                    onChange={(e) => setInvNumber(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Invoice Date *</label>
+                  <input
+                    type="date"
+                    className="form-control"
+                    required
+                    value={invDate}
+                    onChange={(e) => setInvDate(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Payment Terms</label>
+                  <select
+                    className="form-control"
+                    value={invPaymentTerms}
+                    onChange={(e) => setInvPaymentTerms(e.target.value)}
+                  >
+                    <option value="IMMEDIATE">Immediate / Cash</option>
+                    <option value="NET_15">Net 15 Days</option>
+                    <option value="NET_30">Net 30 Days</option>
+                    <option value="NET_60">Net 60 Days</option>
+                    <option value="NET_90">Net 90 Days</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Total Billed Amount (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-control"
+                    required
+                    value={invTotalAmount}
+                    onChange={(e) => setInvTotalAmount(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowInvoiceModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingInvoice}>
+                  {savingInvoice ? 'Posting...' : 'Save & Run 3-Way Match'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 MODAL 2: LANDED COST VOUCHER */}
+      {showLandedCostModal && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Create Landed Cost Voucher</h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowLandedCostModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!lcvPoId || !lcvBillNum) {
+                  alert('Please enter PO and Bill Reference');
+                  return;
+                }
+                setSavingLcv(true);
+                try {
+                  const voucherNum = `LCV-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+                  const { error } = await (supabase.from as any)('landed_cost_vouchers').insert({
+                    voucher_number: voucherNum,
+                    purchase_order_id: lcvPoId,
+                    cost_category: lcvCategory,
+                    reference_bill_number: lcvBillNum,
+                    amount: Number(lcvAmount),
+                    tax_amount: Number(lcvTax),
+                    total_cost: Number(lcvAmount) + Number(lcvTax),
+                    allocation_method: lcvMethod,
+                    allocation_status: 'DRAFT'
+                  });
+                  if (error) throw error;
+
+                  setBannerMsg({ type: 'success', text: `Created Landed Cost Voucher ${voucherNum}` });
+                  setShowLandedCostModal(false);
+                  setRefreshKey((k) => k + 1);
+                } catch (err: any) {
+                  alert(`Error saving voucher: ${err.message}`);
+                } finally {
+                  setSavingLcv(false);
+                }
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Purchase Order *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={lcvPoId}
+                    onChange={(e) => setLcvPoId(e.target.value)}
+                  >
+                    <option value="">Select PO...</option>
+                    {purchaseOrders.map((p) => (
+                      <option key={p.id} value={p.id}>{p.po_number} ({p.vendors?.display_name})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Cost Category *</label>
+                  <select
+                    className="form-control"
+                    value={lcvCategory}
+                    onChange={(e: any) => setLcvCategory(e.target.value)}
+                  >
+                    <option value="FREIGHT">Inbound Ocean / Air / Road Freight</option>
+                    <option value="CUSTOMS_DUTY">Customs Tariff & Import Duty</option>
+                    <option value="PORT_HANDLING">Port Handling & Terminal Charges</option>
+                    <option value="TRANSIT_INSURANCE">Marine & Transit Insurance</option>
+                    <option value="CLEARING_AGENT">Clearing & Forwarding (CHA) Fees</option>
+                    <option value="OTHER">Other Inbound Charges</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Service Bill / B/L Reference *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    required
+                    value={lcvBillNum}
+                    onChange={(e) => setLcvBillNum(e.target.value)}
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 600 }}>Amount (₹) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      required
+                      value={lcvAmount}
+                      onChange={(e) => setLcvAmount(Number(e.target.value))}
+                    />
+                  </div>
+                  <div>
+                    <label className="form-label" style={{ fontWeight: 600 }}>GST / Taxes (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="form-control"
+                      value={lcvTax}
+                      onChange={(e) => setLcvTax(Number(e.target.value))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Allocation Algorithm</label>
+                  <select
+                    className="form-control"
+                    value={lcvMethod}
+                    onChange={(e: any) => setLcvMethod(e.target.value)}
+                  >
+                    <option value="VALUE_BASED">Value-Based (Proportional to unit purchase cost)</option>
+                    <option value="QUANTITY_BASED">Quantity-Based (Uniform split per unit)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowLandedCostModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingLcv}>
+                  {savingLcv ? 'Saving...' : 'Save Landed Cost Voucher'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 MODAL 3: CFO VARIANCE GATE */}
+      {cfoModalOpen && cfoDecisionInvoice && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '600px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>CFO Gate: Adjudicate Variance</h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setCfoModalOpen(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '1rem', fontSize: '0.875rem' }}>
+              <p><strong>Invoice:</strong> {cfoDecisionInvoice.invoice_number}</p>
+              <p><strong>Vendor:</strong> {cfoDecisionInvoice.vendors?.display_name}</p>
+              <p><strong>Match Discrepancy:</strong> {cfoDecisionInvoice.variance_reason || cfoDecisionInvoice.match_status}</p>
+              <p><strong>Price Variance %:</strong> {cfoDecisionInvoice.price_variance_pct}%</p>
+              <p><strong>Total Amount:</strong> ₹{Number(cfoDecisionInvoice.total_amount).toLocaleString('en-IN')}</p>
+            </div>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label className="form-label" style={{ fontWeight: 600 }}>CFO Executive Justification / Notes</label>
+              <textarea
+                className="form-control"
+                rows={3}
+                placeholder="State commercial rationale for accepting or rejecting exception..."
+                value={cfoNotes}
+                onChange={(e) => setCfoNotes(e.target.value)}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={async () => {
+                  try {
+                    await (supabase.rpc as any)('fn_adjudicate_invoice_variance_cfo', {
+                      p_invoice_id: cfoDecisionInvoice.id,
+                      p_action: 'REJECT',
+                      p_notes: cfoNotes || 'Rejected by CFO due to variance'
+                    });
+                    setBannerMsg({ type: 'success', text: `Invoice ${cfoDecisionInvoice.invoice_number} rejected by CFO` });
+                    setCfoModalOpen(false);
+                    setRefreshKey((k) => k + 1);
+                  } catch (e: any) {
+                    alert(`Error rejecting: ${e.message}`);
+                  }
+                }}
+              >
+                Reject Exception
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={async () => {
+                  try {
+                    await (supabase.rpc as any)('fn_adjudicate_invoice_variance_cfo', {
+                      p_invoice_id: cfoDecisionInvoice.id,
+                      p_action: 'APPROVE',
+                      p_notes: cfoNotes || 'Approved variance exception by CFO'
+                    });
+                    setBannerMsg({ type: 'success', text: `Invoice ${cfoDecisionInvoice.invoice_number} approved and posted to AP` });
+                    setCfoModalOpen(false);
+                    setRefreshKey((k) => k + 1);
+                  } catch (e: any) {
+                    alert(`Error approving: ${e.message}`);
+                  }
+                }}
+              >
+                Approve & Post to AP
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 MODAL 4: RECORD AP DISBURSEMENT / PAYMENT */}
+      {showPaymentModal && paymentApEntry && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '550px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Record Vendor Payment / Disbursement</h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowPaymentModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (payAmount <= 0) {
+                  alert('Payment amount must be greater than zero');
+                  return;
+                }
+                setSavingPayment(true);
+                try {
+                  const { error } = await (supabase.rpc as any)('fn_record_vendor_ap_payment', {
+                    p_ap_ledger_id: paymentApEntry.id,
+                    p_payment_amount: Number(payAmount),
+                    p_payment_method: payMethod,
+                    p_reference_id: payRef,
+                    p_notes: payNotes
+                  });
+                  if (error) throw error;
+
+                  setBannerMsg({ type: 'success', text: `Payment of ₹${payAmount.toLocaleString('en-IN')} recorded for invoice ${paymentApEntry.invoice_number}` });
+                  setShowPaymentModal(false);
+                  setRefreshKey((k) => k + 1);
+                } catch (err: any) {
+                  alert(`Error recording payment: ${err.message}`);
+                } finally {
+                  setSavingPayment(false);
+                }
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div style={{ padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.875rem' }}>
+                  <div><strong>Invoice:</strong> {paymentApEntry.invoice_number}</div>
+                  <div><strong>Vendor:</strong> {paymentApEntry.vendors?.display_name}</div>
+                  <div><strong>Outstanding Balance:</strong> ₹{Number(paymentApEntry.outstanding_balance).toLocaleString('en-IN')}</div>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Disbursement Amount (₹) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-control"
+                    required
+                    max={Number(paymentApEntry.outstanding_balance)}
+                    value={payAmount}
+                    onChange={(e) => setPayAmount(Number(e.target.value))}
+                  />
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Payment Method</label>
+                  <select
+                    className="form-control"
+                    value={payMethod}
+                    onChange={(e) => setPayMethod(e.target.value)}
+                  >
+                    <option value="NEFT_RTGS">NEFT / RTGS Bank Transfer</option>
+                    <option value="BANK_TRANSFER">Direct IMPS Transfer</option>
+                    <option value="CHEQUE">Bank Cheque</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Bank UTR / Transaction Reference *</label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    required
+                    value={payRef}
+                    onChange={(e) => setPayRef(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowPaymentModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingPayment}>
+                  {savingPayment ? 'Processing...' : 'Confirm Disbursement'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* PHASE 8.0 MODAL 5: APPLY DEBIT MEMO OFFSET */}
+      {showDebitOffsetModal && offsetApEntry && (
+        <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '550px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Apply Supplier Debit Memo Offset</h2>
+              <button style={{ background: 'none', border: 'none', cursor: 'pointer' }} onClick={() => setShowDebitOffsetModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!selectedDebitMemoId) {
+                  alert('Please select an eligible debit memo');
+                  return;
+                }
+                setSavingOffset(true);
+                try {
+                  const { error } = await (supabase.rpc as any)('fn_apply_debit_memo_to_ap', {
+                    p_debit_memo_id: selectedDebitMemoId,
+                    p_ap_ledger_id: offsetApEntry.id,
+                    p_amount: offsetAmount > 0 ? Number(offsetAmount) : null
+                  });
+                  if (error) throw error;
+
+                  setBannerMsg({ type: 'success', text: `Debit memo successfully offset against invoice ${offsetApEntry.invoice_number}` });
+                  setShowDebitOffsetModal(false);
+                  setRefreshKey((k) => k + 1);
+                } catch (err: any) {
+                  alert(`Error applying debit memo: ${err.message}`);
+                } finally {
+                  setSavingOffset(false);
+                }
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div style={{ padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.875rem' }}>
+                  <div><strong>Invoice:</strong> {offsetApEntry.invoice_number}</div>
+                  <div><strong>Vendor:</strong> {offsetApEntry.vendors?.display_name}</div>
+                  <div><strong>Outstanding Balance:</strong> ₹{Number(offsetApEntry.outstanding_balance).toLocaleString('en-IN')}</div>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Select Issued Debit Memo *</label>
+                  <select
+                    className="form-control"
+                    required
+                    value={selectedDebitMemoId}
+                    onChange={(e) => setSelectedDebitMemoId(e.target.value)}
+                  >
+                    <option value="">Select Debit Memo...</option>
+                    {debitMemos.filter((dm) => dm.status !== 'cancelled' && dm.status !== 'settled').map((dm) => (
+                      <option key={dm.id} value={dm.id}>
+                        {dm.debit_memo_number} (₹{Number(dm.total_debit_amount || dm.debit_amount).toLocaleString('en-IN')} - {dm.reason})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600 }}>Offset Amount (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-control"
+                    max={Number(offsetApEntry.outstanding_balance)}
+                    value={offsetAmount}
+                    onChange={(e) => setOffsetAmount(Number(e.target.value))}
+                  />
+                  <small style={{ color: 'var(--text-muted)' }}>Leave as maximum to consume full available debit</small>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowDebitOffsetModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={savingOffset}>
+                  {savingOffset ? 'Offsetting...' : 'Apply Offset'}
                 </button>
               </div>
             </form>
