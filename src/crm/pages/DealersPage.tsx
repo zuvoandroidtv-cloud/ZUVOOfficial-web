@@ -99,6 +99,11 @@ export const DealersPage: React.FC = () => {
   const [selectedDealerPerf, setSelectedDealerPerf] = useState<any>(null);
   const [selectedDealerInv, setSelectedDealerInv] = useState<any>(null);
   const [selectedDealerWrn, setSelectedDealerWrn] = useState<any>(null);
+  const [dealerCreditExposure, setDealerCreditExposure] = useState<any>(null);
+  const [dealerStatements, setDealerStatements] = useState<any[]>([]);
+  const [stagnantRecommendations, setStagnantRecommendations] = useState<any[]>([]);
+  const [generatingStatement, setGeneratingStatement] = useState(false);
+  const [evaluatingStagnant, setEvaluatingStagnant] = useState(false);
 
   const fetchDealers = async () => {
     setLoading(true);
@@ -150,8 +155,64 @@ export const DealersPage: React.FC = () => {
       setSelectedDealerPerf(perf);
       setSelectedDealerInv(inv);
       setSelectedDealerWrn(wrn);
+
+      // Phase 8.1 Authoritative Credit Engine & Statements fetch
+      const { data: exposure } = await (supabase.rpc as any)('fn_evaluate_dealer_credit_exposure', { p_dealer_id: dealer.id });
+      setDealerCreditExposure(exposure);
+
+      const { data: stmts } = await (supabase.from as any)('dealer_statements')
+        .select('*')
+        .eq('dealer_id', dealer.id)
+        .order('period_end', { ascending: false })
+        .limit(10);
+      setDealerStatements(stmts || []);
+
+      const { data: recs } = await (supabase.from as any)('dealer_recall_recommendations')
+        .select('*, product_units(barcode, serial_number)')
+        .eq('dealer_id', dealer.id)
+        .order('age_days', { ascending: false });
+      setStagnantRecommendations(recs || []);
     } catch (err) {
       console.error('Error fetching dealer detail metrics:', err);
+    }
+  };
+
+  const handleGenerateStatement = async () => {
+    if (!selectedDealer) return;
+    setGeneratingStatement(true);
+    try {
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+      const { data, error }: any = await (supabase.rpc as any)('fn_generate_dealer_statement', {
+        p_dealer_id: selectedDealer.id,
+        p_period_start: startOfMonth,
+        p_period_end: endOfMonth,
+        p_statement_type: 'MONTHLY'
+      });
+      if (error) throw error;
+      alert(`Statement ${data?.statement_number || ''} generated successfully.`);
+      loadDealerDetails(selectedDealer);
+    } catch (err: any) {
+      alert(`Statement generation failed: ${err.message}`);
+    } finally {
+      setGeneratingStatement(false);
+    }
+  };
+
+  const handleRunStagnantCheck = async () => {
+    if (!selectedDealer) return;
+    setEvaluatingStagnant(true);
+    try {
+      const { data, error }: any = await (supabase.rpc as any)('fn_evaluate_stagnant_consignment_stock');
+      if (error) throw error;
+      alert(`Evaluated stagnant stock: ${data?.evaluated_count || 0} unit(s) flagged.`);
+      loadDealerDetails(selectedDealer);
+    } catch (err: any) {
+      alert(`Stagnant stock evaluation failed: ${err.message}`);
+    } finally {
+      setEvaluatingStagnant(false);
     }
   };
 
@@ -740,6 +801,57 @@ export const DealersPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Phase 8.1 Real-Time Credit Engine & Exposure Dashboard */}
+              <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>Credit Limit Engine & Exposure State:</div>
+                  {dealerCreditExposure && (
+                    <span className={`badge ${
+                      dealerCreditExposure.risk_state === 'AVAILABLE' ? 'badge-success' :
+                      ['WARNING', 'NEAR_LIMIT'].includes(dealerCreditExposure.risk_state) ? 'badge-warning' :
+                      'badge-danger'
+                    }`} style={{ fontWeight: 700 }}>
+                      {dealerCreditExposure.risk_state}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+                  <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Approved Credit Limit</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.25rem' }}>
+                      ₹{Number(dealerCreditExposure?.credit_limit || selectedDealer.credit_limit || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Current Exposure</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#dc2626', marginTop: '0.25rem' }}>
+                      ₹{Number(dealerCreditExposure?.current_exposure || 0).toLocaleString()}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      Util: {dealerCreditExposure?.utilization_percent || 0}%
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Available Credit</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 700, color: '#059669', marginTop: '0.25rem' }}>
+                      ₹{Number(dealerCreditExposure?.available_credit || 0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Dispatch Eligibility</div>
+                    <div style={{ fontSize: '0.875rem', fontWeight: 700, marginTop: '0.25rem', color: dealerCreditExposure?.dispatch_allowed ? '#059669' : '#dc2626' }}>
+                      {dealerCreditExposure?.dispatch_allowed ? 'GATE APPROVED' : 'DISPATCH BLOCKED'}
+                    </div>
+                    {dealerCreditExposure?.blocking_reason && (
+                      <div style={{ fontSize: '0.75rem', color: '#dc2626', marginTop: '0.25rem' }}>
+                        {dealerCreditExposure.blocking_reason}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               {/* Consignment Management Workflows */}
               {['super_admin', 'admin', 'inventory', 'sales'].includes(currentRole) && (
                 <div style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1.5rem', border: '1px solid var(--border-color)' }}>
@@ -760,11 +872,93 @@ export const DealersPage: React.FC = () => {
                     <button className="btn btn-secondary btn-sm" onClick={handleOpenReconcileModal}>
                       <CheckSquare size={14} /> Physical Stock Audit
                     </button>
+                    <button className="btn btn-outline btn-sm" onClick={handleGenerateStatement} disabled={generatingStatement}>
+                      <FileText size={14} /> {generatingStatement ? 'Generating...' : 'Generate Statement'}
+                    </button>
+                    <button className="btn btn-outline btn-sm" onClick={handleRunStagnantCheck} disabled={evaluatingStagnant}>
+                      <AlertTriangle size={14} /> {evaluatingStagnant ? 'Auditing...' : 'Evaluate Stagnant'}
+                    </button>
                     {['super_admin', 'admin'].includes(currentRole) && (
                       <button className="btn btn-outline btn-sm" onClick={handleOpenUserModal}>
                         <UserPlus size={14} /> Link Portal User
                       </button>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Periodic Statements List */}
+              {dealerStatements.length > 0 && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem' }}>Recent Statements:</div>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '0.375rem', overflow: 'hidden' }}>
+                    <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Statement #</th>
+                          <th>Period</th>
+                          <th>Dispatched Val</th>
+                          <th>Sales Val</th>
+                          <th>Closing Balance</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dealerStatements.map((st) => (
+                          <tr key={st.id}>
+                            <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{st.statement_number}</td>
+                            <td>{st.period_start} to {st.period_end}</td>
+                            <td>₹{Number(st.consignments_dispatched_val || 0).toLocaleString()}</td>
+                            <td>₹{Number(st.sales_reported_val || 0).toLocaleString()}</td>
+                            <td style={{ fontWeight: 600 }}>₹{Number(st.closing_balance || 0).toLocaleString()}</td>
+                            <td>
+                              <span className={`badge ${st.status === 'FINALIZED' ? 'badge-success' : 'badge-neutral'}`}>
+                                {st.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Stagnant Stock Recommendations */}
+              {stagnantRecommendations.length > 0 && (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.5rem', color: '#dc2626' }}>
+                    Stagnant Stock Recall Recommendations ({stagnantRecommendations.length}):
+                  </div>
+                  <div style={{ border: '1px solid var(--border-color)', borderRadius: '0.375rem', overflow: 'hidden' }}>
+                    <table className="data-table" style={{ fontSize: '0.8125rem' }}>
+                      <thead>
+                        <tr>
+                          <th>Unit / Barcode</th>
+                          <th>Age (Days)</th>
+                          <th>Cost Value</th>
+                          <th>Severity</th>
+                          <th>Trigger Reason</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stagnantRecommendations.map((rec) => (
+                          <tr key={rec.id}>
+                            <td style={{ fontFamily: 'monospace' }}>{rec.product_units?.barcode || rec.product_unit_id}</td>
+                            <td style={{ fontWeight: 600 }}>{rec.age_days} days</td>
+                            <td>₹{Number(rec.unit_cost_value || 0).toLocaleString()}</td>
+                            <td>
+                              <span className={`badge ${rec.stagnant_severity === 'CRITICAL' ? 'badge-danger' : 'badge-warning'}`}>
+                                {rec.stagnant_severity}
+                              </span>
+                            </td>
+                            <td>{rec.trigger_reason}</td>
+                            <td><span className="badge badge-neutral">{rec.status}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
