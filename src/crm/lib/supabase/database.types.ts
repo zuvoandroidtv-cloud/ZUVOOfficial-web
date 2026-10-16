@@ -3058,6 +3058,161 @@ export type Database = {
           },
         ]
       }
+      service_sla_policies: {
+        Row: {
+          id: string
+          policy_code: string
+          policy_name: string
+          priority: string
+          service_type: string
+          first_response_hours: number
+          assignment_hours: number
+          visit_schedule_hours: number
+          resolution_hours: number
+          warning_threshold_pct: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          policy_code: string
+          policy_name: string
+          priority: string
+          service_type?: string
+          first_response_hours: number
+          assignment_hours: number
+          visit_schedule_hours: number
+          resolution_hours: number
+          warning_threshold_pct?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          policy_code?: string
+          policy_name?: string
+          priority?: string
+          service_type?: string
+          first_response_hours?: number
+          assignment_hours?: number
+          visit_schedule_hours?: number
+          resolution_hours?: number
+          warning_threshold_pct?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_escalation_rules: {
+        Row: {
+          id: string
+          rule_code: string
+          rule_name: string
+          escalation_level: number
+          trigger_condition: string
+          hours_past_breach: number
+          target_role: string
+          notify_email: boolean
+          notify_sms: boolean
+          action_description: string | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          rule_code: string
+          rule_name: string
+          escalation_level: number
+          trigger_condition: string
+          hours_past_breach?: number
+          target_role: string
+          notify_email?: boolean
+          notify_sms?: boolean
+          action_description?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          rule_code?: string
+          rule_name?: string
+          escalation_level?: number
+          trigger_condition?: string
+          hours_past_breach?: number
+          target_role?: string
+          notify_email?: boolean
+          notify_sms?: boolean
+          action_description?: string | null
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_escalation_events: {
+        Row: {
+          id: string
+          event_number: string
+          service_ticket_id: string
+          escalation_rule_id: string | null
+          from_level: number
+          to_level: number
+          reason: string
+          trigger_type: string
+          actor_id: string | null
+          action_taken: string | null
+          is_resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          event_number: string
+          service_ticket_id: string
+          escalation_rule_id?: string | null
+          from_level?: number
+          to_level: number
+          reason: string
+          trigger_type: string
+          actor_id?: string | null
+          action_taken?: string | null
+          is_resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          event_number?: string
+          service_ticket_id?: string
+          escalation_rule_id?: string | null
+          from_level?: number
+          to_level?: number
+          reason?: string
+          trigger_type?: string
+          actor_id?: string | null
+          action_taken?: string | null
+          is_resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_escalation_events_service_ticket_id_fkey"
+            columns: ["service_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "service_tickets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       service_tickets: {
         Row: {
           assigned_at: string | null
@@ -3076,6 +3231,16 @@ export type Database = {
           resolved_at: string | null
           service_center_id: string | null
           service_type: string
+          sla_policy_id: string | null
+          sla_first_response_due_at: string | null
+          sla_first_response_at: string | null
+          sla_assignment_due_at: string | null
+          sla_visit_due_at: string | null
+          sla_resolution_due_at: string | null
+          sla_status: string
+          sla_breached_at: string | null
+          escalation_level: number
+          escalated_at: string | null
           started_at: string | null
           status: string
           ticket_number: string
@@ -7088,6 +7253,33 @@ export type Database = {
       }
       verify_tv_barcode_for_warranty: {
         Args: { p_barcode: string }
+        Returns: Json
+      }
+      fn_compute_and_attach_ticket_sla: {
+        Args: { p_ticket_id: string }
+        Returns: Json
+      }
+      fn_evaluate_ticket_sla_and_escalations: {
+        Args: { p_ticket_id: string }
+        Returns: Json
+      }
+      fn_escalate_service_ticket_manual: {
+        Args: {
+          p_action_taken?: string | null
+          p_reason: string
+          p_ticket_id: string
+          p_to_level: number
+        }
+        Returns: Json
+      }
+      fn_resolve_csat_closed_loop_case: {
+        Args: {
+          p_customer_recovered?: boolean
+          p_followup_id: string
+          p_resolution_action: string
+          p_resolution_notes: string
+          p_root_cause: string
+        }
         Returns: Json
       }
     }

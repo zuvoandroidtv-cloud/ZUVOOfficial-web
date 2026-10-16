@@ -194,6 +194,9 @@ export const TechnicianPage: React.FC = () => {
             service_type,
             priority,
             status,
+            sla_status,
+            escalation_level,
+            sla_resolution_due_at,
             issue_category,
             issue_description,
             opened_at,
@@ -1786,7 +1789,7 @@ export const TechnicianPage: React.FC = () => {
                 >
                   {/* Visit Header */}
                   <div className="technician-card-header">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent-cyan)', background: 'rgba(6, 182, 212, 0.1)', border: '1px solid rgba(6, 182, 212, 0.3)', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)' }}>
                         #{ticket?.ticket_number}
                       </span>
@@ -1801,6 +1804,28 @@ export const TechnicianPage: React.FC = () => {
                       >
                         {visit.status.replace('_', ' ').toUpperCase()}
                       </span>
+                      {ticket?.sla_status && (
+                        <span
+                          className={`badge ${
+                            ticket.sla_status === 'BREACHED'
+                              ? 'badge-rose'
+                              : ticket.sla_status === 'WARNING_APPROACHING'
+                              ? 'badge-amber'
+                              : 'badge-cyan'
+                          }`}
+                          style={{ fontSize: '0.675rem' }}
+                        >
+                          SLA: {ticket.sla_status}
+                        </span>
+                      )}
+                      {(ticket?.escalation_level || 0) > 0 && (
+                        <span
+                          className="badge badge-rose"
+                          style={{ fontSize: '0.675rem', fontWeight: 700 }}
+                        >
+                          ESC LEVEL {ticket.escalation_level}
+                        </span>
+                      )}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>

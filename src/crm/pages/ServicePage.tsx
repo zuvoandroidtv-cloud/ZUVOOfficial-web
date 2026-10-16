@@ -25,7 +25,7 @@ import { DateRangePicker } from '../components/common/DateRangePicker';
 import { AssignTechnicianModal } from '../components/service/AssignTechnicianModal';
 import { ScheduleVisitModal } from '../components/service/ScheduleVisitModal';
 import { BarcodeLookupModal } from '../components/common/BarcodeLookupModal';
-import { Calendar, UserCheck, QrCode } from 'lucide-react';
+import { Calendar, UserCheck, QrCode, ShieldAlert, RefreshCw, Flame } from 'lucide-react';
 
 export const ServicePage: React.FC = () => {
   const { currentRole, user } = useAuth();
@@ -59,6 +59,16 @@ export const ServicePage: React.FC = () => {
   const [pageSize, setPageSize] = useState(25);
   const [totalCount, setTotalCount] = useState(0);
   const [exporting, setExporting] = useState(false);
+
+  // Phase 7.8: SLA & Escalation modal & trigger state
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalateTargetTicket, setEscalateTargetTicket] = useState<any | null>(null);
+  const [escalationToLevel, setEscalationToLevel] = useState(2);
+  const [escalationReason, setEscalationReason] = useState('');
+  const [escalationActionTaken, setEscalationActionTaken] = useState('');
+  const [submittingEscalation, setSubmittingEscalation] = useState(false);
+  const [evaluatingSla, setEvaluatingSla] = useState(false);
+  const [slaFilter, setSlaFilter] = useState('all');
 
   // Form dependencies & state
   const [customers, setCustomers] = useState<any[]>([]);
@@ -95,6 +105,10 @@ export const ServicePage: React.FC = () => {
         query = query.eq('status', statusFilter);
       }
 
+      if (slaFilter !== 'all') {
+        query = query.eq('sla_status', slaFilter);
+      }
+
       if (searchQuery.trim()) {
         const q = `%${searchQuery.trim()}%`;
         query = query.or(`ticket_number.ilike.${q},issue_description.ilike.${q}`);
@@ -125,7 +139,62 @@ export const ServicePage: React.FC = () => {
 
   useEffect(() => {
     fetchTickets();
-  }, [searchQuery, statusFilter, startDate, endDate, page, pageSize]);
+  }, [searchQuery, statusFilter, slaFilter, startDate, endDate, page, pageSize]);
+
+  // Phase 7.8: Batch evaluate SLA across open tickets
+  const handleEvaluateAllSla = async () => {
+    setEvaluatingSla(true);
+    setErrorMsg(null);
+    try {
+      const openTickets = tickets.filter(t => t.status !== 'closed' && t.status !== 'cancelled');
+      let breachCount = 0;
+      for (const t of openTickets) {
+        const { data, error } = await (supabase.rpc as any)('fn_evaluate_ticket_sla_and_escalations', {
+          p_ticket_id: t.id
+        });
+        if (!error && data?.sla_status === 'BREACHED') {
+          breachCount++;
+        }
+      }
+      await fetchTickets();
+    } catch (err: any) {
+      console.error('Error evaluating SLA:', err);
+      setErrorMsg(err.message || 'Failed to evaluate SLA status');
+    } finally {
+      setEvaluatingSla(false);
+    }
+  };
+
+  // Phase 7.8: Manual ticket escalation
+  const handleManualEscalateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!escalateTargetTicket) return;
+    if (!escalationReason.trim()) {
+      alert('Please specify an escalation reason.');
+      return;
+    }
+
+    setSubmittingEscalation(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('fn_escalate_service_ticket_manual', {
+        p_ticket_id: escalateTargetTicket.id,
+        p_to_level: Number(escalationToLevel),
+        p_escalation_reason: escalationReason.trim(),
+        p_action_taken: escalationActionTaken.trim() || null
+      });
+
+      if (error) throw error;
+      setShowEscalateModal(false);
+      setEscalateTargetTicket(null);
+      setEscalationReason('');
+      setEscalationActionTaken('');
+      await fetchTickets();
+    } catch (err: any) {
+      alert('Failed to escalate ticket: ' + err.message);
+    } finally {
+      setSubmittingEscalation(false);
+    }
+  };
 
   const handleExport = async (format: 'csv' | 'xlsx') => {
     setExporting(true);
@@ -350,9 +419,20 @@ export const ServicePage: React.FC = () => {
             <FileSpreadsheet size={15} /> Export Excel
           </button>
           {canManage && (
-            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
-              <Plus size={16} /> Open Service Ticket
-            </button>
+            <>
+              <button
+                className="btn btn-secondary"
+                onClick={handleEvaluateAllSla}
+                disabled={evaluatingSla || loading}
+                title="Evaluate authoritative server SLA deadlines across all open tickets"
+              >
+                <RefreshCw size={15} className={evaluatingSla ? 'animate-spin' : ''} />
+                <span>{evaluatingSla ? 'Evaluating...' : 'Evaluate SLA Matrix'}</span>
+              </button>
+              <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+                <Plus size={16} /> Open Service Ticket
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -390,6 +470,29 @@ export const ServicePage: React.FC = () => {
             ))}
           </div>
         </div>
+
+        {/* Phase 7.8: SLA Filter Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.5rem', borderTop: '1px solid var(--border-color)', fontSize: '0.8125rem' }}>
+          <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>SLA State:</span>
+          {[
+            { id: 'all', label: 'All SLAs' },
+            { id: 'WITHIN_SLA', label: 'Within SLA' },
+            { id: 'WARNING_APPROACHING', label: 'Approaching Breach' },
+            { id: 'BREACHED', label: 'Breached' },
+            { id: 'MET', label: 'Resolved (Met)' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              className={`btn btn-xs ${slaFilter === item.id ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => {
+                setSlaFilter(item.id);
+                setPage(1);
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
         <DateRangePicker
           startDate={startDate}
           endDate={endDate}
@@ -423,6 +526,7 @@ export const ServicePage: React.FC = () => {
                 <th>Issue</th>
                 <th>Priority</th>
                 <th>Status</th>
+                <th>SLA / Escalation</th>
                 <th>Center</th>
                 <th>Action</th>
               </tr>
@@ -430,18 +534,18 @@ export const ServicePage: React.FC = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
                     <p className="text-muted">Loading service tickets...</p>
                   </td>
                 </tr>
               ) : tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: 'center', padding: '3.5rem' }}>
+                  <td colSpan={10} style={{ textAlign: 'center', padding: '3.5rem' }}>
                     <Wrench size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
                     <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>No Service Tickets</h3>
                     <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-                      {searchQuery || statusFilter !== 'all' ? 'Try adjusting your filter' : 'All television sets are operating without open defects'}
+                      {searchQuery || statusFilter !== 'all' || slaFilter !== 'all' ? 'Try adjusting your filter' : 'All television sets are operating without open defects'}
                     </p>
                   </td>
                 </tr>
@@ -479,6 +583,39 @@ export const ServicePage: React.FC = () => {
                         {t.status}
                       </span>
                     </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <span
+                          className={`badge ${
+                            t.sla_status === 'BREACHED'
+                              ? 'badge-danger'
+                              : t.sla_status === 'WARNING_APPROACHING'
+                              ? 'badge-warning'
+                              : t.sla_status === 'MET'
+                              ? 'badge-success'
+                              : 'badge-neutral'
+                          }`}
+                          style={{ fontSize: '0.7rem' }}
+                        >
+                          {t.sla_status || 'WITHIN_SLA'}
+                        </span>
+                        {t.escalation_level > 0 && (
+                          <span
+                            className="badge badge-danger"
+                            style={{
+                              fontSize: '0.675rem',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.2rem',
+                              background: t.escalation_level >= 3 ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.2)',
+                              color: t.escalation_level >= 3 ? 'var(--status-danger)' : 'var(--status-warning)'
+                            }}
+                          >
+                            <Flame size={11} /> Level {t.escalation_level}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td style={{ fontSize: '0.8125rem' }}>
                       {t.service_centers?.center_name || 'Unassigned'}
                     </td>
@@ -508,6 +645,18 @@ export const ServicePage: React.FC = () => {
                               title="Schedule Visit"
                             >
                               <Calendar size={14} />
+                            </button>
+                            <button
+                              className="btn btn-secondary btn-sm"
+                              style={{ color: 'var(--accent-rose)' }}
+                              onClick={() => {
+                                setEscalateTargetTicket(t);
+                                setEscalationToLevel(Math.min(4, (t.escalation_level || 0) + 1));
+                                setShowEscalateModal(true);
+                              }}
+                              title="Manual Escalation Matrix"
+                            >
+                              <ShieldAlert size={14} />
                             </button>
                           </>
                         )}
@@ -831,6 +980,100 @@ export const ServicePage: React.FC = () => {
           isOpen={showBarcodeModal}
           onClose={() => setShowBarcodeModal(false)}
         />
+      )}
+
+      {/* Phase 7.8: Manual Escalation Modal */}
+      {showEscalateModal && escalateTargetTicket && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--status-danger)' }}>
+                <ShieldAlert size={20} />
+                <span>Escalate Service Ticket #{escalateTargetTicket.ticket_number}</span>
+              </h3>
+              <button
+                className="btn-icon"
+                onClick={() => {
+                  setShowEscalateModal(false);
+                  setEscalateTargetTicket(null);
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleManualEscalateSubmit}>
+              <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '0.75rem', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem' }}>
+                  <div style={{ fontWeight: 600, color: 'var(--status-danger)', marginBottom: '0.25rem' }}>
+                    Current Escalation Level: Level {escalateTargetTicket.escalation_level || 0}
+                  </div>
+                  <div style={{ color: 'var(--text-muted)' }}>
+                    Customer: {escalateTargetTicket.customers?.full_name} | SLA: {escalateTargetTicket.sla_status || 'WITHIN_SLA'}
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Target Escalation Level *</label>
+                  <select
+                    className="input-field"
+                    value={escalationToLevel}
+                    onChange={(e) => setEscalationToLevel(Number(e.target.value))}
+                    required
+                  >
+                    <option value={1}>Level 1: Operational Warning / Supervisor Alert</option>
+                    <option value={2}>Level 2: Service Head Intervention</option>
+                    <option value={3}>Level 3: Management Emergency Escalation</option>
+                    <option value={4}>Level 4: Critical Distress / Executive Resolution</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Escalation Trigger / Reason *</label>
+                  <textarea
+                    className="input-field"
+                    rows={3}
+                    required
+                    placeholder="Specify justification (e.g. Repeated technician delay, critical customer dispute, missing panel spare part)..."
+                    value={escalationReason}
+                    onChange={(e) => setEscalationReason(e.target.value)}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Immediate Corrective Action (Optional)</label>
+                  <input
+                    type="text"
+                    className="input-field"
+                    placeholder="e.g. Reassigned to Senior Specialist, Depot chassis swap authorized..."
+                    value={escalationActionTaken}
+                    onChange={(e) => setEscalationActionTaken(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowEscalateModal(false);
+                    setEscalateTargetTicket(null);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ background: 'var(--status-danger)', borderColor: 'var(--status-danger)' }}
+                  disabled={submittingEscalation || !escalationReason.trim()}
+                >
+                  {submittingEscalation ? 'Escalating...' : 'Confirm Escalation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -461,7 +461,47 @@
 | **Phase 7.6 Test Suite** | 30 comprehensive automated tests validating RLS, inputs, transitions, rails, burn-in, atomic restock, scrap manifests, and regressions | **PASS** | `node ./scripts-crm/test_phase_7_6_depot_refurb_and_scrap_lifecycle.mjs` — **30 Passed, 0 Failed** |
 | **Full Regression Pipeline** | Phases 7.6, 7.5, 7.4, 7.3, offline sync, integration, OTP/RLS, and SEO suites all executed | **PASS** | 100% clean across all suites (30/30 Phase 7.6, 30/30 Phase 7.5, 30/30 Phase 7.4, 20/20 Phase 7.3, 10/10 tech sync, 9/9 integration, 4/4 OTP, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static site generation across 17 public routes + 404 | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated (15.73s) |
-| **Public Website Isolation** | Public routes (`/`, `/products/*`, `/dealership`, `/warranty`, `/support`, etc.) remain completely clean and unaffected | **PASS** | Verified via static prerender and integration tests; zero leakage of internal workshop data |
+---
+
+## Phase 7.7: Warranty Claim Settlement, Dealer Reimbursements & Extended Warranty Upsell
+**Status**: **CLOSED**  
+**Closure Date**: October 16, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017170000_phase_7_7_warranty_claim_settlement_and_upsell.sql`  
+**Git Commit**: `3ac2c5c` on branch `main`  
+**Test Suite**: `scripts-crm/test_phase_7_7_warranty_settlement_and_upsell.mjs` — **30/30 PASS**
+
+### 1. Phase 7.7 Implementation Summary
+- **Enterprise Warranty Claims**: Claim generation (`CLM-YYYYMMDD-XXXX`), defect validation, technical adjudication (`SETTLED` / `REJECTED`), and credit payout references (`SETTLE-YYYYMMDD-XXXX`).
+- **Dealer Reimbursement Lifecycle**: Dealer labor & spare parts reimbursement claims (`DRC-YYYYMMDD-XXXX`), tenant isolation, and credit memo issuance (`CR-MEMO-DRC-YYYYMMDD-XXXX`).
+- **Extended Warranty Upsell**: Product plans catalog, automated policy activation (`EWP-YYYYMMDD-XXXX`), automatic base warranty extension (+12 months), dealer commission calculation (e.g. 15%), and cooling-off period cancellation.
+- **Audit Logging**: Immutable `warranty_settlement_audit_logs` tracking all claim, reimbursement, and upsell transactions.
+
+---
+
+## Phase 7.8: Advanced SLA Tracking, Field-Service Escalation Matrix & CSAT Closed-Loop Resolution
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 16, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017180000_phase_7_8_sla_escalation_csat_lifecycle.sql`  
+**Test Suite**: `scripts-crm/test_phase_7_8_sla_escalation_csat.mjs` — **30/30 PASS**
+
+### 1. Phase 7.8 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Authoritative SLA Engine** | Server-side calculation of first-response due date and resolution due date; priority-accelerated SLAs (Urgent = 12h resolution, Standard = 48h resolution) | **PASS** | `service_sla_policies` table + `fn_compute_and_attach_ticket_sla` RPC; idempotent recomputation preserves established deadlines |
+| **Approaching Warnings & Breach Detection** | Periodic or event-driven evaluation of ticket elapsed duration; transitions state to `WARNING_APPROACHING` (>=75% elapsed) or `BREACHED` (overdue) | **PASS** | `fn_evaluate_ticket_sla_and_escalations` RPC; completed/resolved tickets evaluate to `MET`; paused/cancelled tickets halt breach countdown |
+| **Hierarchical Escalation Matrix** | Automated progression across 4 escalation levels: Level 1 (Operational Warning), Level 2 (Supervisor Alert), Level 3 (Management Escalation), and Level 4 (Critical Distress / Executive Resolution) | **PASS** | Auto-escalation triggered via `fn_evaluate_ticket_sla_and_escalations` and customer CSAT triggers; manual override via `fn_escalate_service_ticket_manual` |
+| **Escalation Audit History** | Immutable recording of every escalation transition including previous level, new level, trigger source, actor/system, and justification | **PASS** | `service_escalation_events` table populated across all automated and supervisor events; zero loss of audit telemetry |
+| **Customer CSAT Closed-Loop Resolution** | Low CSAT responses (<=2 stars) automatically spawn follow-up cases and escalate tickets to Level 4 Distress; follow-up case tracking with root cause & corrective action | **PASS** | `trg_csat_low_rating_escalate` trigger + `fn_resolve_csat_closed_loop_case` enforcing root cause (`TECHNICAL_DEFECT`, `TECHNICIAN_BEHAVIOR`, etc.), corrective action (`FREE_SERVICE_VISIT`, `EXTENDED_WARRANTY_OFFER`, etc.), and customer recovery confirmation |
+| **Offline Technician Mobile Integration** | Technician visibility into SLA status, escalation tags, and distress escalation queueing for offline field areas | **PASS** | `technicianOfflineService.ts` updated with `ESCALATE_TICKET` action type and `enqueueEscalateTicket` method; `TechnicianPage.tsx` updated with SLA urgency tags |
+| **Management CRM UI** | Integrated SLA status filtering, Evaluate SLA Matrix batch action, escalation badges, and manual escalation modal | **PASS** | `ServicePage.tsx` updated with SLA column, escalation pill badges, Evaluate SLA action, and Manual Escalation modal; `CsatPage.tsx` wired with closed-loop resolution modal |
+| **Security & RLS Governance** | Strict Row Level Security on all new tables; anonymous access denied; dealer tenant isolation; safe fixed `search_path = public` on all `SECURITY DEFINER` RPCs | **PASS** | Live Supabase audit verified in `test_phase_7_8_sla_escalation_csat.mjs` (Tests 1-5); zero privilege escalation |
+| **Dedicated Test Suite** | 30/30 comprehensive automated tests validating RLS, SLA deadlines, breach states, escalation progression, CSAT workflow, follow-up closure, and offline sync | **PASS** | `node ./scripts-crm/test_phase_7_8_sla_escalation_csat.mjs` — **30 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing against Phase 7.7, Phase 7.6, Phase 7.5, Integration, and SEO suites | **PASS** | Phase 7.7 (30/30 PASS), Phase 7.6 (30/30 PASS), Phase 7.5 (30/30 PASS), Integration (9/9 PASS), SEO (149/149 PASS) |
+| **TypeScript & Production Build** | Full TypeScript type check and production bundle compilation | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static routes + 404.html generated cleanly |
+| **Public Website Isolation** | Public routes (`/`, `/products/*`, `/warranty`, `/dealership`) remain unaffected and isolated within `.crm-app-scope` | **PASS** | Verified via static prerender, route isolation tests, and scoped CSS classes |
 
 
 

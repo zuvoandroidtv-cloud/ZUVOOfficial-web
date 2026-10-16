@@ -22,7 +22,9 @@ export interface QueuedVisitAction {
     | 'PART_RETURN'
     | 'RECONCILIATION_SUBMISSION'
     | 'HARVEST_DEFECTIVE_CORE'
-    | 'DISPATCH_RMA_MANIFEST';
+    | 'DISPATCH_RMA_MANIFEST'
+    | 'SLA_EVALUATION'
+    | 'ESCALATE_TICKET';
   visitId?: string;
   ticketId?: string;
   payload: {
@@ -56,6 +58,10 @@ export interface QueuedVisitAction {
     destinationWarehouseId?: string;
     carrierTrackingNumber?: string;
     defectiveCoreIds?: string[];
+    // Phase 7.8 SLA & Escalation fields
+    toLevel?: number;
+    escalationReason?: string;
+    actionTaken?: string;
   };
   queuedAt: string;
   status: 'pending' | 'syncing' | 'synced' | 'failed';
@@ -415,6 +421,34 @@ export class TechnicianOfflineService {
         defectiveCoreIds,
         carrierTrackingNumber,
         technicianNotes
+      },
+      queuedAt: new Date().toISOString(),
+      status: 'pending',
+      attempts: 0
+    };
+    queue.push(item);
+    this.saveQueue(queue);
+    return item;
+  }
+
+  /**
+   * Phase 7.8: Queues offline ticket escalation distress request
+   */
+  public enqueueEscalateTicket(
+    ticketId: string,
+    toLevel: number,
+    escalationReason: string,
+    actionTaken?: string
+  ): QueuedVisitAction {
+    const queue = this.getQueue();
+    const item: QueuedVisitAction = {
+      id: `ESC-DISTRESS-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      type: 'ESCALATE_TICKET',
+      ticketId,
+      payload: {
+        toLevel,
+        escalationReason,
+        actionTaken
       },
       queuedAt: new Date().toISOString(),
       status: 'pending',

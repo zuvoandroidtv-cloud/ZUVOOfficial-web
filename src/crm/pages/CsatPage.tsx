@@ -61,6 +61,10 @@ export const CsatPage: React.FC<CsatPageProps> = ({ isDealerScope = false }) => 
   const [selectedFollowup, setSelectedFollowup] = useState<any | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
   const [contactNotes, setContactNotes] = useState('');
+  // Phase 7.8: Closed-Loop Resolution classification
+  const [rootCauseCategory, setRootCauseCategory] = useState<string>('TECHNICAL_DEFECT');
+  const [resolutionAction, setResolutionAction] = useState<string>('FREE_SERVICE_VISIT');
+  const [customerSatisfactionRecovered, setCustomerSatisfactionRecovered] = useState<boolean>(true);
   const [savingFollowup, setSavingFollowup] = useState(false);
   const [assigneeId, setAssigneeId] = useState('');
   const [staffMembers, setStaffMembers] = useState<any[]>([]);
@@ -309,8 +313,11 @@ export const CsatPage: React.FC<CsatPageProps> = ({ isDealerScope = false }) => 
 
     setSavingFollowup(true);
     try {
-      const { data, error } = await (supabase.rpc as any)('fn_resolve_csat_followup', {
+      const { data, error } = await (supabase.rpc as any)('fn_resolve_csat_closed_loop_case', {
         p_followup_id: selectedFollowup.id,
+        p_root_cause_category: rootCauseCategory,
+        p_resolution_action: resolutionAction,
+        p_customer_satisfaction_recovered: customerSatisfactionRecovered,
         p_resolution_notes: resolutionNotes.trim(),
         p_contact_notes: contactNotes.trim() || null
       });
@@ -1222,6 +1229,53 @@ export const CsatPage: React.FC<CsatPageProps> = ({ isDealerScope = false }) => 
                   value={contactNotes}
                   onChange={(e) => setContactNotes(e.target.value)}
                 />
+              </div>
+
+              {/* Phase 7.8: Closed-Loop Classification */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label className="label">Root Cause Category *</label>
+                  <select
+                    className="select"
+                    value={rootCauseCategory}
+                    onChange={(e) => setRootCauseCategory(e.target.value)}
+                    required
+                  >
+                    <option value="TECHNICAL_DEFECT">Technical / Hardware Defect</option>
+                    <option value="TECHNICIAN_BEHAVIOR">Technician Demeanor / Behavior</option>
+                    <option value="DELAY_OR_NO_SHOW">Service Delay / No Show</option>
+                    <option value="SPARE_PARTS_UNAVAILABLE">Spare Parts Stockout</option>
+                    <option value="BILLING_DISPUTE">Billing or Invoice Dispute</option>
+                    <option value="OTHER">Other Operational Issue</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Resolution Action Proposed *</label>
+                  <select
+                    className="select"
+                    value={resolutionAction}
+                    onChange={(e) => setResolutionAction(e.target.value)}
+                    required
+                  >
+                    <option value="FREE_SERVICE_VISIT">Free Re-Visit by Senior Technician</option>
+                    <option value="PART_REPLACED_UNDER_GOODWILL">Goodwill Component Replacement</option>
+                    <option value="EXTENDED_WARRANTY_OFFER">Extended Warranty Courtesy Upgrade</option>
+                    <option value="EXPLANATION_ACCEPTED">Clarification / Customer Explanation</option>
+                    <option value="REFUND_ISSUED">Service Fee Reversal / Refund</option>
+                    <option value="DEPOT_CHASSIS_SWAP">Depot Chassis Swap Authorized</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={customerSatisfactionRecovered}
+                    onChange={(e) => setCustomerSatisfactionRecovered(e.target.checked)}
+                  />
+                  <span>Customer Satisfaction Recovered & Closed-Loop Validated</span>
+                </label>
               </div>
 
               <div>
