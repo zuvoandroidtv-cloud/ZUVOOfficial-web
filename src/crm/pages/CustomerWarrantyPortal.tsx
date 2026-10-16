@@ -503,6 +503,55 @@ export const CustomerWarrantyPortal: React.FC = () => {
               </div>
             </div>
 
+            {/* PHASE 7.7: EXTENDED WARRANTY UPSELL SHOWCASE */}
+            <div
+              style={{
+                marginTop: '1.75rem',
+                padding: '1.25rem',
+                borderRadius: 'var(--radius-md)',
+                background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(124, 58, 237, 0.08) 100%)',
+                border: '1px solid rgba(37, 99, 235, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Sparkles size={18} style={{ color: 'var(--brand-primary)' }} />
+                  <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
+                    Protect Your Investment: ZUVO Care Extended Protection Plans
+                  </span>
+                </div>
+                <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
+                  AUTHORIZED PROTECTION
+                </span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Extend your coverage seamlessly beyond the standard 12 months. Official ZUVO Care plans provide doorstep parts replacement, zero labor charges, and certified engineering repair on motherboards, power supplies, and display backlights.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--brand-primary)' }}>+1 Year Shield</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Additional 12 Months</div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', marginTop: '0.25rem' }}>₹1,499 onwards</div>
+                </div>
+                <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--brand-primary)' }}>+2 Years Ultra</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Additional 24 Months</div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', marginTop: '0.25rem' }}>₹4,299 onwards</div>
+                </div>
+                <div style={{ background: 'var(--bg-primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--brand-primary)' }}>+3 Years Diamond</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Additional 36 Months</div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem', marginTop: '0.25rem' }}>₹6,999 onwards</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                💡 Extended plans can be activated directly at your authorized ZUVO dealer or via customer support at +91 8056666653.
+              </div>
+            </div>
+
             <div style={{ marginTop: '1.5rem', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
               This digital certificate verifies manufacturer warranty coverage under ZUVO Electronics. Keep this policy number for hassle-free claim service.
             </div>

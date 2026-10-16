@@ -4614,6 +4614,392 @@ export type Database = {
           }
         ]
       }
+      extended_warranty_plans: {
+        Row: {
+          id: string
+          plan_code: string
+          plan_name: string
+          coverage_months: number
+          screen_size_min: number
+          screen_size_max: number
+          retail_price: number
+          dealer_commission_pct: number
+          is_active: boolean
+          terms_and_conditions: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          plan_code: string
+          plan_name: string
+          coverage_months: number
+          screen_size_min?: number
+          screen_size_max?: number
+          retail_price: number
+          dealer_commission_pct?: number
+          is_active?: boolean
+          terms_and_conditions: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          plan_code?: string
+          plan_name?: string
+          coverage_months?: number
+          screen_size_min?: number
+          screen_size_max?: number
+          retail_price?: number
+          dealer_commission_pct?: number
+          is_active?: boolean
+          terms_and_conditions?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      extended_warranty_policies: {
+        Row: {
+          id: string
+          policy_number: string
+          warranty_id: string
+          plan_id: string
+          customer_id: string
+          product_unit_id: string
+          dealer_id: string | null
+          status: string
+          extended_start_date: string
+          extended_end_date: string
+          premium_paid: number
+          dealer_commission_amount: number
+          payment_reference: string
+          sales_channel: string
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          policy_number: string
+          warranty_id: string
+          plan_id: string
+          customer_id: string
+          product_unit_id: string
+          dealer_id?: string | null
+          status?: string
+          extended_start_date: string
+          extended_end_date: string
+          premium_paid: number
+          dealer_commission_amount?: number
+          payment_reference: string
+          sales_channel: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          policy_number?: string
+          warranty_id?: string
+          plan_id?: string
+          customer_id?: string
+          product_unit_id?: string
+          dealer_id?: string | null
+          status?: string
+          extended_start_date?: string
+          extended_end_date?: string
+          premium_paid?: number
+          dealer_commission_amount?: number
+          payment_reference?: string
+          sales_channel?: string
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extended_warranty_policies_warranty_id_fkey"
+            columns: ["warranty_id"]
+            isOneToOne: false
+            referencedRelation: "warranties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extended_warranty_policies_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "extended_warranty_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extended_warranty_policies_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extended_warranty_policies_product_unit_id_fkey"
+            columns: ["product_unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extended_warranty_policies_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      warranty_claims: {
+        Row: {
+          id: string
+          claim_number: string
+          warranty_id: string
+          product_unit_id: string
+          customer_id: string
+          service_ticket_id: string | null
+          claim_type: string
+          status: string
+          defect_description: string
+          claimed_amount: number
+          approved_amount: number | null
+          settlement_type: string | null
+          settlement_reference: string | null
+          rejection_reason: string | null
+          reviewed_by: string | null
+          settled_at: string | null
+          idempotency_key: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          claim_number: string
+          warranty_id: string
+          product_unit_id: string
+          customer_id: string
+          service_ticket_id?: string | null
+          claim_type: string
+          status?: string
+          defect_description: string
+          claimed_amount?: number
+          approved_amount?: number | null
+          settlement_type?: string | null
+          settlement_reference?: string | null
+          rejection_reason?: string | null
+          reviewed_by?: string | null
+          settled_at?: string | null
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          claim_number?: string
+          warranty_id?: string
+          product_unit_id?: string
+          customer_id?: string
+          service_ticket_id?: string | null
+          claim_type?: string
+          status?: string
+          defect_description?: string
+          claimed_amount?: number
+          approved_amount?: number | null
+          settlement_type?: string | null
+          settlement_reference?: string | null
+          rejection_reason?: string | null
+          reviewed_by?: string | null
+          settled_at?: string | null
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_claims_warranty_id_fkey"
+            columns: ["warranty_id"]
+            isOneToOne: false
+            referencedRelation: "warranties"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_product_unit_id_fkey"
+            columns: ["product_unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_service_ticket_id_fkey"
+            columns: ["service_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "service_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_claims_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      dealer_reimbursement_claims: {
+        Row: {
+          id: string
+          reimbursement_number: string
+          dealer_id: string
+          warranty_claim_id: string | null
+          product_unit_id: string
+          status: string
+          labor_cost_claimed: number
+          parts_cost_claimed: number
+          total_claimed: number
+          approved_amount: number | null
+          credit_memo_number: string | null
+          rejection_reason: string | null
+          dealer_notes: string | null
+          auditor_notes: string | null
+          audited_by: string | null
+          credited_at: string | null
+          idempotency_key: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          reimbursement_number: string
+          dealer_id: string
+          warranty_claim_id?: string | null
+          product_unit_id: string
+          status?: string
+          labor_cost_claimed?: number
+          parts_cost_claimed?: number
+          approved_amount?: number | null
+          credit_memo_number?: string | null
+          rejection_reason?: string | null
+          dealer_notes?: string | null
+          auditor_notes?: string | null
+          audited_by?: string | null
+          credited_at?: string | null
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          reimbursement_number?: string
+          dealer_id?: string
+          warranty_claim_id?: string | null
+          product_unit_id?: string
+          status?: string
+          labor_cost_claimed?: number
+          parts_cost_claimed?: number
+          approved_amount?: number | null
+          credit_memo_number?: string | null
+          rejection_reason?: string | null
+          dealer_notes?: string | null
+          auditor_notes?: string | null
+          audited_by?: string | null
+          credited_at?: string | null
+          idempotency_key?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_reimbursement_claims_dealer_id_fkey"
+            columns: ["dealer_id"]
+            isOneToOne: false
+            referencedRelation: "dealers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_reimbursement_claims_warranty_claim_id_fkey"
+            columns: ["warranty_claim_id"]
+            isOneToOne: false
+            referencedRelation: "warranty_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_reimbursement_claims_product_unit_id_fkey"
+            columns: ["product_unit_id"]
+            isOneToOne: false
+            referencedRelation: "product_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dealer_reimbursement_claims_audited_by_fkey"
+            columns: ["audited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      warranty_settlement_audit_logs: {
+        Row: {
+          id: string
+          entity_type: string
+          entity_id: string
+          action: string
+          previous_status: string | null
+          new_status: string | null
+          amount: number | null
+          performed_by: string | null
+          notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          entity_type: string
+          entity_id: string
+          action: string
+          previous_status?: string | null
+          new_status?: string | null
+          amount?: number | null
+          performed_by?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          entity_type?: string
+          entity_id?: string
+          action?: string
+          previous_status?: string | null
+          new_status?: string | null
+          amount?: number | null
+          performed_by?: string | null
+          notes?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_settlement_audit_logs_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       crm_overview: {
@@ -6496,6 +6882,65 @@ export type Database = {
           total_cores_count: number
           total_weight_kg: number
         }
+      }
+      fn_submit_warranty_claim: {
+        Args: {
+          p_claim_type: string
+          p_defect_description: string
+          p_claimed_amount?: number
+          p_idempotency_key?: string | null
+          p_service_ticket_id?: string | null
+          p_warranty_id: string
+        }
+        Returns: Json
+      }
+      fn_settle_warranty_claim: {
+        Args: {
+          p_approved_amount?: number
+          p_claim_id: string
+          p_decision: string
+          p_notes?: string | null
+          p_rejection_reason?: string | null
+          p_settlement_type?: string
+        }
+        Returns: Json
+      }
+      fn_submit_dealer_reimbursement: {
+        Args: {
+          p_dealer_id: string
+          p_dealer_notes?: string | null
+          p_idempotency_key?: string | null
+          p_labor_cost: number
+          p_parts_cost: number
+          p_product_unit_id: string
+          p_warranty_claim_id?: string | null
+        }
+        Returns: Json
+      }
+      fn_approve_dealer_reimbursement: {
+        Args: {
+          p_approved_amount: number
+          p_auditor_notes?: string | null
+          p_reimbursement_id: string
+        }
+        Returns: Json
+      }
+      fn_activate_extended_warranty: {
+        Args: {
+          p_dealer_id?: string | null
+          p_payment_reference: string
+          p_plan_id: string
+          p_sales_channel?: string
+          p_warranty_id: string
+        }
+        Returns: Json
+      }
+      fn_cancel_extended_warranty_policy: {
+        Args: {
+          p_cancellation_reason: string
+          p_policy_id: string
+        }
+        Returns: Json
       }
       fn_verify_visit_otp_and_complete: {
         Args: {

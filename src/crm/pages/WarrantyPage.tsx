@@ -19,7 +19,10 @@ import {
   FileSpreadsheet,
   History,
   UserCheck,
-  Plus
+  Plus,
+  Sparkles,
+  FileText,
+  DollarSign
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
@@ -30,8 +33,10 @@ import { WarrantyTimelineModal } from '../components/warranty/WarrantyTimelineMo
 
 export const WarrantyPage: React.FC = () => {
   const { currentRole, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'list' | 'extensions' | 'transfers' | 'expirations' | 'analytics'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'claims' | 'extended' | 'extensions' | 'transfers' | 'expirations' | 'analytics'>('list');
   const [warranties, setWarranties] = useState<any[]>([]);
+  const [claims, setClaims] = useState<any[]>([]);
+  const [extendedPolicies, setExtendedPolicies] = useState<any[]>([]);
   const [extensions, setExtensions] = useState<any[]>([]);
   const [transfers, setTransfers] = useState<any[]>([]);
   const [expirations, setExpirations] = useState<any[]>([]);
@@ -42,6 +47,18 @@ export const WarrantyPage: React.FC = () => {
   const [selectedWarranty, setSelectedWarranty] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Phase 7.7 Modal States
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const [activeClaim, setActiveClaim] = useState<any | null>(null);
+  const [settleForm, setSettleForm] = useState({
+    decision: 'APPROVE',
+    settlementType: 'PARTS_LABOR_PAYOUT',
+    approvedAmount: 0,
+    rejectionReason: '',
+    notes: ''
+  });
+  const [settlingClaim, setSettlingClaim] = useState(false);
 
   // Modals state
   const [showExtensionModal, setShowExtensionModal] = useState(false);
@@ -100,6 +117,55 @@ export const WarrantyPage: React.FC = () => {
         const { data, count, error } = await query;
         if (error) throw error;
         setWarranties(data || []);
+        setTotalCount(count || 0);
+      } else if (activeTab === 'claims') {
+        let query = (supabase as any)
+          .from('warranty_claims')
+          .select(`
+            *,
+            customers(full_name, phone),
+            warranties(warranty_number, warranty_start_date, warranty_end_date),
+            product_units(barcode, serial_number, product_variants(product_name))
+          `, { count: 'exact' })
+          .order('created_at', { ascending: false });
+
+        if (searchQuery.trim()) {
+          const q = `%${searchQuery.trim()}%`;
+          query = query.or(`claim_number.ilike.${q},defect_description.ilike.${q}`);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        query = query.range(from, to);
+
+        const { data, count, error } = await query;
+        if (error) throw error;
+        setClaims(data || []);
+        setTotalCount(count || 0);
+      } else if (activeTab === 'extended') {
+        let query = (supabase as any)
+          .from('extended_warranty_policies')
+          .select(`
+            *,
+            customers(full_name, phone),
+            dealers(dealer_name, dealer_code),
+            extended_warranty_plans(plan_name, plan_code, coverage_months),
+            product_units(barcode, serial_number, product_variants(product_name))
+          `, { count: 'exact' })
+          .order('created_at', { ascending: false });
+
+        if (searchQuery.trim()) {
+          const q = `%${searchQuery.trim()}%`;
+          query = query.or(`policy_number.ilike.${q}`);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        query = query.range(from, to);
+
+        const { data, count, error } = await query;
+        if (error) throw error;
+        setExtendedPolicies(data || []);
         setTotalCount(count || 0);
       } else if (activeTab === 'extensions') {
         let query = supabase
@@ -342,6 +408,18 @@ export const WarrantyPage: React.FC = () => {
             Registered Warranties
           </button>
           <button
+            className={`btn ${activeTab === 'claims' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setActiveTab('claims'); setPage(1); }}
+          >
+            <FileText size={15} /> Claims & Settlements
+          </button>
+          <button
+            className={`btn ${activeTab === 'extended' ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => { setActiveTab('extended'); setPage(1); }}
+          >
+            <Sparkles size={15} /> Extended Warranties
+          </button>
+          <button
             className={`btn ${activeTab === 'extensions' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => { setActiveTab('extensions'); setPage(1); }}
           >
@@ -521,6 +599,216 @@ export const WarrantyPage: React.FC = () => {
             />
           </div>
         </>
+      )}
+
+      {/* PHASE 7.7: ENTERPRISE CLAIMS & SETTLEMENTS VIEW */}
+      {activeTab === 'claims' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Claim #</th>
+                  <th>Warranty #</th>
+                  <th>Customer</th>
+                  <th>Product Unit</th>
+                  <th>Claim Type</th>
+                  <th>Defect Description</th>
+                  <th>Claimed</th>
+                  <th>Approved</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: 'center', padding: '3rem' }}>
+                      <div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
+                      <p className="text-muted">Loading warranty claims...</p>
+                    </td>
+                  </tr>
+                ) : claims.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} style={{ textAlign: 'center', padding: '3.5rem' }}>
+                      <FileText size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>No Warranty Claims Recorded</h3>
+                      <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                        Customer and dealer warranty service claims will appear here for engineering evaluation and settlement.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  claims.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{c.claim_number}</td>
+                      <td>
+                        <span className="badge badge-primary" style={{ fontFamily: 'monospace' }}>
+                          {c.warranties?.warranty_number || '—'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{c.customers?.full_name || 'Customer'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{c.customers?.phone}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 500, fontSize: '0.8125rem' }}>{c.product_units?.product_variants?.product_name || 'ZUVO TV'}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          BC: {c.product_units?.barcode}
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge badge-secondary" style={{ fontSize: '0.75rem' }}>
+                          {c.claim_type}
+                        </span>
+                      </td>
+                      <td style={{ maxWidth: '220px', fontSize: '0.8125rem' }} title={c.defect_description}>
+                        {c.defect_description}
+                      </td>
+                      <td style={{ fontWeight: 600 }}>₹{c.claimed_amount?.toLocaleString() || 0}</td>
+                      <td style={{ fontWeight: 700, color: c.approved_amount ? 'var(--status-success)' : 'inherit' }}>
+                        {c.approved_amount !== null ? `₹${c.approved_amount?.toLocaleString()}` : '—'}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          c.status === 'SETTLED' || c.status === 'APPROVED' ? 'badge-success' :
+                          c.status === 'REJECTED' ? 'badge-danger' :
+                          'badge-warning'
+                        }`} style={{ textTransform: 'uppercase', fontSize: '0.75rem' }}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td>
+                        {isAdminOrSuper && (c.status === 'SUBMITTED' || c.status === 'UNDER_REVIEW') && (
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => {
+                              setActiveClaim(c);
+                              setSettleForm({
+                                decision: 'APPROVE',
+                                settlementType: 'PARTS_LABOR_PAYOUT',
+                                approvedAmount: c.claimed_amount || 0,
+                                rejectionReason: '',
+                                notes: ''
+                              });
+                              setShowSettleModal(true);
+                            }}
+                          >
+                            <DollarSign size={13} /> Settle
+                          </button>
+                        )}
+                        {c.settlement_reference && (
+                          <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--brand-primary)', marginTop: '0.25rem' }}>
+                            {c.settlement_reference}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            currentPage={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }}
+          />
+        </div>
+      )}
+
+      {/* PHASE 7.7: EXTENDED WARRANTY POLICIES VIEW */}
+      {activeTab === 'extended' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          <div className="table-responsive">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Policy #</th>
+                  <th>Customer</th>
+                  <th>Plan & Coverage</th>
+                  <th>TV Model & Barcode</th>
+                  <th>Coverage Window</th>
+                  <th>Premium Paid</th>
+                  <th>Channel / Dealer</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
+                      <div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
+                      <p className="text-muted">Loading extended policies...</p>
+                    </td>
+                  </tr>
+                ) : extendedPolicies.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem' }}>
+                      <Sparkles size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
+                      <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>No Extended Warranty Policies</h3>
+                      <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                        Extended policies activated through dealer channels or CRM direct sales will appear here.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  extendedPolicies.map((ep) => (
+                    <tr key={ep.id}>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{ep.policy_number}</td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{ep.customers?.full_name || 'Customer'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{ep.customers?.phone}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 600 }}>{ep.extended_warranty_plans?.plan_name || 'Extended Care'}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--brand-primary)' }}>
+                          +{ep.extended_warranty_plans?.coverage_months || 12} Months
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 500, fontSize: '0.8125rem' }}>{ep.product_units?.product_variants?.product_name || 'ZUVO TV'}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          BC: {ep.product_units?.barcode}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.8125rem' }}>
+                          {ep.extended_start_date} to {ep.extended_end_date}
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 700, color: 'var(--status-success)' }}>
+                        ₹{ep.premium_paid?.toLocaleString()}
+                      </td>
+                      <td>
+                        <div style={{ fontSize: '0.8125rem' }}>{ep.sales_channel}</div>
+                        {ep.dealers && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                            {ep.dealers.dealer_name}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${ep.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`} style={{ textTransform: 'uppercase' }}>
+                          {ep.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            currentPage={page}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setPage}
+            onPageSizeChange={(newSize) => { setPageSize(newSize); setPage(1); }}
+          />
+        </div>
       )}
 
       {/* TAB 2: Extension Requests */}
@@ -731,6 +1019,151 @@ export const WarrantyPage: React.FC = () => {
             setActionWarranty(null);
           }}
         />
+      )}
+      {/* PHASE 7.7: SETTLE WARRANTY CLAIM MODAL */}
+      {showSettleModal && activeClaim && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: '520px' }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <DollarSign size={18} style={{ color: 'var(--brand-primary)' }} />
+                <span>Adjudicate & Settle Warranty Claim</span>
+              </h3>
+              <button className="btn-icon" onClick={() => setShowSettleModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setSettlingClaim(true);
+              setErrorMsg(null);
+              setSuccessMsg(null);
+              try {
+                const { data, error } = await (supabase.rpc as any)('fn_settle_warranty_claim', {
+                  p_claim_id: activeClaim.id,
+                  p_decision: settleForm.decision,
+                  p_settlement_type: settleForm.decision === 'APPROVE' ? settleForm.settlementType : 'REJECTED_OUT_OF_SCOPE',
+                  p_approved_amount: settleForm.decision === 'APPROVE' ? parseFloat(settleForm.approvedAmount as any) || 0 : 0,
+                  p_rejection_reason: settleForm.decision === 'REJECT' ? settleForm.rejectionReason : null,
+                  p_notes: settleForm.notes || null
+                });
+
+                if (error) throw error;
+                const res = data as any;
+                if (res && res.success === false) {
+                  throw new Error(res.error || 'Claim settlement failed');
+                }
+
+                setSuccessMsg(`Claim ${activeClaim.claim_number} successfully adjudicated as ${settleForm.decision}!`);
+                setShowSettleModal(false);
+                setActiveClaim(null);
+                fetchWarrantyData();
+              } catch (err: any) {
+                setErrorMsg(err.message || 'Settlement failed');
+              } finally {
+                setSettlingClaim(false);
+              }
+            }}>
+              <div className="modal-body">
+                <div style={{ background: 'var(--bg-secondary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', marginBottom: '1rem', fontSize: '0.8125rem' }}>
+                  <div style={{ fontWeight: 600 }}>Claim #{activeClaim.claim_number}</div>
+                  <div style={{ color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                    Customer: {activeClaim.customers?.full_name} | Policy: {activeClaim.warranties?.warranty_number}
+                  </div>
+                  <div style={{ marginTop: '0.25rem' }}>Defect: {activeClaim.defect_description}</div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Adjudication Decision *</label>
+                  <select
+                    className="input-field"
+                    value={settleForm.decision}
+                    onChange={(e) => setSettleForm({ ...settleForm, decision: e.target.value })}
+                  >
+                    <option value="APPROVE">Approve & Settle Claim</option>
+                    <option value="REJECT">Reject Claim (Out of Scope / Void)</option>
+                  </select>
+                </div>
+
+                {settleForm.decision === 'APPROVE' ? (
+                  <>
+                    <div className="form-group">
+                      <label className="form-label">Settlement Type</label>
+                      <select
+                        className="input-field"
+                        value={settleForm.settlementType}
+                        onChange={(e) => setSettleForm({ ...settleForm, settlementType: e.target.value })}
+                      >
+                        <option value="PARTS_LABOR_PAYOUT">Parts & Labor Payout</option>
+                        <option value="NO_CHARGE_REPAIR">No-Charge Customer Repair</option>
+                        <option value="DIRECT_REPLACEMENT">Direct Replacement Unit Swap</option>
+                        <option value="CREDIT_MEMO">Authorized Credit Memo</option>
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Approved Settlement Amount (₹) *</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="input-field"
+                        value={settleForm.approvedAmount}
+                        onChange={(e) => setSettleForm({ ...settleForm, approvedAmount: parseFloat(e.target.value) || 0 })}
+                        required
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="form-group">
+                    <label className="form-label">Rejection Reason *</label>
+                    <textarea
+                      required
+                      className="input-field"
+                      rows={2}
+                      placeholder="e.g. Physical panel impact damage, liquid ingress, or tampered seal"
+                      value={settleForm.rejectionReason}
+                      onChange={(e) => setSettleForm({ ...settleForm, rejectionReason: e.target.value })}
+                    />
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">Engineering / Auditor Notes</label>
+                  <textarea
+                    className="input-field"
+                    rows={2}
+                    placeholder="Optional internal justification or notes"
+                    value={settleForm.notes}
+                    onChange={(e) => setSettleForm({ ...settleForm, notes: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowSettleModal(false)}
+                  disabled={settlingClaim}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={settlingClaim}
+                  style={{
+                    background: settleForm.decision === 'REJECT' ? 'var(--status-danger)' : undefined
+                  }}
+                >
+                  {settlingClaim ? 'Adjudicating...' : `Confirm ${settleForm.decision}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
