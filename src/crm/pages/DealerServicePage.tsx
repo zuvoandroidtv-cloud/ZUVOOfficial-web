@@ -170,20 +170,21 @@ export const DealerServicePage: React.FC = () => {
                 <th>Issue Description</th>
                 <th>Priority</th>
                 <th>Status</th>
+                <th>SLA / Escalation</th>
                 <th>Opened Date</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
                     <div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
                     <p className="text-muted">Loading dealer service tickets...</p>
                   </td>
                 </tr>
               ) : tickets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '3.5rem' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem' }}>
                     <Wrench size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
                     <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>No Service Tickets</h3>
                     <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
@@ -218,6 +219,32 @@ export const DealerServicePage: React.FC = () => {
                       <span className={`badge ${t.status === 'open' ? 'badge-warning' : t.status === 'resolved' || t.status === 'closed' ? 'badge-success' : 'badge-primary'}`} style={{ textTransform: 'capitalize' }}>
                         {t.status}
                       </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                        <span
+                          className={`badge ${
+                            t.sla_status === 'BREACHED'
+                              ? 'badge-danger'
+                              : t.sla_status === 'WARNING_APPROACHING'
+                              ? 'badge-warning'
+                              : t.sla_status === 'MET'
+                              ? 'badge-success'
+                              : 'badge-neutral'
+                          }`}
+                          style={{ fontSize: '0.7rem' }}
+                        >
+                          {t.sla_status || 'WITHIN_SLA'}
+                        </span>
+                        {t.escalation_level > 0 && (
+                          <span
+                            className="badge badge-danger"
+                            style={{ fontSize: '0.65rem' }}
+                          >
+                            Level {t.escalation_level}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td>{new Date(t.opened_at).toLocaleDateString()}</td>
                   </tr>
