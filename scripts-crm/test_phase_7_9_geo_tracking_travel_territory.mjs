@@ -207,7 +207,7 @@ class Phase79StateMachine {
     const totalReimbursement = Math.min(kmAmount + dailyAllowance, policy.max_daily_reimbursement_cap);
 
     const claim = {
-      id: `claim_${Date.now()}`,
+      id: `claim_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       technician_id: technicianId,
       claim_date: claimDate,
       total_km_travelled: totalDist,
