@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from './context/AuthContext';
 import { Navbar } from './components/layout/Navbar';
@@ -8,6 +9,7 @@ import './index.css';
 // CRM Pages
 import { DashboardPage } from './pages/DashboardPage';
 import { ProductsPage } from './pages/ProductsPage';
+import { ManufacturingPage } from './pages/ManufacturingPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { ProcurementPage } from './pages/ProcurementPage';
 import { CustomersPage } from './pages/CustomersPage';
@@ -221,6 +223,8 @@ export const App: React.FC = () => {
         return <CsatPage isDealerScope={false} />;
       case 'products':
         return <ProductsPage />;
+      case 'manufacturing':
+        return <ManufacturingPage />;
       case 'inventory':
         return <InventoryPage />;
       case 'procurement':

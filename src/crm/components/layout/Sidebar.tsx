@@ -21,10 +21,12 @@ import {
   ShieldAlert,
   PackageCheck,
   Landmark,
+  Factory,
 } from 'lucide-react';
 
 export type NavTabId =
   | 'dashboard'
+  | 'manufacturing'
   | 'products'
   | 'inventory'
   | 'procurement'
@@ -115,6 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Products & Units',
       icon: Tv,
       allowedRoles: ['super_admin', 'admin', 'inventory', 'sales', 'service', 'support'],
+    },
+    {
+      id: 'manufacturing',
+      label: 'Manufacturing & WIP',
+      icon: Factory,
+      allowedRoles: ['super_admin', 'admin', 'inventory', 'sales'],
+      badge: 'BOM',
     },
     {
       id: 'inventory',

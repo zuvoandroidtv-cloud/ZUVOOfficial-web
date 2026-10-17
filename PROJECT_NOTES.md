@@ -685,6 +685,33 @@
 | **Full Regression Verification** | Regression testing across all completed phases (8.5 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (16.27s) |
 
+---
+
+## Phase 8.7: Enterprise Manufacturing Execution, Multi-Level BOM, Factory Production Work Orders & WIP Costing
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017270000_phase_8_7_manufacturing_bom_wip_costing.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_7_manufacturing_bom_wip_costing.mjs` — **50/50 PASS**
+
+### 1. Phase 8.7 Implementation Summary & Verification Matrix
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **COA Extensions for Manufacturing** | Extended Chart of Accounts with standard factory accounts: `1320` (Raw Materials Inventory), `1330` (Factory WIP Inventory), `5010` (Production Scrap Variance), and `5350` (Manufacturing Overhead Absorbed) | **PASS** | Seeded in `chart_of_accounts` with system control tags `RAW_MATERIALS_INVENTORY`, `WIP_INVENTORY`, `PRODUCTION_VARIANCE`, `OVERHEAD_ABSORPTION` |
+| **Multi-Level Bill of Materials (BOM)** | Server-authoritative BOM engine supporting multi-level components, scrap allowances, yield percentages, standard cost roll-ups, revision control, and circular dependency checks | **PASS** | `bill_of_materials` and `bom_items` tables + `fn_create_bill_of_materials` RPC; circular references rejected, standard cost computed dynamically from warehouse component inventory |
+| **Production Work Orders** | Full factory lifecycle tracking: `DRAFT` → `RELEASED` → `IN_PRODUCTION` → `QUALITY_HOLD` → `COMPLETED` | **PASS** | `production_work_orders` table + `fn_release_production_work_order` RPC checking inventory availability and placing reservations in `spare_part_inventory` |
+| **WIP Material Issue & Double-Entry GL** | Atomically issue raw materials from warehouse to factory WIP; decrement component stock; clear reservations; post balanced GL entry | **PASS** | `fn_issue_materials_to_wip` RPC debits `1330 Factory WIP` and credits `1320 Raw Materials`; records immutable audit event |
+| **Quality Gates & Burn-In Integration** | Mandatory 4-station quality testing: Electrical Hi-Pot, Optical Calibration, 4-Hour Burn-In Stress Test, and Final Packaging QA; integrated with Phase 8.5 capital assets | **PASS** | `production_quality_checks` table + `fn_log_production_quality_gate` RPC verifying eligible and active test rigs from `fixed_assets`; failures automatically trigger `QUALITY_HOLD` |
+| **Production Completion & Capitalization** | Server-authoritative capitalization creating serialized TV units directly in `product_units`, computing landed unit cost, and clearing WIP via balanced GL | **PASS** | `fn_complete_production_and_capitalize` RPC: debits `1300 Finished Goods`, credits `1330 Factory WIP` and `5350 Overhead Absorbed`; generates unique serials and barcodes |
+| **Downstream Compatibility** | Manufactured TVs seamlessly flow into existing inventory, barcode lookup, dealer consignment, sales invoicing, and warranty activation | **PASS** | Completed TV units inserted in `IN_STOCK` status with calculated `purchase_cost` and link to `manufacturing_work_order_id` |
+| **CRM User Interface** | Dedicated factory execution interface in `src/crm/pages/ManufacturingPage.tsx` | **PASS** | Registered in Sidebar and App.tsx under `manufacturing` tab (`Manufacturing & WIP`) with 5 tabs: Factory Dashboard, BOM Studio, Production Work Orders, Quality & Burn-In Gates, and WIP Costing & Variances |
+| **Security & RLS Governance** | Row Level Security enabled across all 6 tables; anonymous users, dealers, customers, and technicians blocked from unauthorized actions | **PASS** | RLS policies restrict operations to `super_admin`, `admin`, `inventory`, and `finance`; all RPCs enforce `SECURITY DEFINER` and `SET search_path = public, pg_temp` |
+| **Dedicated Test Suite** | 50/50 automated test suite covering BOM creation, scrap allowance, release, component issues, WIP GL posting, quality gates, 4-hour burn-in with Phase 8.5 assets, production capitalization, serial & barcode creation, and audit events | **PASS** | `node ./scripts-crm/test_phase_8_7_manufacturing_bom_wip_costing.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Verification** | Regression testing across all completed phases (8.6 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 9/9 Integration) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (36.08s) |
+
+
 
 
 
