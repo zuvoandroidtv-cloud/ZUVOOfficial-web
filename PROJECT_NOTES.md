@@ -711,6 +711,37 @@
 | **Full Regression Verification** | Regression testing across all completed phases (8.6 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 9/9 Integration) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (36.08s) |
 
+---
+
+## Phase 8.6: Enterprise Inventory Valuation, Serialized Cost-Basis & Margin Intelligence
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017260000_phase_8_6_inventory_valuation_margin.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_6_inventory_valuation_margin.mjs` — **50/50 PASS**
+
+### 1. Phase 8.6 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Authoritative FIFO Cost Layers** | Server-authoritative tracking of inventory cost layers with unit costs, landed costs, and remaining quantities across depots | **PASS** | `inventory_cost_layers` table with check constraints preventing negative costs/quantities; auto-exhaustion on zero remaining stock |
+| **Serialized Cost Basis & Lineage** | Direct traceability of every serialized TV unit from initial purchase cost through freight, customs duty, and refurbishment to final cost basis | **PASS** | `product_units` integration with `inventory_cost_layers`; unit cost traceability preserved through all warehouse movements |
+| **Server-Authoritative COGS Engine** | Atomic COGS calculation and FIFO layer depletion on sale orders with balanced GL postings | **PASS** | `fn_recognize_inventory_cogs(p_sale_id UUID)` RPC; posts balanced journal: Debit 5000 COGS = Credit 1300 Finished Goods Inventory |
+| **Idempotency & Double COGS Prevention** | Idempotent COGS recognition preventing duplicate GL entries or layer double-depletions | **PASS** | Returns existing `inventory_cost_allocations` on repeat invocation; verified with zero duplicate journal entries |
+| **Inventory Valuation Snapshot** | Server-authoritative snapshot of inventory carrying values by depot, product SKU, and aging bucket | **PASS** | `fn_generate_inventory_valuation_snapshot(p_accounting_period_id UUID)` RPC; computes total carrying value across active in-stock & consignment units |
+| **Subledger to GL Reconciliation** | Strict verification that Inventory Subledger Carrying Value equals General Ledger Account 1300 balance | **PASS** | Automated comparison flags `RECONCILED` or `VARIANCE` without silent tampering; creates tamper-evident audit record |
+| **Inventory Aging & Slow-Moving Stock** | Server-authoritative calculation across 6 statutory aging buckets (0–30, 31–60, 61–90, 91–180, 181–365, 365+ days) | **PASS** | `inventory_aging_events` tracking; quantifies slow-moving/stagnant stock carrying value (>90 days) |
+| **Gross Margin Intelligence** | True economic gross margin % computed server-side: (Net Revenue - COGS - Landed Costs) / Net Revenue * 100 | **PASS** | Evaluated on completed sales; analyzes margins by SKU, dealer, depot, and customer |
+| **Inventory Adjustment Governance** | Maker-checker approval guard on inventory quantity/cost revaluations with automated GL write-down/gain postings | **PASS** | `fn_request_inventory_adjustment` and `fn_approve_inventory_adjustment`; requester cannot approve own request; posts to GL Account 5300 |
+| **Enterprise CRM UI** | Dedicated Valuation Cockpit with 7 interactive tabs: Dashboard, Cost Layers, Aging, COGS/Margins, GL Rec, Adjustments, and Serialized Trace | **PASS** | `src/crm/pages/InventoryValuationPage.tsx` + `src/crm/types/inventoryValuation.ts`; wired into Sidebar navigation and routing |
+| **Security & RLS Governance** | Strict Row Level Security on all 5 new tables; tenant isolation; unauthorized roles blocked; fixed `search_path = public, pg_temp` | **PASS** | Live audit verified in `test_phase_8_6_inventory_valuation_margin.mjs` (Tests 41-43); anonymous access denied |
+| **Dedicated Test Suite** | 50/50 comprehensive automated tests validating FIFO layers, COGS, GL reconciliation, maker-checker, and cross-phase integration | **PASS** | `node ./scripts-crm/test_phase_8_6_inventory_valuation_margin.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across Phase 8.7, Phase 8.6 Treasury, Phase 8.5, Phase 8.4, Phase 8.3, Phase 8.2, Phase 8.1, Phase 8.0, and Website | **PASS** | 100% clean across all suites (50/50 each across all financial phases; 9/9 integration; 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static site generation across 17 public routes + 404 | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated (30.95s) |
+
+---
+
+
 
 
 

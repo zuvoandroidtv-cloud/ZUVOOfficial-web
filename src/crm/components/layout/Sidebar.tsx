@@ -22,6 +22,7 @@ import {
   PackageCheck,
   Landmark,
   Factory,
+  DollarSign,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -29,6 +30,7 @@ export type NavTabId =
   | 'manufacturing'
   | 'products'
   | 'inventory'
+  | 'inventory_valuation'
   | 'procurement'
   | 'customers'
   | 'sales'
@@ -130,6 +132,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Inventory & Hubs',
       icon: Warehouse,
       allowedRoles: ['super_admin', 'admin', 'inventory'],
+    },
+    {
+      id: 'inventory_valuation',
+      label: 'Inventory Valuation & Margin',
+      icon: DollarSign,
+      allowedRoles: ['super_admin', 'admin', 'inventory', 'sales'],
+      badge: 'COGS',
     },
     {
       id: 'procurement',
