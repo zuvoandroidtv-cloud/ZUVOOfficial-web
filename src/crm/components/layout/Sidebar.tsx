@@ -23,6 +23,7 @@ import {
   Landmark,
   Factory,
   DollarSign,
+  PieChart,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -43,6 +44,7 @@ export type NavTabId =
   | 'controls'
   | 'fixed_assets'
   | 'treasury'
+  | 'budgetary_control'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -212,6 +214,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Treasury & BRS',
       icon: Landmark,
       allowedRoles: ['super_admin', 'admin', 'sales'],
+    },
+    {
+      id: 'budgetary_control',
+      label: 'Budgetary Control & CC',
+      icon: PieChart,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
+      badge: 'FICO',
     },
     {
       id: 'reports',

@@ -737,7 +737,35 @@
 | **Security & RLS Governance** | Strict Row Level Security on all 5 new tables; tenant isolation; unauthorized roles blocked; fixed `search_path = public, pg_temp` | **PASS** | Live audit verified in `test_phase_8_6_inventory_valuation_margin.mjs` (Tests 41-43); anonymous access denied |
 | **Dedicated Test Suite** | 50/50 comprehensive automated tests validating FIFO layers, COGS, GL reconciliation, maker-checker, and cross-phase integration | **PASS** | `node ./scripts-crm/test_phase_8_6_inventory_valuation_margin.mjs` — **50 Passed, 0 Failed** |
 | **Full Regression Pipeline** | Regression testing across Phase 8.7, Phase 8.6 Treasury, Phase 8.5, Phase 8.4, Phase 8.3, Phase 8.2, Phase 8.1, Phase 8.0, and Website | **PASS** | 100% clean across all suites (50/50 each across all financial phases; 9/9 integration; 149/149 SEO) |
-| **TypeScript & Production Build** | TypeScript compiler check and Vite static site generation across 17 public routes + 404 | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated (30.95s) |
+---
+
+## Phase 8.8: Enterprise Budgetary Control, Department Cost Center Accounting & PO Commitment Governance
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017280000_phase_8_8_budgetary_control_cost_centers.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_8_budgetary_control_cost_centers.mjs` — **50/50 PASS**
+
+### 1. Phase 8.8 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Cost Centers Master & Hierarchy** | Hierarchical Cost Centers with parent-child links, self-parenting prevention, unique codes per tenant, and active status tracking | **PASS** | `cost_centers` table with self-referencing check constraint and foreign key; seed hierarchy for Corporate, Factory, Service, and Sales |
+| **Budget Envelopes & Versioning** | Category-based envelopes (`OPEX`, `CAPEX`, `WARRANTY`, `OVERHEAD`) with lifecycle states (`DRAFT` → `APPROVED` → `REVISED` → `CLOSED`) and historical version preservation | **PASS** | `budget_envelopes` and `budget_line_items` tables; version increments on revision while previous versions are archived and auditable |
+| **Chart of Accounts Alignment** | Budget line items map directly to Phase 8.3 `chart_of_accounts`; negative allocations strictly rejected | **PASS** | Foreign key to `chart_of_accounts(account_code)` and non-negative check constraint; zero duplicate accounting structures created |
+| **Encumbrance Subledger (PO Commitments)** | Real-time commitment tracking against Purchase Orders with statuses `OPEN`, `PARTIALLY_RELIEVED`, `FULLY_RELIEVED`, and `CANCELLED` | **PASS** | `budget_commitments` table with arithmetic invariant constraint `remaining_commitment = committed_amount - relieved_amount` |
+| **Server-Authoritative Availability Check** | Real-time formula: `Available Budget = Approved/Revised Allocation - Open Commitments - Actual Spend (Phase 8.3 GL)`; policies: `ALLOW`, `WARN`, `HARD_BLOCK` | **PASS** | `fn_check_budget_availability` RPC; configurable 10% safety buffer for warnings and strict rejection on negative headroom |
+| **PO Commitment Governance** | Atomic budget encumbrance upon PO approval; idempotent repeat invocations prevent double-commitment; excessive spend hard-blocked | **PASS** | `fn_commit_purchase_order_budget` RPC; atomic validation and rollback on budget overrun; logs `BUDGET_OVERRUN_BLOCKED` audit event |
+| **Vendor Invoice Relief Engine** | Automated encumbrance relief upon posting Phase 8.0 vendor invoices; over-relief strictly rejected; residual commitment remains open | **PASS** | `fn_relieve_budget_commitment` RPC; links relief to vendor invoice ID and maintains subledger balance integrity |
+| **Cost Center Journal Allocations** | Analytical dimension linking Phase 8.3 `journal_lines` to `cost_centers` without duplicating GL records; locked-period protection | **PASS** | `cost_center_allocations` table and `fn_allocate_journal_line_to_cost_center` RPC; ensures total allocations <= 100% of journal line |
+| **Server-Authoritative Variance Reporting** | Real-time Budget vs Actuals matrix with utilization %: `<70%` Healthy, `70-90%` Watch, `>90%` Critical; zero-division safe | **PASS** | `fn_generate_budget_variance_report` RPC returning hierarchical cost center analytics, headroom, and health status indicators |
+| **CAPEX & Fixed Asset Governance** | Enforces capital expenditure budgets for Phase 8.5 asset capitalization without disrupting depreciation schedules | **PASS** | CAPEX budget envelopes verified prior to equipment acquisition; excess CAPEX spend blocked |
+| **Manufacturing Indirect Cost Attribution** | Factory cost centers (`FACTORY-ASSEMBLY`, `FACTORY-QA`, `FACTORY-MATERIALS`) map to Phase 8.7 production overhead absorption | **PASS** | Indirect overhead absorption (GL 5350) attributed to factory cost center dimensions |
+| **Security & RLS Governance** | Row Level Security enabled on all 6 tables; anonymous users, dealers, customers, and technicians blocked; fixed `search_path = public, pg_temp` | **PASS** | Live audit verified in `test_phase_8_8_budgetary_control_cost_centers.mjs` (Tests 1-5, 44-48); anonymous access denied |
+| **Enterprise CRM UI** | Dedicated FICO cockpit in `src/crm/pages/BudgetaryControlPage.tsx` with 5 tabs: Cockpit, Cost Centers, Budget Envelopes, Commitment Ledger, Budget vs Actuals | **PASS** | Registered in Sidebar and App.tsx under `budgetary_control` tab (`Budgetary Control & CC`, icon `PieChart`, badge `FICO`) |
+| **Dedicated Test Suite** | 50/50 automated test suite covering cost centers, budget lifecycle, availability formulas, PO encumbrance, invoice relief, variance, and security | **PASS** | `node ./scripts-crm/test_phase_8_8_budgetary_control_cost_centers.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across all completed phases (8.7 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.8, 50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (36.78s) |
 
 ---
 
