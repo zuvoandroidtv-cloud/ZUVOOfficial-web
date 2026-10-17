@@ -658,6 +658,34 @@
 | **Full Regression Verification** | Regression testing across all completed phases (8.4 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compilation and Vite static HTML prerendering | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (32.60s) |
 
+---
+
+## Phase 8.6: Enterprise Bank Reconciliation Statement (BRS), Multi-Account Statement Feeds & Corporate Treasury Clearing Engine
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017260000_phase_8_6_bank_reconciliation_treasury.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_6_bank_reconciliation_treasury.mjs` — **50/50 PASS**
+
+### 1. Phase 8.6 Implementation Summary & Verification Matrix
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Multi-Account Bank Register** | Server-authoritative corporate bank accounts registry with strict account masking (`XXXX-XXXX-4589`), IFSC codes, account types (`CURRENT`, `ESCROW`, `CASH_CREDIT`), and GL linkage | **PASS** | `bank_accounts` table seeded with operational HDFC current account and ICICI dealer escrow account; masks account numbers strictly preventing disclosure to unauthorized actors |
+| **Electronic Statement Feeds** | Ingestion engine supporting CSV, JSON, and MT940 statement batches with duplicate-file hash protection | **PASS** | `bank_statement_batches` table with unique constraint on `(bank_account_id, source_file_hash)` and mathematical closing balance integrity check |
+| **Statement Lines & Mathematical Validation** | Statement line parser validating non-negative values, movement exclusivity (deposit vs withdrawal), and running balances | **PASS** | `bank_statement_lines` table + `fn_ingest_bank_statement_feed` RPC enforcing running balance continuity and closing balance agreement |
+| **Multi-Tier Auto-Matching Algorithm** | 5-priority deterministic auto-match engine against Phase 8.2 AR receipts and Phase 8.0/8.3 AP disbursements | **PASS** | `fn_auto_match_bank_statement` RPC with priorities: 1. Exact UTR (100%), 2. Exact Cheque/Ref (99%), 3. Exact Ref (98%), 4. Date Window +/-3d (90%), 5. Safe Fuzzy Ref (85%); zero broad unsafe fuzzy matching |
+| **Direct Bank Adjustments** | Server-authoritative posting of legitimate bank charges, interest, and fees into Phase 8.3 GL | **PASS** | `fn_post_direct_bank_transaction` RPC posting balanced double-entry journals (`Debit 5100 / Credit 1010` for charges, `Debit 1010 / Credit 4100` for interest) and transitioning lines to `CLEARED` |
+| **Statutory BRS Calculation** | Deterministic server-authoritative Bank Reconciliation Statement calculation | **PASS** | `fn_generate_bank_reconciliation_statement` RPC computing: `Adjusted Book Balance = GL Book Balance + Uncredited Deposits - Unpresented Disbursements + Direct Bank Adjustments`, with `Variance = ABS(Adjusted Book - Bank Statement Balance)` |
+| **Controlled Manual Matching** | Explicit manual match and unmatch capabilities with double-match prevention | **PASS** | `fn_manually_match_bank_statement_line` RPC verifying exact amounts, blocking duplicate allocation, logging audit events, and permitting clean reversal prior to lock |
+| **Reconciliation Lock & Immutability** | Formal period lock preventing post-lock modifications | **PASS** | `fn_lock_bank_reconciliation` RPC locking balanced reconciliations (`Variance === 0`), locking matching batches and statement lines, and emitting audit events |
+| **CRM User Interface** | Dedicated management workbench in `src/crm/pages/BankReconciliationPage.tsx` | **PASS** | Registered in Sidebar and App.tsx under `treasury` tab (`Treasury & BRS`) with 5 tabs: Treasury Cockpit, Statement Feed, Matching Workbench, Direct Bank Adjustments, and Statutory BRS Report |
+| **Security & RLS Governance** | Row Level Security enabled across all 5 tables; anonymous and unauthorized roles blocked | **PASS** | RLS policies restricting read/write to `finance`, `admin`, `super_admin`; sales granted read-only visibility for escrow monitoring; anonymous access revoked |
+| **Dedicated Test Suite** | 50/50 automated test suite covering accounts, feeds, validations, matching rules, adjustments, BRS math, and locking | **PASS** | `node ./scripts-crm/test_phase_8_6_bank_reconciliation_treasury.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Verification** | Regression testing across all completed phases (8.5 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (16.27s) |
+
+
 
 
 
