@@ -17,6 +17,7 @@ import { WarrantyPage } from './pages/WarrantyPage';
 import { ServicePage } from './pages/ServicePage';
 import { TechnicianPage } from './pages/TechnicianPage';
 import { SparePartsPage } from './pages/SparePartsPage';
+import { FinancePage } from './pages/FinancePage';
 import { ReportsPage } from './pages/ReportsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CommunicationsPage } from './pages/CommunicationsPage';
@@ -235,6 +236,8 @@ export const App: React.FC = () => {
         return <TechnicianPage />;
       case 'spare_parts':
         return <SparePartsPage />;
+      case 'finance':
+        return <FinancePage />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':

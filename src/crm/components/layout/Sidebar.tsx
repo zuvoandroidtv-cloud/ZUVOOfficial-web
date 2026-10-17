@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Truck,
   Star,
+  Scale,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -31,6 +32,7 @@ export type NavTabId =
   | 'service'
   | 'technician'
   | 'spare_parts'
+  | 'finance'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -162,6 +164,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Spare Parts',
       icon: Cpu,
       allowedRoles: ['super_admin', 'admin', 'service', 'inventory'],
+    },
+    {
+      id: 'finance',
+      label: 'Finance & GL',
+      icon: Scale,
+      allowedRoles: ['super_admin', 'admin', 'sales'],
     },
     {
       id: 'reports',

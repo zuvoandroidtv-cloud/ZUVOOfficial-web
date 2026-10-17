@@ -572,9 +572,40 @@
 | **Bad Debt Write-Offs** | Authoritative write-offs for uncollectible receivables with audit rationale | **PASS** | `fn_write_off_ar_bad_debt` RPC restricted to Finance/Admin roles; logs `BAD_DEBT_WRITE_OFF` audit transactions |
 | **CRM User Interface** | Dedicated Accounts Receivable workbench in `SalesPage.tsx` | **PASS** | `SalesPage.tsx` updated with 6 Aging stat cards, AR Ledger table, Unallocated Receipts staging, Dunning Pipeline, and Allocation/Reconcile drawers |
 | **Security & RLS Governance** | Strict Row Level Security on all Phase 8.2 tables; anonymous users denied; dealer tenant isolation | **PASS** | 5 new tables protected under RLS; anonymous access denied; dealer access strictly scoped to own tenant; safe `search_path = public, pg_temp` |
-| **Dedicated Test Suite** | 50/50 comprehensive automated tests validating RLS, GST calculations, AR posting, payments, reconciliation, aging, dunning, and write-offs | **PASS** | `node ./scripts-crm/test_phase_8_2_accounts_receivable_invoicing.mjs` — **50 Passed, 0 Failed** |
-| **Full Regression Pipeline** | Regression testing across Phase 8.1, 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites | **PASS** | Phase 8.1 (50/50 PASS), Phase 8.0 (50/50 PASS), Phase 7.9 (30/30 PASS), Phase 7.8 (30/30 PASS), Phase 7.7 (30/30 PASS), Phase 7.6 (30/30 PASS), Phase 7.5 (30/30 PASS), Integration (9/9 PASS), SEO (149/149 PASS) |
-| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (16.09s) |
+---
+
+## Phase 8.3: Enterprise General Ledger (GL), Double-Entry Accounting Core, Chart of Accounts & Automated Financial Statements
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017230000_phase_8_3_general_ledger_double_entry.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_3_general_ledger_and_statements.mjs` — **50/50 PASS**
+
+### 1. Phase 8.3 Implementation Summary & Verification Matrix
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Chart of Accounts (Ind AS)** | Standardized Indian corporate COA hierarchy across Assets (1000s), Liabilities (2000s), Equity (3000s), Revenue (4000s), and Expenses (5000s) | **PASS** | `chart_of_accounts` table seeded with 27 master & control accounts (Bank 1010, AR 1100, Inventory 1300, Consignment Inv 1310, AP 2100, Output GST 2210/2220/2230, Sales Revenue 4000, COGS 5000, Warranty Expense 5200, Bad Debt 5400) |
+| **Accounting Periods & Close** | Period-based fiscal accounting (`FY2026-M10`) with `OPEN`, `SOFT_CLOSED`, and `LOCKED` states | **PASS** | `accounting_periods` table + `fn_close_accounting_period` RPC enforcing automated Trial Balance audit before locking; prevents overlapping periods via constraint |
+| **Double-Entry Posting Engine** | Server-authoritative double-entry ledger enforcing `Total Debits === Total Credits` with zero imbalance tolerance | **PASS** | `fn_post_journal_entry` RPC validating at least 2 lines, rejecting negative numbers or both-on-same-line, generating sequential `JE-YYYYMM-XXXX` numbers |
+| **Auto-Journalizer: Sales Invoices** | Subledger-to-GL posting for Phase 8.2 Commercial GST Tax Invoices | **PASS** | `fn_auto_journalize_sales_invoice` RPC debits AR Control (1100), credits Sales Revenue (4000), and credits Output GST (CGST 2210 + SGST 2220 or IGST 2230) |
+| **Auto-Journalizer: AR Payments** | Subledger-to-GL posting for Phase 8.2 Customer and Dealer Cash Collections | **PASS** | `fn_auto_journalize_ar_payment` RPC debits Operating Bank (1010) and credits AR Control (1100); verified idempotent |
+| **Auto-Journalizer: Vendor Invoices** | Subledger-to-GL posting for Phase 8.0 Procurement Bills & 3-Way Matches | **PASS** | `fn_auto_journalize_vendor_invoice` RPC debits Finished Goods Inventory (1300), debits Input ITC (1200), and credits AP Control (2100) |
+| **Auto-Journalizer: AP Disbursements** | Subledger-to-GL posting for Phase 8.0 Vendor Disbursements | **PASS** | `fn_auto_journalize_vendor_payment` RPC debits AP Control (2100) and credits Operating Bank (1010) |
+| **Auto-Journalizer: Consignment Sales** | Subledger-to-GL posting for Phase 8.1 Dealer Consignment Settlements | **PASS** | `fn_auto_journalize_consignment_settlement` RPC simultaneously recognizes Trade AR (1100), Sales Revenue (4000), COGS (5000), and clears Consignment Inventory (1310) |
+| **Auto-Journalizer: Warranty Settlements** | Subledger-to-GL posting for Phase 7.7 Dealer Warranty Reimbursements | **PASS** | `fn_auto_journalize_warranty_settlement` RPC debits Warranty Expense (5200) and credits Dealer AR Credit Offset (1100) |
+| **Auto-Journalizer: Bad Debt Write-Offs** | Subledger-to-GL posting for Phase 8.2 Authorized Write-Offs | **PASS** | `fn_auto_journalize_bad_debt_write_off` RPC debits Bad Debt Expense (5400) and credits AR Control (1100) |
+| **Statutory Trial Balance** | Server-side Trial Balance aggregation validating total debits equal total credits | **PASS** | `fn_generate_trial_balance` RPC computing opening, period net, and closing balances with zero-variance validation |
+| **Statement of Profit & Loss** | Server-side P&L calculation (Revenue - COGS = Gross Profit; Gross Profit - Operating Expenses = Net Profit) | **PASS** | `fn_generate_financial_statement('PROFIT_AND_LOSS', ...)` RPC executing authoritative computation without client-side assumptions |
+| **Balance Sheet Equilibrium** | Server-side Balance Sheet verifying `Assets === Liabilities + Equity` | **PASS** | `fn_generate_financial_statement('BALANCE_SHEET', ...)` RPC reconciling current-period profit into total equity with 0.00 variance |
+| **GST Input-Output Reconciliation** | Server-side statutory GST liability reconciliation (Output Tax vs Eligible ITC) | **PASS** | `fn_generate_financial_statement('GST_RECONCILIATION', ...)` RPC aligning with GSTR-1, 2B, and 3B net liability calculation |
+| **Locked Period Immutability** | Hardened protection against post-close mutation, deletion, or backdated posting | **PASS** | Postings to locked periods strictly rejected; historical corrections require open-period reversal journals (`PERIOD_CLOSING_REVERSAL`) |
+| **CRM Finance Workbench** | Dedicated management UI with live Chart of Accounts, Journal Explorer, Trial Balance, P&L, Balance Sheet, and Period Close | **PASS** | `FinancePage.tsx` registered in CRM routing and Sidebar navigation (`/finance`) with drilldown line drawers and period filtering |
+| **Security & RLS Governance** | Strict Row Level Security across all 5 new GL tables; anonymous users, dealers, customers, and technicians denied | **PASS** | `chart_of_accounts`, `accounting_periods`, `journal_entries`, `journal_entry_lines`, `gl_account_balances` protected under RLS; `SET search_path = public, pg_temp` |
+| **Dedicated Test Suite** | 50/50 automated test suite covering COA, double-entry equality, period locks, auto-journalization, statements, and security | **PASS** | `node ./scripts-crm/test_phase_8_3_general_ledger_and_statements.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across Phase 8.2, 8.1, 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites | **PASS** | 100% clean (50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.24s) |
+
 
 
 
