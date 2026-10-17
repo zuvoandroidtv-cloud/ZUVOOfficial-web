@@ -19,6 +19,7 @@ import {
   Star,
   Scale,
   ShieldAlert,
+  PackageCheck,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -35,6 +36,7 @@ export type NavTabId =
   | 'spare_parts'
   | 'finance'
   | 'controls'
+  | 'fixed_assets'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -177,6 +179,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'controls',
       label: 'Financial Controls',
       icon: ShieldAlert,
+      allowedRoles: ['super_admin', 'admin', 'sales'],
+    },
+    {
+      id: 'fixed_assets',
+      label: 'Fixed Assets (PPE)',
+      icon: PackageCheck,
       allowedRoles: ['super_admin', 'admin', 'sales'],
     },
     {

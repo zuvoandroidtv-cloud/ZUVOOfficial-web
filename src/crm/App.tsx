@@ -19,6 +19,7 @@ import { TechnicianPage } from './pages/TechnicianPage';
 import { SparePartsPage } from './pages/SparePartsPage';
 import { FinancePage } from './pages/FinancePage';
 import { FinancialControlsPage } from './pages/FinancialControlsPage';
+import { FixedAssetsPage } from './pages/FixedAssetsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CommunicationsPage } from './pages/CommunicationsPage';
@@ -241,6 +242,8 @@ export const App: React.FC = () => {
         return <FinancePage />;
       case 'controls':
         return <FinancialControlsPage />;
+      case 'fixed_assets':
+        return <FixedAssetsPage />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':

@@ -631,6 +631,33 @@
 | **Dedicated Test Suite** | 50/50 automated test suite covering RLS, rule exceptions, self-approval prevention, GST reconciliation, cash flow snapshots, 30/60/90-day forecasting, negative cash warning, and audit events | **PASS** | `node ./scripts-crm/test_phase_8_4_financial_controls_gst_cashflow.mjs` — **50 Passed, 0 Failed** |
 | **Full Regression Verification** | Regression testing across all completed phases (8.3, 8.2, 8.1, 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.56s) |
+---
+
+## Phase 8.5: Enterprise Fixed Asset Register, Statutory Depreciation Engine (Ind AS 16) & Tooling/Depot Capital Equipment Lifecycle
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017250000_phase_8_5_fixed_assets_depreciation.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_5_fixed_assets_depreciation.mjs` — **50/50 PASS**
+
+### 1. Phase 8.5 Implementation Summary & Verification Matrix
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Property, Plant & Equipment (PPE) COA Extension** | Extended Chart of Accounts for Gross Block (Group 1500s: 1510 Machinery, 1520 Rework, 1530 Warehouse, 1540 Tooling, 1550 IT, 1560 Vehicles), Contra-Asset Accum Deprec 1590, and Deprec Expenses (5310, 5320, 5350) | **PASS** | `chart_of_accounts` seeded with dedicated asset accounts and system control types (`FIXED_ASSET`, `ACCUMULATED_DEPRECIATION`, `DEPRECIATION_EXPENSE`) |
+| **Capital Equipment Categories** | Configurable categories with statutory useful life in months, depreciation methods, and salvage percentages | **PASS** | `fixed_asset_categories` table seeded with 8 classes (Testing Rigs, Soldering Stations, Calibration Gear, Warehouse Equipment, Service Benches, Technician Kits, Vehicles, IT Hardware) |
+| **Fixed Asset Register** | Server-authoritative asset records with sequential asset tagging (`AST-YYYY-XXXXX`), serial numbers, procurement linkage, location, and custodian | **PASS** | `fixed_assets` table with strict constraints (`chk_salvage_lte_cost`, `chk_book_value_floor`, status transitions `ACTIVE`, `IN_MAINTENANCE`, `FULLY_DEPRECIATED`, `DISPOSED`, `IMPAIRED`) |
+| **Asset Capitalization RPC** | Automated capitalization from procurement bills or direct cash acquisitions with balanced GL posting | **PASS** | `fn_capitalize_fixed_asset` RPC debits Gross Block (1510–1560) and credits AP Control (2100) or Bank (1010); records immutable audit event |
+| **Statutory Depreciation Engine (SLM & WDV)** | Server-authoritative monthly depreciation computation adhering to Ind AS 16 & Schedule II | **PASS** | `fn_run_monthly_depreciation(period_id)` RPC processes active qualifying assets; enforces salvage value floor; auto-posts balanced GL entry (`Debit 5310 / Credit 1590`); creates schedule lines in `asset_depreciation_schedules` |
+| **Preventative Maintenance & Calibration** | Lifecycle tracking for optical/electrical calibration, breakdown alerts, repair downtime, and vendor costs | **PASS** | `asset_maintenance_logs` table + `fn_record_asset_maintenance` RPC updating `next_calibration_due_at`, transitioning status to `IN_MAINTENANCE` on breakdown, and restoring to `ACTIVE` on repair |
+| **Asset Derecognition & Disposal** | Authoritative retirement protocol calculating Net Book Value (NBV), salvage proceeds, and realized gain/loss | **PASS** | `fn_dispose_fixed_asset` RPC derecognizes Gross Block and Accumulated Depreciation, recognizes cash proceeds, posts gain/loss to `5350`, transitions status to `DISPOSED`, and creates `asset_disposals` record |
+| **Statutory PPE Register (Ind AS 16)** | Standard gross block, depreciation reserve, and net carrying block schedule | **PASS** | Verified equation `Net Block === Gross Block - Accumulated Depreciation` across all active asset categories |
+| **CRM User Interface** | Dedicated enterprise management interface in `FixedAssetsPage.tsx` | **PASS** | `FixedAssetsPage.tsx` registered in Sidebar and App.tsx under `/fixed_assets` with 5 tabs: Asset Register, Depreciation Workbench, Maintenance & Calibration, Asset Disposal, and Statutory Register |
+| **Security & RLS Governance** | Row Level Security enabled on all 5 new tables; anonymous users, dealers, customers, and technicians denied | **PASS** | RLS policies restrict management to authenticated finance/admin roles; anonymous execution revoked; `SET search_path = public, pg_temp` enforced |
+| **Dedicated Test Suite** | 50/50 automated test suite covering categories, capitalization, SLM/WDV math, salvage floors, maintenance, disposals, and RLS | **PASS** | `node ./scripts-crm/test_phase_8_5_fixed_assets_depreciation.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Verification** | Regression testing across all completed phases (8.4 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compilation and Vite static HTML prerendering | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (32.60s) |
+
 
 
 
