@@ -547,33 +547,35 @@
 
 ---
 
-## Phase 8.1: Advanced Multi-Channel B2B Consignment Settlements, Real-Time Dealer Credit Limit Engine & Automated Statement Generation
+## Phase 8.2: Enterprise Accounts Receivable (AR) Ledger, Automated GST E-Invoicing & B2B/B2C Cash Reconciliation Engine
 **Status**: **COMPLETED (VERIFIED)**  
-**Completion Date**: October 16, 2026  
+**Completion Date**: October 17, 2026  
 **Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
-**Migrations Created**: `supabase/migrations/20261017210000_phase_8_1_dealer_consignment_credit_statements.sql`  
-**Test Suite**: `scripts-crm/test_phase_8_1_dealer_consignment_credit.mjs` — **50/50 PASS**
+**Migrations Created**: `supabase/migrations/20261017220000_phase_8_2_accounts_receivable_invoicing.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_2_accounts_receivable_invoicing.mjs` — **50/50 PASS**
 
-### 1. Phase 8.1 Implementation Summary & Verification Matrix
+### 1. Phase 8.2 Implementation Summary & Verification Matrix
 
 | Area | Requirement / Check | Status | Verification Evidence |
 |---|---|:---:|---|
-| **Authoritative Credit Limit Engine** | Real-time exposure evaluation from consignments, unpaid sales, pending settlements, overdue balances, and financial adjustments | **PASS** | `fn_evaluate_dealer_credit_exposure(p_dealer_id)` server-authoritative RPC; outputs credit_limit, current_exposure, available_credit, utilization_percent, overdue_amount, oldest_overdue_days, risk_state, dispatch_allowed, blocking_reason |
-| **Deterministic Credit Risk States** | Governed risk progression across `AVAILABLE`, `WARNING`, `NEAR_LIMIT`, `LIMIT_EXCEEDED`, `OVERDUE_BLOCK`, and `MANUAL_HOLD` | **PASS** | Evaluated server-side; warning at 80% utilization; hard block at 100% or overdue >30 days; manual hold override |
-| **Atomic Dispatch Credit Gate** | Pre-dispatch gate blocking consignment dispatch if projected exposure exceeds approved credit limit or risk state is blocked | **PASS** | `fn_validate_consignment_dispatch_gate(p_dealer_id, p_requested_unit_ids)` integrated directly into `fn_dispatch_consignment_to_dealer`; row-level locking eliminates race conditions |
-| **Consignment Ledger & Lifecycle** | Complete tracking across `DISPATCHED`, `IN_DEALER_STOCK`, `SOLD`, `SETTLEMENT_PENDING`, `SETTLED`, `RETURN_REQUESTED`, `RETURNED`, `RECALL_RECOMMENDED`, `RECALLED` | **PASS** | `dealer_consignment_stock` and `dealer_consignment_movements` immutable audit logging; all transitions preserved |
-| **Dealer Consignment Sales & Settlement** | Dealer-reported sales workflow validating tenant ownership and unit availability, updating settlement status, and creating sales | **PASS** | `fn_report_dealer_consignment_sale` RPC with client UUID idempotency protection; prevents duplicate sales and double-settlement |
-| **Financial Adjustments & Credit Notes** | Granular credit notes, debit adjustments, and payments received ledger affecting net exposure | **PASS** | `dealer_financial_adjustments` table with idempotency UUID support; payments reduce liability; credit notes restore available credit |
-| **Automated Periodic Statements** | Transaction-safe statement generation for Monthly and Quarterly periods with unique reference (`DST-YYYYMM-XXXX`) | **PASS** | `dealer_statements` and `dealer_statement_items` tables + `fn_generate_dealer_statement` RPC; prevents duplicate statement generation for same period |
-| **Statement Immutability** | Locking generated draft statements into permanent, immutable finalized snapshots | **PASS** | `fn_finalize_dealer_statement` RPC restricted to finance and administrative roles; blocks further modifications once finalized |
-| **Consignment Aging Engine** | Multi-bracket stock aging analysis (0–30, 31–60, 61–90, 91–120, 120+ days) based on physical movement start dates | **PASS** | Integrated into statement generation snapshot and live exposure views |
-| **Stagnant Stock Recall Engine** | Automated detection of unsold dealer stock aged >=60 days (WARNING), >=90 days (RECALL_RECOMMENDED), and >=120 days (CRITICAL) | **PASS** | `dealer_recall_recommendations` table + `fn_evaluate_stagnant_consignment_stock` RPC generating advisory recall recommendations |
-| **Formal Recall Logistics Workflow** | Conversion of approved recall recommendations into formal logistics recall requests | **PASS** | `dealer_recall_requests` and `dealer_recall_request_items` tables + `fn_approve_consignment_recall_recommendation` RPC; safely updates unit warehouse custody and reduces dealer exposure |
-| **CRM User Interface Integration** | Live Credit Engine Dashboard, Risk Badges, Dispatch Gate Checks, Statement History, and Stagnant Recall workflows in Dealers Page | **PASS** | `DealersPage.tsx` updated with real-time exposure cards, risk state badges, statement generation actions, and stagnant recommendation tables |
-| **Security & RLS Governance** | Strict Row Level Security on all Phase 8.1 tables; anonymous access denied; dealer tenant isolation; safe fixed `search_path = public` on all RPCs | **PASS** | 7 new tables protected under RLS; anonymous access blocked; dealer access strictly scoped to own tenant; technicians denied access to dealer finance |
-| **Dedicated Test Suite** | 50/50 comprehensive automated tests validating RLS, isolation, credit calculation, dispatch gate, sales, settlements, statements, aging, and recalls | **PASS** | `node ./scripts-crm/test_phase_8_1_dealer_consignment_credit.mjs` — **50 Passed, 0 Failed** |
-| **Full Regression Pipeline** | Regression testing across Phase 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites | **PASS** | Phase 8.0 (50/50 PASS), Phase 7.9 (30/30 PASS), Phase 7.8 (30/30 PASS), Phase 7.7 (30/30 PASS), Phase 7.6 (30/30 PASS), Phase 7.5 (30/30 PASS), Integration (9/9 PASS), SEO (149/149 PASS) |
-| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (16.53s) |
+| **Customer AR Ledger** | Authoritative tracking of B2B and B2C receivables from commercial sales | **PASS** | `customer_ar_ledger` table with balance integrity constraints (`remaining_balance = billed_amount - settled_amount`) |
+| **Immutable AR Audit Ledger** | Append-only financial history for invoices, payments, credit memo offsets, and write-offs | **PASS** | `customer_ar_transactions` table with RLS denying arbitrary browser edits or deletes |
+| **Commercial GST Invoicing** | Server-authoritative GST tax invoices applying HSN 8528 and accurate tax treatment | **PASS** | `commercial_tax_invoices` table + `fn_generate_commercial_tax_invoice` RPC applying CGST 9% + SGST 9% (Intra-state) or IGST 18% (Inter-state) |
+| **Sequential Invoice Numbering** | Concurrency-safe invoice numbering in format `INV-YYYYMM-XXXX` | **PASS** | Evaluated via PostgreSQL sequence and date format; zero client-timestamp dependency |
+| **E-Invoice / IRN Boundary** | Provider-ready architecture with explicit `PENDING_PROVIDER` status | **PASS** | Establishes e-invoice integration boundary without fabricating fake government IRNs |
+| **Unallocated Receipt Staging** | Capture incoming NEFT, RTGS, UPI, and bank transfers | **PASS** | `payment_receipts_unallocated` table with UTR/UPI reference, remaining amount, and idempotency protection |
+| **Atomic Payment Allocation** | Apply payments to open AR invoices with overpayment protection | **PASS** | `fn_apply_payment_to_ar_invoice` RPC with row-level locking; atomic balance and status updates |
+| **Multi-Invoice Reconciliation** | Reconcile one bank receipt across multiple open invoices | **PASS** | `fn_reconcile_unallocated_bank_receipt` RPC matching batches atomically with zero over-allocation |
+| **Contractual AR Aging Engine** | Server-authoritative aging schedule (Current, 1-30, 31-60, 61-90, 90+ days past due) | **PASS** | `fn_get_customer_ar_aging_summary` RPC based on due date; excludes settled and written-off invoices |
+| **Automated Dunning Engine** | 3-Tier overdue escalation pipeline (Reminder, Urgent Notice, Legal/Service Suspension) | **PASS** | `ar_dunning_cases` table + `fn_evaluate_ar_dunning_pipeline` RPC with duplicate notice suppression and auto-resolution |
+| **Credit Memo Offsetting** | Offset Phase 7.7 dealer reimbursements against open AR liabilities | **PASS** | `fn_apply_credit_memo_to_ar` RPC recording `CREDIT_MEMO_OFFSET` immutable transactions |
+| **Bad Debt Write-Offs** | Authoritative write-offs for uncollectible receivables with audit rationale | **PASS** | `fn_write_off_ar_bad_debt` RPC restricted to Finance/Admin roles; logs `BAD_DEBT_WRITE_OFF` audit transactions |
+| **CRM User Interface** | Dedicated Accounts Receivable workbench in `SalesPage.tsx` | **PASS** | `SalesPage.tsx` updated with 6 Aging stat cards, AR Ledger table, Unallocated Receipts staging, Dunning Pipeline, and Allocation/Reconcile drawers |
+| **Security & RLS Governance** | Strict Row Level Security on all Phase 8.2 tables; anonymous users denied; dealer tenant isolation | **PASS** | 5 new tables protected under RLS; anonymous access denied; dealer access strictly scoped to own tenant; safe `search_path = public, pg_temp` |
+| **Dedicated Test Suite** | 50/50 comprehensive automated tests validating RLS, GST calculations, AR posting, payments, reconciliation, aging, dunning, and write-offs | **PASS** | `node ./scripts-crm/test_phase_8_2_accounts_receivable_invoicing.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across Phase 8.1, 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites | **PASS** | Phase 8.1 (50/50 PASS), Phase 8.0 (50/50 PASS), Phase 7.9 (30/30 PASS), Phase 7.8 (30/30 PASS), Phase 7.7 (30/30 PASS), Phase 7.6 (30/30 PASS), Phase 7.5 (30/30 PASS), Integration (9/9 PASS), SEO (149/149 PASS) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (16.09s) |
+
 
 
 
