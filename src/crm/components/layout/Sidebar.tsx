@@ -18,6 +18,7 @@ import {
   Truck,
   Star,
   Scale,
+  ShieldAlert,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -33,6 +34,7 @@ export type NavTabId =
   | 'technician'
   | 'spare_parts'
   | 'finance'
+  | 'controls'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -169,6 +171,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'finance',
       label: 'Finance & GL',
       icon: Scale,
+      allowedRoles: ['super_admin', 'admin', 'sales'],
+    },
+    {
+      id: 'controls',
+      label: 'Financial Controls',
+      icon: ShieldAlert,
       allowedRoles: ['super_admin', 'admin', 'sales'],
     },
     {

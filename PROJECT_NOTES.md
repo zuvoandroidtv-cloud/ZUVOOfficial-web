@@ -605,6 +605,33 @@
 | **Dedicated Test Suite** | 50/50 automated test suite covering COA, double-entry equality, period locks, auto-journalization, statements, and security | **PASS** | `node ./scripts-crm/test_phase_8_3_general_ledger_and_statements.mjs` — **50 Passed, 0 Failed** |
 | **Full Regression Pipeline** | Regression testing across Phase 8.2, 8.1, 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites | **PASS** | 100% clean (50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.24s) |
+---
+
+## Phase 8.4: Enterprise Financial Controls, GST Compliance & Management Cash-Flow Intelligence
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 17, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017240000_phase_8_4_financial_controls_gst_cashflow.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_4_financial_controls_gst_cashflow.mjs` — **50/50 PASS**
+
+### 1. Phase 8.4 Implementation Summary & Verification Matrix
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Financial Control Rules** | Server-authoritative governance rules covering high-value journals, backdated entries, reversals, write-offs, credit offsets, warranty adjustments, vendor/customer exceptions, and GST variances | **PASS** | `finance_control_rules` table seeded with 8 active rules (`FCR-001` through `FCR-008`) with configurable thresholds and severity tiers (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) |
+| **Control Exceptions Engine** | Automated detection and logging of transaction anomalies exceeding thresholds | **PASS** | `finance_control_exceptions` table with unique sequential numbering (`FCE-YYYY-XXXXX`), status lifecycles (`OPEN`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `RESOLVED`, `WAIVED`), assigned reviewers, and resolution notes |
+| **Dual-Authorization Workflow** | Server-authoritative maker-checker approval requests with strict self-approval prevention | **PASS** | `finance_approval_requests` + `finance_approval_actions` tables; DB constraint `chk_no_self_approval` (`requester_id <> reviewer_id`) + RPC guards in `fn_approve_finance_request` and `fn_reject_finance_request` strictly blocking self-approval or duplicate actions |
+| **Direct Exception Resolution** | Authorized supervisory waiver and resolution protocol | **PASS** | `fn_resolve_finance_exception` RPC with `SECURITY DEFINER` and role gating for finance/admin roles |
+| **Server-Authoritative GST Engine** | Internal filing preparation reconciling outward sales against procurement ITC | **PASS** | `fn_generate_gst_reconciliation(period_id)` RPC aggregating taxable turnover, CGST, SGST, IGST, ITC, net liability, and tax variance (`FILE_READY`, `VARIANCE`, `EXCEPTION`); strictly respects external portal boundary without fabricating IRN/ARNs |
+| **Cash-Flow Snapshots (Direct Method)** | Historical cash flow categorized under Operating, Investing, and Financing flows | **PASS** | `fn_generate_cash_flow_snapshot(period_id)` RPC computing opening cash, collections, vendor bills, opex, tax, warranty, net flow, and closing cash balance |
+| **Rolling Cash-Flow Forecasts** | Predictive liquidity model for 30, 60, and 90-day horizons | **PASS** | `fn_generate_cash_flow_forecast(p_horizon_days)` RPC using open AR, committed AP due dates, and daily burn rate; labels all figures as estimates; triggers `is_negative_warning` on projected deficit |
+| **Immutable Audit Trail** | Tamper-evident ledger of all financial actions, exceptions, approvals, and snapshots | **PASS** | `financial_audit_events` append-only table with zero `UPDATE` or `DELETE` grants; sequential `FAE-YYYY-XXXXX` numbering |
+| **Management Dashboard & Workbench** | Full-featured executive finance cockpit with 7 tabs | **PASS** | `src/crm/pages/FinancialControlsPage.tsx` registered under `/controls` in CRM Sidebar; includes Executive Dashboard, Control Exceptions, GST Reconciliation, Cash Flow, Forecast (30/60/90), Approval Queue, and Audit Events |
+| **Security & RLS Governance** | Strict Row Level Security across all 7 new Phase 8.4 tables; anonymous users, technicians, and unpermitted roles denied | **PASS** | RLS enabled on all tables; policies restrict access to authenticated finance/admin roles; dealer access strictly isolated; `SET search_path = public, pg_temp` |
+| **Dedicated Test Suite** | 50/50 automated test suite covering RLS, rule exceptions, self-approval prevention, GST reconciliation, cash flow snapshots, 30/60/90-day forecasting, negative cash warning, and audit events | **PASS** | `node ./scripts-crm/test_phase_8_4_financial_controls_gst_cashflow.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Verification** | Regression testing across all completed phases (8.3, 8.2, 8.1, 8.0, 7.9, 7.8, 7.7, 7.6, 7.5, Integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 30/30 Phase 7.8, 30/30 Phase 7.7, 30/30 Phase 7.6, 30/30 Phase 7.5, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.56s) |
+
 
 
 
