@@ -24,6 +24,7 @@ import {
   Factory,
   DollarSign,
   PieChart,
+  RotateCcw,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -36,6 +37,7 @@ export type NavTabId =
   | 'customers'
   | 'sales'
   | 'sales_order_fulfillment'
+  | 'commercial_returns'
   | 'dealers'
   | 'warranty'
   | 'service'
@@ -167,6 +169,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: PackageCheck,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
       badge: 'B2B',
+    },
+    {
+      id: 'commercial_returns',
+      label: 'Returns & Credit Notes',
+      icon: RotateCcw,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
+      badge: 'RMA',
     },
     {
       id: 'dealers',
