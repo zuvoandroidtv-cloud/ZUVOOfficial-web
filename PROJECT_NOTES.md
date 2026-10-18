@@ -769,6 +769,35 @@
 
 ---
 
+## Phase 8.9: Enterprise B2B Sales Order Management, Warehouse Pick-Pack-Ship Fulfillment & Statutory Delivery Challan / E-Way Bill Governance
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 18, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017290000_phase_8_9_sales_order_fulfillment_delivery_challan.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_9_sales_order_fulfillment_delivery_challan.mjs` — **50/50 PASS**
+
+### 1. Phase 8.9 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Enterprise B2B Sales Orders** | Sequential concurrency-safe numbering (`SO-YYYYMM-XXXX`), multi-line item lifecycle (`quantity_ordered`, `quantity_allocated`, `quantity_shipped`, `quantity_invoiced`), and server-calculated tax & totals | **PASS** | `sales_orders` and `sales_order_items` tables + `fn_create_b2b_sales_order` RPC; arithmetic check constraints prevent quantity overflows |
+| **Phase 8.1 Dealer Credit Integration** | Real-time dealer credit exposure check during order confirmation; automated `CREDIT_HOLD` enforcement on limit overruns | **PASS** | `fn_confirm_sales_order` invokes `fn_evaluate_dealer_credit_exposure`; orders exceeding limit marked `CREDIT_HOLD` with reason, blocking fulfillment |
+| **Serialized Inventory Hard Reservation** | Concurrency-safe unit allocation; unique index constraint preventing duplicate active reservations of the same serialized TV across open orders | **PASS** | `sales_order_reservations` table with unique index `uq_active_serialized_reservation`; unit status updated to `reserved` |
+| **Warehouse Pick & Pack Lifecycle** | Formal warehouse execution tracking: `CONFIRMED` → `ALLOCATED` → `PICKED` → `PACKED` with atomic unit status transitions | **PASS** | `fn_allocate_and_pick_sales_order` RPC supporting `ALLOCATE`, `PICK`, and `PACK` actions; validates variant match and warehouse stock availability |
+| **Statutory Delivery Challans (Rule 55)** | Concurrency-safe DC numbering (`DC-YYYYMM-XXXX`), transporter, vehicle number, LR/Bilty, E-Way Bill reference, distance (km), and item manifest | **PASS** | `delivery_challans` and `delivery_challan_items` tables + `fn_generate_delivery_challan` RPC; rejects expired E-Way Bills; validates positive distance |
+| **Consignment Dispatch & In-Transit** | Dispatches consignment with statutory E-Way Bill validity enforcement; transitions product units to `in_transit`; updates SO to `DISPATCHED` | **PASS** | `fn_dispatch_delivery_challan` RPC; strictly idempotent repeat invocations prevent duplicate dispatches |
+| **POD & Phase 8.2 Commercial Invoicing** | Proof of Delivery verification triggers canonical Phase 8.2 GST Commercial Tax Invoice (`INV-YYYYMM-XXXX`) and posts to Customer AR Ledger | **PASS** | `fn_confirm_challan_delivery_and_invoice` RPC creates canonical sale, calls `fn_generate_commercial_tax_invoice`, and links invoice ID |
+| **Phase 8.6 COGS & Phase 8.3 GL Integration** | Delivery confirmation triggers Phase 8.6 serialized inventory relief and double-entry COGS recognition journal (`Debit 5000 COGS = Credit 1300 Inventory`) | **PASS** | `fn_recognize_cogs_and_relief` invoked atomically; units marked `sold`; GL balance equation verified |
+| **Invoicing Idempotency & Duplicate Guards** | Idempotent repeat delivery confirmations return existing invoice and journal IDs without duplicating financial entries | **PASS** | Delivery confirmation check ensures 1:1 mapping between Delivery Challan, Tax Invoice, and GL Journal |
+| **Accounting Period Lock Enforcement** | Invoicing and delivery confirmation strictly blocked when current accounting period is `LOCKED` | **PASS** | Period status check ensures no financial postings into locked periods |
+| **Immutable Lifecycle Audit Stream** | Tamper-evident append-only audit trail recording every state transition from creation to final delivery | **PASS** | `sales_order_audit_events` table captures `ORDER_CREATED`, `ORDER_CONFIRMED`, `CREDIT_HOLD_ENFORCED`, `INVENTORY_ALLOCATED`, `WAREHOUSE_PICKED`, `WAREHOUSE_PACKED`, `ORDER_DISPATCHED`, and `ORDER_DELIVERED_AND_INVOICED` |
+| **Enterprise CRM UI** | Production-quality workbench in `src/crm/pages/SalesOrderFulfillmentPage.tsx` with 5 tabs: Cockpit, Sales Orders, Pick & Pack, Delivery Challans, and POD & Invoicing | **PASS** | Registered in Sidebar and App.tsx under `sales_order_fulfillment` tab (`B2B Orders & Fulfillment`, icon `PackageCheck`, badge `B2B`) |
+| **Security & RLS Governance** | Row Level Security enabled across all 6 tables; anonymous users and unauthenticated roles blocked; fixed `search_path = public, pg_temp` | **PASS** | RLS policies restrict operations to authorized staff and isolated dealers; all 6 RPCs enforce `SECURITY DEFINER` |
+| **Dedicated Test Suite** | Exactly 50/50 automated test suite covering authorization, multi-line totals, credit holds, reservations, pick-pack, challans, dispatch, POD, invoicing, COGS, GL, and period locks | **PASS** | `node ./scripts-crm/test_phase_8_9_sales_order_fulfillment_delivery_challan.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across all completed phases (8.8 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean across all suites (50/50 Phase 8.9, 50/50 Phase 8.8, 50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (38.39s) |
+
+
 
 
 

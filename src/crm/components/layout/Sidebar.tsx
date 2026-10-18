@@ -35,6 +35,7 @@ export type NavTabId =
   | 'procurement'
   | 'customers'
   | 'sales'
+  | 'sales_order_fulfillment'
   | 'dealers'
   | 'warranty'
   | 'service'
@@ -159,6 +160,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Sales & Invoices',
       icon: ShoppingCart,
       allowedRoles: ['super_admin', 'admin', 'sales'],
+    },
+    {
+      id: 'sales_order_fulfillment',
+      label: 'B2B Orders & Fulfillment',
+      icon: PackageCheck,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
+      badge: 'B2B',
     },
     {
       id: 'dealers',
