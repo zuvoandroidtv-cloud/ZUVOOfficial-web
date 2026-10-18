@@ -17,6 +17,7 @@ import { CustomersPage } from './pages/CustomersPage';
 import { SalesPage } from './pages/SalesPage';
 import { SalesOrderFulfillmentPage } from './pages/SalesOrderFulfillmentPage';
 import { CommercialReturnsCreditNotesPage } from './pages/CommercialReturnsCreditNotesPage';
+import { DealerIncentiveSchemesPage } from './pages/DealerIncentiveSchemesPage';
 import { DealersPage } from './pages/DealersPage';
 import { WarrantyPage } from './pages/WarrantyPage';
 import { ServicePage } from './pages/ServicePage';
@@ -243,6 +244,8 @@ export const App: React.FC = () => {
         return <SalesOrderFulfillmentPage />;
       case 'commercial_returns':
         return <CommercialReturnsCreditNotesPage />;
+      case 'dealer_incentives':
+        return <DealerIncentiveSchemesPage />;
       case 'dealers':
         return <DealersPage />;
       case 'warranty':

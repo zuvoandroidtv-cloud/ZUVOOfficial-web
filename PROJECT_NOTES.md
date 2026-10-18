@@ -797,6 +797,54 @@
 | **Full Regression Pipeline** | Regression testing across all completed phases (8.8 down through 7.5, Integration, and SEO suites) | **PASS** | 100% clean across all suites (50/50 Phase 8.9, 50/50 Phase 8.8, 50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 30/30 Phase 7.9, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (38.39s) |
 
+---
+
+## Phase 8.10: Enterprise B2B Reverse Logistics, Commercial Sales Returns (RMA), Dock Rejection & Statutory GST Credit/Debit Note Governance Engine
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 18, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017300000_phase_8_10_commercial_returns_credit_notes.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_10_commercial_returns_credit_notes.mjs` — **50/50 PASS**
+
+### 1. Phase 8.10 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Commercial Sales Returns (RMA)** | Concurrency-safe return numbering (`RET-YYYYMM-XXXX`), linkage to sales orders and tax invoices, and multi-unit disposition tracking | **PASS** | `commercial_sales_returns` and `commercial_sales_return_items` tables + `fn_create_commercial_sales_return` RPC |
+| **Reverse Delivery Challans (RDC)** | Sequential `RDC-YYYYMM-XXXX` issuance, transporter, LR/Bilty tracking, and reverse manifest governance | **PASS** | `fn_issue_reverse_delivery_challan` RPC; validates transporter, LR number, and vehicle details |
+| **Dock Inspection & FIFO Restoration** | Physical dock inspection; item-by-item disposition (`RESTOCK`, `REFURBISH`, `SCRAP`, `CARRIER_CLAIM`); restores inventory FIFO cost layers | **PASS** | `fn_process_dock_inspection` RPC; restocks accepted units to `in_stock` and creates inbound inventory cost layers |
+| **Statutory GST Credit Notes** | Concurrency-safe credit note numbering (`CN-YYYYMM-XXXX`), 9% CGST + 9% SGST calculation, and `PENDING_PROVIDER` external boundary | **PASS** | `statutory_credit_notes` table + `fn_issue_statutory_credit_note` RPC; preserves external GST API boundary |
+| **AR Subledger & GL Journal Postings** | Credits customer AR balance via `CREDIT_MEMO_OFFSET`; creates balanced GL journal (`Debit 4100 Sales Returns & Debit 2210 Output GST = Credit 1200 AR`) | **PASS** | Customer AR subledger updated; General Ledger journal entry created and balanced |
+| **Carrier Transit Damage Claims** | Auto-spawns carrier claims (`CLM-YYYYMM-XXXX`) for transit damage; enforces approved compensation ceilings | **PASS** | `carrier_transit_damage_claims` table + `fn_settle_carrier_transit_claim` RPC with balanced settlement journals |
+| **Dedicated Test Suite** | 50/50 automated test suite covering initialization, RLS, inspection, credit notes, AR/GL posting, carrier claims, and lifecycle | **PASS** | `node ./scripts-crm/test_phase_8_10_commercial_returns_credit_notes.mjs` — **50 Passed, 0 Failed** |
+
+---
+
+## Phase 8.11: Enterprise Dealer Commercial Incentives, Volume Rebate Slabs, Target Accruals & Statutory Trade Discount Settlement Governance
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 18, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017310000_phase_8_11_dealer_incentive_schemes.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_11_dealer_incentive_schemes.mjs` — **50/50 PASS**
+
+### 1. Phase 8.11 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Master Incentive Schemes** | Multi-type incentive programs (`VOLUME_REBATE`, `REVENUE_REBATE`, `TARGET_INCENTIVE`, `FESTIVAL_SCHEME`, `PRODUCT_MIX_INCENTIVE`) with strict date & status constraints | **PASS** | `dealer_scheme_programs` table with unique `scheme_code` per tenant; enforces `start_date < end_date` |
+| **Volume & Revenue Slabs** | Tiered qualification slabs with overlap prevention and non-negative rebate constraints | **PASS** | `dealer_scheme_slabs` table; checks prevent overlapping unit ranges and negative percentages/fixed fees |
+| **Dealer Scheme Enrollments** | Dealer target assignment (`target_units`, `target_revenue`), real-time attainment tracking, and duplicate enrollment guards | **PASS** | `dealer_scheme_enrollments` table with unique constraint on `(scheme_id, dealer_id)` |
+| **Authoritative Sales Qualification** | Server-calculated net eligible volume & revenue; strictly excludes voided/cancelled invoices, out-of-period sales, and Phase 8.10 accepted returns | **PASS** | `fn_evaluate_dealer_scheme_progress` RPC; deterministic deduction of commercial returns and cancellations |
+| **Period-End Accrual Accounting** | Monthly incentive accrual provision linked to Phase 8.3 GL; debits `5150` (Dealer Schemes Expense) and credits `2150` (Provision for Dealer Rebates) | **PASS** | `fn_post_monthly_scheme_accrual` RPC; strictly idempotent per dealer/scheme/period; balanced GL double-entry |
+| **Dual-Approval Settlement Engine** | Payout validation preventing over-settlement and self-approval; integrates directly with Phase 8.2 Customer AR credit offsets | **PASS** | `fn_settle_dealer_scheme_payout` RPC; logs `CREDIT_MEMO_OFFSET` in `customer_ar_transactions` and balances GL (`Dr 2150 / Cr 1200`) |
+| **Statutory Trade Discount Boundary** | Maintains clear boundary between commercial eligibility, accounting accrual, settlement, and GST credit note linkage without mock IRNs | **PASS** | Links `scheme_id -> accrual_id -> settlement_id -> ar_transaction_id -> journal_entry_id` preserving auditability |
+| **Security & RLS Governance** | Row Level Security on all 5 tables; anonymous and unauthorized roles blocked; dealer users isolated strictly to their own data; `search_path = public, pg_temp` | **PASS** | Multi-tenant and dealer isolation verified; all SECURITY DEFINER functions enforce fixed search path |
+| **Enterprise CRM UI** | Dedicated Cockpit in `src/crm/pages/DealerIncentiveSchemesPage.tsx` with 7 tabs: Scheme Programs, Dealer Target Tracker, Slabs, Accrual Workbench, Settlement Workbench, Dealer View, Audit | **PASS** | Integrated in Sidebar and App.tsx under `dealer_incentives` tab (`Incentives & Rebates`, icon `Award`, badge `REBATE`) |
+| **Dedicated Test Suite** | 50/50 automated test suite covering creation, activation, slabs, enrollments, return deductions, accruals, GL balance, settlements, AR offsets, and lifecycle | **PASS** | `node ./scripts-crm/test_phase_8_11_dealer_incentive_schemes.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across all completed phases (8.10 down through 8.0, integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.11, 50/50 Phase 8.10, 50/50 Phase 8.9, 50/50 Phase 8.8, 50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.05s) |
+
+
 
 
 
