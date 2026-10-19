@@ -27,6 +27,7 @@ import {
   RotateCcw,
   Award,
   Percent,
+  Wallet,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -52,6 +53,7 @@ export type NavTabId =
   | 'treasury'
   | 'budgetary_control'
   | 'withholding_tax'
+  | 'payroll'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -256,6 +258,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Percent,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
       badge: 'TAX',
+    },
+    {
+      id: 'payroll',
+      label: 'Payroll & HR Finance',
+      icon: Wallet,
+      allowedRoles: ['super_admin', 'admin', 'sales'],
+      badge: 'PAYROLL',
     },
     {
       id: 'reports',

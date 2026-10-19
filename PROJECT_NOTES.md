@@ -870,6 +870,34 @@
 | **Full Regression Pipeline** | Regression testing across all completed phases (8.11 down through 8.0, integration, and SEO suites) | **PASS** | 100% clean across all financial suites (50/50 each across all financial phases; 9/9 integration; 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.06s) |
 
+---
+
+## Phase 8.13: Enterprise Payroll, Employee Expenses & Statutory HR Finance Engine
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 19, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017330000_phase_8_13_payroll_employee_expenses.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_13_payroll_employee_expenses.mjs` — **50/50 PASS**
+
+### 1. Phase 8.13 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Employee Master & Cost Centers** | Multi-tenant employee master (`employee_master`) with sequential identifiers (`EMP-XXXXXX`), departments, designations, cost centers, PAN, UAN, and ESIC references | **PASS** | `employee_master` table with unique constraint on `(tenant_id, employee_code)`; `fn_create_employee` RPC |
+| **Effective-Dated Compensation** | Salary structure (`employee_compensation`) tracking Basic, HRA, Special Allowance, Other Allowances, Gross, CTC, and statutory enrollment toggles | **PASS** | `employee_compensation` table with negative value constraints and full gross/CTC integrity; `fn_create_compensation_revision` RPC |
+| **Server-Authoritative Monthly Payroll** | Server-authoritative calculation evaluating joining/exit dates, calendar days, loss-of-pay (LOP), prorated earnings, EPF, ESIC, Professional Tax, and Section 192 Salary TDS | **PASS** | `fn_process_monthly_payroll` RPC; processes all active eligible employees and computes gross earnings, deductions, and net pay |
+| **Statutory Rules (EPF, ESIC, PT, TDS)** | EPF 12% subject to ₹15,000 statutory cap; ESIC 0.75% employee / 3.25% employer subject to ₹21,000 threshold; State Professional Tax slabs; Section 192 Salary TDS | **PASS** | Server-authoritative computation in `fn_process_monthly_payroll`; exact deduction and contribution rates verified in test suite |
+| **Segregation of Duties & Maker-Checker** | Maker-checker approval model preventing self-approval; creator cannot approve their own payroll run; validates run status before GL posting | **PASS** | `fn_approve_payroll_run` RPC with strict `approved_by != created_by` assertion; rejects unapproved runs |
+| **Double-Entry General Ledger Balance** | Balanced GL journal entries: Debits Salaries Expense (5600), ER PF (5610), ER ESI (5620); Credits Salaries Payable (2300), PF Payable (2320), ESI Payable (2330), PT Payable (2340), TDS Payable (2350), Advance Control (1150); maintains $\sum \text{Dr} = \sum \text{Cr}$ | **PASS** | `fn_post_payroll_to_gl` RPC; respects open accounting periods and period lock constraints |
+| **Bank Salary Disbursement** | Records bank payment against salary payable liability (`Dr 2300 / Cr 1010`); updates payroll run to `PAID`; duplicate payment protection | **PASS** | `fn_record_salary_disbursement` RPC |
+| **Employee Expense Claims & Advances** | Expense claims workflow (`DRAFT -> SUBMITTED -> APPROVED -> PAID`); employee advances with automated installment recovery through monthly payroll | **PASS** | `employee_expense_claims` and `employee_advances` tables; automatic recovery integration in `fn_process_monthly_payroll` |
+| **Cryptographic Immutable Payslips** | Immutable payslip snapshots with sequential identifiers (`PSLIP-YYYYMM-XXXXXX`) and SHA-256 cryptographic verification hashes | **PASS** | `payslip_records` table + `fn_generate_immutable_payslip` RPC; prevents recalculation of historical earnings/deductions |
+| **Security & RLS Governance** | Row Level Security enabled on all 7 tables; anonymous users, dealers, customers, and technicians strictly blocked; fixed `search_path = public, pg_temp` | **PASS** | Verified in `test_phase_8_13_payroll_employee_expenses.mjs` (Tests 6-10); RBAC strictly restricts HR administration to authorized roles |
+| **Enterprise CRM UI** | Dedicated Cockpit in `src/crm/pages/PayrollManagementPage.tsx` with 8 interactive tabs: Cockpit, Employees, Payroll Runs, Statutory Liabilities, Expense Claims, Advances, Payslips, Audit Trail | **PASS** | Registered in Sidebar and App.tsx under `payroll` tab (`Payroll & HR Finance`, icon `Wallet`, badge `PAYROLL`) |
+| **Dedicated Test Suite** | Exactly 50/50 automated test suite covering employee creation, compensation, RLS, periods, proration, EPF/ESIC/PT, Salary TDS, GL posting, approval governance, expenses, advances, and payslips | **PASS** | `node ./scripts-crm/test_phase_8_13_payroll_employee_expenses.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across all completed phases (8.12 down through 8.0, integration, and SEO suites) | **PASS** | 100% clean across all financial suites (50/50 each across all financial phases; 9/9 integration; 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.03s) |
+
 
 
 
