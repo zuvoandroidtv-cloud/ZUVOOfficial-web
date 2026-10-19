@@ -26,6 +26,7 @@ import {
   PieChart,
   RotateCcw,
   Award,
+  Percent,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -50,6 +51,7 @@ export type NavTabId =
   | 'fixed_assets'
   | 'treasury'
   | 'budgetary_control'
+  | 'withholding_tax'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -247,6 +249,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: PieChart,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
       badge: 'FICO',
+    },
+    {
+      id: 'withholding_tax',
+      label: 'TDS & Withholding Tax',
+      icon: Percent,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
+      badge: 'TAX',
     },
     {
       id: 'reports',

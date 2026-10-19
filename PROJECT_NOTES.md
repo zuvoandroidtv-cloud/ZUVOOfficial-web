@@ -844,6 +844,32 @@
 | **Full Regression Pipeline** | Regression testing across all completed phases (8.10 down through 8.0, integration, and SEO suites) | **PASS** | 100% clean (50/50 Phase 8.11, 50/50 Phase 8.10, 50/50 Phase 8.9, 50/50 Phase 8.8, 50/50 Phase 8.7, 50/50 Phase 8.6, 50/50 Phase 8.5, 50/50 Phase 8.4, 50/50 Phase 8.3, 50/50 Phase 8.2, 50/50 Phase 8.1, 50/50 Phase 8.0, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.05s) |
 
+---
+
+## Phase 8.12: Enterprise Statutory Withholding Tax (TDS/TCS), Vendor Form 16A Governance & Government Challan (ITNS-281) Settlement Engine
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 19, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017320000_phase_8_12_withholding_tax_tds_governance.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_12_withholding_tax_tds_governance.mjs` — **50/50 PASS**
+
+### 1. Phase 8.12 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Master Sections (Income Tax Act)** | Master statutory tax withholding sections (`194Q_GOODS`, `194C_COMPANY`, `194C_INDIVIDUAL`, `194J_TECH`, `194H_COMMISSION`, `206C_TCS`) with default and higher rate constraints | **PASS** | `tds_sections_master` table; default rates (0.1%, 2.0%, 1.0%, 5.0%), higher rates (206AA), and annual turnover thresholds |
+| **Vendor TDS Profiles & PAN Status** | Entity PAN compliance, Section 206AB non-filer status, Section 197 lower deduction certificates with date validation, and cumulative turnover tracking | **PASS** | `vendor_tds_profiles` table with unique constraint on `(vendor_id, current_fiscal_year)` |
+| **Authoritative TDS Deduction Engine** | Server-authoritative calculation evaluating cumulative ₹50L turnover threshold (Section 194Q), dealer rebate commission (Section 194H), and lower deduction certificates | **PASS** | `fn_evaluate_and_deduct_tds` RPC; updates vendor cumulative turnover and computes net payable without double deduction |
+| **Double-Entry General Ledger Balance** | Balanced GL journal entries for tax withholding: Debits Account 2100 (AP Control) and Credits Account 2240 (TDS Payable); maintains $\sum \text{Dr} = \sum \text{Cr}$ | **PASS** | `fn_post_tds_deduction_to_gl` RPC; respects open accounting periods and period lock constraints |
+| **Government ITNS-281 Challan Settlement** | Monthly statutory deposit to Central Government before the 7th; validates 7-digit BSR code and CIN sequence; posts balanced bank payment journal (`Dr 2240 / Cr 1010`) | **PASS** | `tds_challan_settlements` table + `fn_record_tds_challan_payment` RPC; updates accrued deductions to `DEPOSITED` |
+| **Form 26Q Quarterly Schedules** | Compiles quarterly statutory e-TDS return schedules, aggregates taxable base and tax deposited, and verifies 100% CIN challan linkage | **PASS** | `tds_form_26q_batches` table + `fn_generate_form_26q_quarterly_schedule` RPC |
+| **Form 16A Digital Certificates** | Issues quarterly Form 16A TDS certificates with sequential identifiers (`CERT-16A-YYYYYY-QX-XXXX`) detailing gross credits and tax deposited | **PASS** | `tds_form_16a_certificates` table + `fn_issue_form_16a_certificate` RPC |
+| **Security & RLS Governance** | Row Level Security enabled on all 6 tables; anonymous users, dealers, customers, and technicians blocked; fixed `search_path = public, pg_temp` | **PASS** | Verified in `test_phase_8_12_withholding_tax_tds_governance.mjs` (Tests 6-10); dealer isolation verified |
+| **Enterprise CRM UI** | Dedicated Cockpit in `src/crm/pages/WithholdingTaxTdsPage.tsx` with 6 interactive tabs: Cockpit, Deductions Ledger, Threshold Tracker, Challans, Form 26Q, Form 16A | **PASS** | Registered in Sidebar and App.tsx under `withholding_tax` tab (`TDS & Withholding Tax`, icon `Percent`, badge `TAX`) |
+| **Dedicated Test Suite** | Exactly 50/50 automated test suite covering master sections, RLS, PAN validation, Section 197 certs, Section 194Q thresholds, net AP adjustments, GL journals, Challans, and Form 16A | **PASS** | `node ./scripts-crm/test_phase_8_12_withholding_tax_tds_governance.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across all completed phases (8.11 down through 8.0, integration, and SEO suites) | **PASS** | 100% clean across all financial suites (50/50 each across all financial phases; 9/9 integration; 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.06s) |
+
 
 
 

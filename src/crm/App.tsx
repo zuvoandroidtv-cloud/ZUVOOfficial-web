@@ -28,6 +28,7 @@ import { FinancialControlsPage } from './pages/FinancialControlsPage';
 import { FixedAssetsPage } from './pages/FixedAssetsPage';
 import { BankReconciliationPage } from './pages/BankReconciliationPage';
 import { BudgetaryControlPage } from './pages/BudgetaryControlPage';
+import { WithholdingTaxTdsPage } from './pages/WithholdingTaxTdsPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CommunicationsPage } from './pages/CommunicationsPage';
@@ -266,6 +267,8 @@ export const App: React.FC = () => {
         return <BankReconciliationPage />;
       case 'budgetary_control':
         return <BudgetaryControlPage />;
+      case 'withholding_tax':
+        return <WithholdingTaxTdsPage />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':
