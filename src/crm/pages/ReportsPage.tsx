@@ -43,7 +43,9 @@ export type ReportCategory =
   | 'service'
   | 'dealers'
   | 'csat'
-  | 'audit';
+  | 'audit'
+  | 'corporate'
+  | 'statutory';
 
 interface ReportViewConfig {
   id: string;
@@ -111,7 +113,16 @@ const ALL_REPORT_VIEWS: ReportViewConfig[] = [
   { id: 'vw_csat_followup_summary', name: 'CSAT Follow-ups & Remediation', category: 'csat', description: 'Low-rating grievance management, follow-up status, and contact resolution', defaultSortColumn: 'total_count', secondarySortColumn: 'status', searchColumns: ['status', 'priority'] },
 
   // 9. Operational Audit & Data Quality
-  { id: 'vw_operational_audit_discrepancies', name: 'Data Quality & Ledger Discrepancies', category: 'audit', description: 'Discrepancy detector flagging unassigned units, missing sale items, PO over-receipts, and data variances', defaultSortColumn: 'detected_at', secondarySortColumn: 'entity_id', searchColumns: ['issue_description', 'audit_category', 'entity_id'] }
+  { id: 'vw_operational_audit_discrepancies', name: 'Data Quality & Ledger Discrepancies', category: 'audit', description: 'Discrepancy detector flagging unassigned units, missing sale items, PO over-receipts, and data variances', defaultSortColumn: 'detected_at', secondarySortColumn: 'entity_id', searchColumns: ['issue_description', 'audit_category', 'entity_id'] },
+
+  // 10. Corporate Finance & General Ledger
+  { id: 'vw_gl_financial_trial_summary', name: 'General Ledger Trial Summary', category: 'corporate', description: 'Consolidated chart of accounts debits, credits, and net balances from double-entry journals', defaultSortColumn: 'total_debit', secondarySortColumn: 'account_code', searchColumns: ['account_name', 'account_code', 'account_type'] },
+  { id: 'vw_fixed_assets_depreciation_summary', name: 'Fixed Assets & Net Book Value', category: 'corporate', description: 'Capital equipment, gross original cost, accumulated depreciation, and net book value schedule', defaultSortColumn: 'total_gross_cost', secondarySortColumn: 'asset_category', searchColumns: ['asset_category'] },
+  { id: 'vw_manufacturing_wip_summary', name: 'Manufacturing & WIP Cost Efficiency', category: 'corporate', description: 'Factory production work orders, target vs completed output, scrap units, and WIP costs', defaultSortColumn: 'total_wip_cost', secondarySortColumn: 'work_order_status', searchColumns: ['work_order_status'] },
+
+  // 11. Statutory Compliance & HR Finance
+  { id: 'vw_hr_payroll_statutory_summary', name: 'Payroll & Statutory HR Liability Summary', category: 'statutory', description: 'Monthly payroll runs, employee/employer EPF, ESIC, Professional Tax, Section 192 TDS, and net pay', defaultSortColumn: 'period_start', secondarySortColumn: 'payroll_period_id', searchColumns: ['financial_year', 'period_status'] },
+  { id: 'vw_tds_statutory_compliance_summary', name: 'Withholding Tax (TDS/TCS) Reconciliation', category: 'statutory', description: 'Sectional withholding liability, deposits to Central Government, and Form 26Q challan linkage', defaultSortColumn: 'total_tds_withheld', secondarySortColumn: 'section_code', searchColumns: ['section_code', 'description'] }
 ];
 
 interface KPIPayload {
@@ -980,6 +991,50 @@ export const ReportsPage: React.FC = () => {
         >
           <AlertTriangle size={16} /> Operational Audit
         </button>
+
+        {!isDealer && (
+          <button
+            className={`tab-btn ${activeTab === 'corporate' ? 'active' : ''}`}
+            onClick={() => handleTabSwitch('corporate')}
+            style={{
+              padding: '0.625rem 1rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === 'corporate' ? '3px solid var(--brand-primary)' : '3px solid transparent',
+              fontWeight: activeTab === 'corporate' ? 600 : 400,
+              color: activeTab === 'corporate' ? 'var(--brand-primary)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <Database size={16} /> Corporate & General Ledger
+          </button>
+        )}
+
+        {!isDealer && (
+          <button
+            className={`tab-btn ${activeTab === 'statutory' ? 'active' : ''}`}
+            onClick={() => handleTabSwitch('statutory')}
+            style={{
+              padding: '0.625rem 1rem',
+              border: 'none',
+              background: 'none',
+              borderBottom: activeTab === 'statutory' ? '3px solid var(--brand-primary)' : '3px solid transparent',
+              fontWeight: activeTab === 'statutory' ? 600 : 400,
+              color: activeTab === 'statutory' ? 'var(--brand-primary)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <ShieldCheck size={16} /> Statutory & HR Compliance
+          </button>
+        )}
       </div>
 
       {/* 5. TAB CONTENT */}

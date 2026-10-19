@@ -268,10 +268,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'reports',
-      label: 'Reports (20 Views)',
+      label: 'Reports (25 Views)',
       icon: BarChart3,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'],
-      badge: '20',
+      badge: '25',
     },
     {
       id: 'settings',
