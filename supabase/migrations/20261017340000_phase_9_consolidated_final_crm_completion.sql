@@ -149,6 +149,7 @@ GROUP BY pwo.status;
 
 -- 3. SERVER-AUTHORITATIVE MASTER CRON/AUTOMATION ENGINE RPC
 -- Executes daily automated sweeps across SLA deadlines, warranty horizons, and alerts
+-- Security: Strictly restricted to authenticated callers with super_admin or admin roles
 
 CREATE OR REPLACE FUNCTION public.fn_execute_consolidated_crm_automation_sweep()
 RETURNS JSONB
@@ -157,7 +158,9 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_tenant_id UUID := '00000000-0000-0000-0000-000000000001'::UUID;
+  v_caller_id UUID;
+  v_caller_role VARCHAR(50);
+  v_caller_tenant_id UUID;
   v_job_id UUID;
   v_processed INT := 0;
   v_escalations INT := 0;
@@ -165,18 +168,40 @@ DECLARE
   r_ticket RECORD;
   r_warranty RECORD;
 BEGIN
-  -- Insert job run tracking
+  -- 1. Authentication check
+  v_caller_id := auth.uid();
+  IF v_caller_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required to execute automation sweep.';
+  END IF;
+
+  -- 2. Caller profile and role authorization check
+  SELECT p.role, p.tenant_id
+  INTO v_caller_role, v_caller_tenant_id
+  FROM public.profiles p
+  WHERE p.id = v_caller_id;
+
+  IF NOT FOUND OR v_caller_role NOT IN ('super_admin', 'admin') THEN
+    RAISE EXCEPTION 'Access denied. Insufficient administrative privileges to trigger automation sweeps.';
+  END IF;
+
+  -- Fallback to default tenant if tenant_id not assigned on profile
+  IF v_caller_tenant_id IS NULL THEN
+    v_caller_tenant_id := '00000000-0000-0000-0000-000000000001'::UUID;
+  END IF;
+
+  -- 3. Insert job run tracking under caller's tenant
   INSERT INTO public.automation_job_runs (
-    tenant_id, job_name, status, started_at
+    tenant_id, job_name, status, executed_by, started_at
   ) VALUES (
-    v_tenant_id, 'CONSOLIDATED_DAILY_CRM_SWEEP', 'RUNNING', NOW()
+    v_caller_tenant_id, 'CONSOLIDATED_DAILY_CRM_SWEEP', 'RUNNING', v_caller_id::TEXT, NOW()
   ) RETURNING id INTO v_job_id;
 
-  -- 1. Scan overdue service tickets
+  -- 4. Scan overdue service tickets (scoped to tenant)
   FOR r_ticket IN (
     SELECT st.id, st.ticket_number, st.priority, st.sla_due_at
     FROM public.service_tickets st
-    WHERE st.status IN ('open', 'assigned', 'in_progress')
+    WHERE (st.tenant_id = v_caller_tenant_id OR st.tenant_id IS NULL)
+      AND st.status IN ('open', 'assigned', 'in_progress')
       AND st.sla_due_at < NOW()
     LIMIT 20
   ) LOOP
@@ -186,15 +211,16 @@ BEGIN
     INSERT INTO public.sla_escalation_audit_events (
       tenant_id, entity_type, entity_id, entity_reference, escalation_level, action_taken, recipient_role
     ) VALUES (
-      v_tenant_id, 'SERVICE_TICKET', r_ticket.id::TEXT, r_ticket.ticket_number, 2, 'AUTO_ESCALATED_OVERDUE_SLA', 'service_manager'
+      v_caller_tenant_id, 'SERVICE_TICKET', r_ticket.id::TEXT, r_ticket.ticket_number, 2, 'AUTO_ESCALATED_OVERDUE_SLA', 'service_manager'
     );
   END LOOP;
 
-  -- 2. Scan warranties expiring in 30 days
+  -- 5. Scan warranties expiring in 30 days (scoped to tenant)
   FOR r_warranty IN (
     SELECT w.id, w.warranty_number, w.end_date
     FROM public.warranties w
-    WHERE w.status = 'active'
+    WHERE (w.tenant_id = v_caller_tenant_id OR w.tenant_id IS NULL)
+      AND w.status = 'active'
       AND w.end_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '30 days')
     LIMIT 20
   ) LOOP
@@ -204,11 +230,11 @@ BEGIN
     INSERT INTO public.sla_escalation_audit_events (
       tenant_id, entity_type, entity_id, entity_reference, escalation_level, action_taken, recipient_role
     ) VALUES (
-      v_tenant_id, 'WARRANTY_EXPIRY', r_warranty.id::TEXT, r_warranty.warranty_number, 1, 'QUEUED_EXPIRY_NOTIFICATION', 'customer'
+      v_caller_tenant_id, 'WARRANTY_EXPIRY', r_warranty.id::TEXT, r_warranty.warranty_number, 1, 'QUEUED_EXPIRY_NOTIFICATION', 'customer'
     );
   END LOOP;
 
-  -- Update job run completion
+  -- 6. Update job run completion
   UPDATE public.automation_job_runs
   SET status = 'COMPLETED',
       items_processed = v_processed,
@@ -240,6 +266,7 @@ END;
 $$;
 
 -- 4. SYSTEM ARCHITECTURE TELEMETRY & HEALTH RPC
+-- Security: Strictly restricted to authenticated internal users (super_admin, admin, service, finance)
 CREATE OR REPLACE FUNCTION public.fn_get_system_compliance_telemetry()
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -247,11 +274,28 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
+  v_caller_id UUID;
+  v_caller_role VARCHAR(50);
   v_table_count INT;
   v_view_count INT;
   v_rls_enabled_count INT;
   v_last_job RECORD;
 BEGIN
+  -- 1. Authentication check
+  v_caller_id := auth.uid();
+  IF v_caller_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required to access system compliance telemetry.';
+  END IF;
+
+  -- 2. Authorization check - internal administrative & operational staff only
+  SELECT p.role INTO v_caller_role
+  FROM public.profiles p
+  WHERE p.id = v_caller_id;
+
+  IF NOT FOUND OR v_caller_role NOT IN ('super_admin', 'admin', 'service', 'finance') THEN
+    RAISE EXCEPTION 'Access denied. Insufficient permissions to view system compliance telemetry.';
+  END IF;
+
   -- Count total public tables
   SELECT COUNT(*)::INT INTO v_table_count
   FROM pg_tables
@@ -287,6 +331,9 @@ BEGIN
 END;
 $$;
 
--- Grant execution permissions
+-- Grant execution permissions strictly to authenticated users (revoked from anon/public)
+REVOKE ALL ON FUNCTION public.fn_execute_consolidated_crm_automation_sweep FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fn_get_system_compliance_telemetry FROM PUBLIC, anon;
+
 GRANT EXECUTE ON FUNCTION public.fn_execute_consolidated_crm_automation_sweep TO authenticated;
 GRANT EXECUTE ON FUNCTION public.fn_get_system_compliance_telemetry TO authenticated;
