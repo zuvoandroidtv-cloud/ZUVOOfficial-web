@@ -64,7 +64,7 @@ CREATE POLICY "sla_escalation_events_admin_read" ON public.sla_escalation_audit_
 -- A. Executive Corporate General Ledger Summary
 CREATE OR REPLACE VIEW public.vw_gl_financial_trial_summary WITH (security_invoker = true) AS
 SELECT
-  coa.account_code,
+  coa.account_number AS account_code,
   coa.account_name,
   coa.account_type,
   coa.currency,
@@ -79,7 +79,7 @@ SELECT
 FROM public.chart_of_accounts coa
 LEFT JOIN public.journal_entry_lines jel ON jel.account_id = coa.id
 LEFT JOIN public.journal_entries je ON je.id = jel.journal_entry_id AND je.status = 'POSTED'
-GROUP BY coa.account_code, coa.account_name, coa.account_type, coa.currency;
+GROUP BY coa.account_number, coa.account_name, coa.account_type, coa.currency;
 
 -- B. Payroll & HR Finance Statutory Liability Summary
 CREATE OR REPLACE VIEW public.vw_hr_payroll_statutory_summary WITH (security_invoker = true) AS
@@ -87,8 +87,8 @@ SELECT
   pp.id AS payroll_period_id,
   pp.period_start,
   pp.period_end,
-  pp.financial_year,
-  pp.month,
+  pp.fiscal_year AS financial_year,
+  pp.month_number,
   pp.status AS period_status,
   COALESCE(SUM(pe.gross_earnings), 0) AS total_gross_payroll,
   COALESCE(SUM(pe.employee_pf), 0) AS total_employee_pf,
@@ -98,12 +98,12 @@ SELECT
   COALESCE(SUM(pe.professional_tax), 0) AS total_professional_tax,
   COALESCE(SUM(pe.salary_tds), 0) AS total_salary_tds,
   COALESCE(SUM(pe.net_salary), 0) AS total_net_salary,
-  COALESCE(SUM(pe.total_employer_cost), 0) AS total_employer_cost,
+  COALESCE(SUM(pe.employer_total_cost), 0) AS total_employer_cost,
   COUNT(pe.id)::int AS employee_count
 FROM public.payroll_periods pp
 LEFT JOIN public.payroll_runs pr ON pr.payroll_period_id = pp.id
 LEFT JOIN public.payroll_employee_entries pe ON pe.payroll_run_id = pr.id
-GROUP BY pp.id, pp.period_start, pp.period_end, pp.financial_year, pp.month, pp.status;
+GROUP BY pp.id, pp.period_start, pp.period_end, pp.fiscal_year, pp.month_number, pp.status;
 
 -- C. Withholding Tax (TDS/TCS) Sectional Deposition Reconciliation
 CREATE OR REPLACE VIEW public.vw_tds_statutory_compliance_summary WITH (security_invoker = true) AS
@@ -112,13 +112,13 @@ SELECT
   sec.description,
   sec.default_rate_pct,
   COUNT(td.id)::int AS total_deductions_count,
-  COALESCE(SUM(td.gross_amount), 0) AS total_taxable_gross,
-  COALESCE(SUM(td.tds_amount), 0) AS total_tds_withheld,
-  COALESCE(SUM(CASE WHEN td.status = 'DEPOSITED' THEN td.tds_amount ELSE 0 END), 0) AS total_deposited_to_gov,
-  COALESCE(SUM(CASE WHEN td.status = 'ACCRUED' THEN td.tds_amount ELSE 0 END), 0) AS pending_deposit_liability,
+  COALESCE(SUM(td.gross_base_amount), 0) AS total_taxable_gross,
+  COALESCE(SUM(td.total_tds_deducted), 0) AS total_tds_withheld,
+  COALESCE(SUM(CASE WHEN td.settlement_status = 'DEPOSITED' THEN td.total_tds_deducted ELSE 0 END), 0) AS total_deposited_to_gov,
+  COALESCE(SUM(CASE WHEN td.settlement_status = 'ACCRUED' THEN td.total_tds_deducted ELSE 0 END), 0) AS pending_deposit_liability,
   COUNT(DISTINCT td.challan_id)::int AS challans_linked_count
 FROM public.tds_sections_master sec
-LEFT JOIN public.tds_deductions td ON td.section_code = sec.section_code
+LEFT JOIN public.tds_deduction_ledger td ON td.tds_section_id = sec.id
 GROUP BY sec.section_code, sec.description, sec.default_rate_pct;
 
 -- D. Fixed Assets Net Book Value & Asset Depreciation Schedule
@@ -138,13 +138,18 @@ GROUP BY fa.asset_category;
 CREATE OR REPLACE VIEW public.vw_manufacturing_wip_summary WITH (security_invoker = true) AS
 SELECT
   pwo.status AS work_order_status,
-  COUNT(pwo.id)::int AS work_order_count,
-  COALESCE(SUM(pwo.target_quantity), 0) AS total_target_units,
+  COUNT(DISTINCT pwo.id)::int AS work_order_count,
+  COALESCE(SUM(pwo.planned_quantity), 0) AS total_target_units,
   COALESCE(SUM(pwo.completed_quantity), 0) AS total_completed_units,
   COALESCE(SUM(pwo.scrapped_quantity), 0) AS total_scrapped_units,
-  COALESCE(SUM(pwo.total_wip_cost), 0) AS total_wip_cost,
-  ROUND(AVG(COALESCE(pwo.unit_production_cost, 0)), 2) AS avg_unit_cost
+  COALESCE(SUM(woci.total_issued_cost), 0) AS total_wip_cost,
+  CASE 
+    WHEN COALESCE(SUM(pwo.completed_quantity), 0) > 0 
+    THEN ROUND(COALESCE(SUM(woci.total_issued_cost), 0) / SUM(pwo.completed_quantity), 2)
+    ELSE 0.00
+  END AS avg_unit_cost
 FROM public.production_work_orders pwo
+LEFT JOIN public.work_order_component_issues woci ON woci.work_order_id = pwo.id
 GROUP BY pwo.status;
 
 -- 3. SERVER-AUTHORITATIVE MASTER CRON/AUTOMATION ENGINE RPC
