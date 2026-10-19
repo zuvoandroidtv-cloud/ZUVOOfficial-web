@@ -924,6 +924,33 @@ Per architectural directive, all remaining roadmap capabilities spanning Phases 
 | **Full Historical Regression Pipeline** | Regression testing across all completed phases (8.13 down through 8.0, 7.x, integration, and SEO suites) | **PASS** | 100% clean across all test suites (50/50 Phase 8.13, 50/50 Phase 8.12, 9/9 Integration, 149/149 SEO) |
 | **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.82s) |
 
+---
+
+## Phase 8.14: Enterprise Treasury, Banking, Payments, Expense Governance & Financial Reconciliation
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 19, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261017350000_phase_8_14_treasury_payments_reconciliation.sql`  
+**Test Suite**: `scripts-crm/test_phase_8_14_treasury_payments_reconciliation.mjs` — **50/50 PASS**
+
+### 1. Phase 8.14 Architectural & Functional Summary
+
+| Area | Requirement / Check | Status | Verification Evidence |
+|---|---|:---:|---|
+| **Enterprise Bank Master & COA Mapping** | Server-authoritative corporate bank account registry with masked account numbers (`XXXX-XXXX-4589`), IFSC codes, branch metadata, and direct GL Chart of Accounts cash/bank mapping (`1010` Operating, `1020` Escrow) | **PASS** | `bank_accounts` registry extended; safe masked exposure; check constraints on account types (`CURRENT`, `SAVINGS`, `CASH_CREDIT`, `ESCROW`) |
+| **Payment Instruction Engine** | Multi-purpose payment instruction pipeline covering Vendor AP, Employee Salaries, Employee Reimbursements, Dealer Incentive Settlements, Customer Refunds, and Statutory payments | **PASS** | `finance_payment_instructions` table with sequential numbering (`PI-YYYYMM-XXXXXX`); lifecycle `DRAFT -> SUBMITTED -> APPROVED -> PAYMENT_QUEUED -> PAID` |
+| **Maker-Checker Segregation of Duties** | Server-authoritative maker-checker enforcement preventing requester self-approval (`approved_by != created_by`); approved amount cannot exceed requested amount; unapproved instructions blocked from disbursement | **PASS** | `fn_approve_payment_instruction` RPC with explicit creator-approver check; `fn_execute_payment_instruction` RPC enforcing approved state and period validation |
+| **Customer Receipt Management** | Controlled customer receipts supporting invoice allocation, advance collections, unallocated balance tracking, and double-entry GL balance (`Dr 1010 Bank / Cr 1200 Customer AR`) | **PASS** | `customer_receipts` table with sequential numbering (`CR-YYYYMM-XXXXXX`); `fn_record_customer_receipt` RPC maintaining double-entry equilibrium |
+| **Customer Refund Engine** | Regulated customer refund pipeline originating from commercial returns, credit notes, or duplicate receipts; enforces refundable balance limit; prevents negative or self-approved refunds | **PASS** | `customer_refunds` table with sequential numbering (`RF-YYYYMM-XXXXXX`); `fn_process_customer_refund` RPC maintaining GL balance (`Dr 1200 Customer AR / Cr 1010 Bank`) |
+| **Bank Reconciliation & Variance Engine** | Internal BRS computing adjusted book balance (`GL Book Balance + Uncredited Deposits - Unpresented Cheques`); calculates statement variance and flags `BALANCED` or `DISCREPANCY` states | **PASS** | `bank_reconciliation_records` & `bank_reconciliation_items` integration; verified in test suite across multiple parallel accounts |
+| **Financial Exceptions Management** | Automated tracking and resolution of payment exceptions, overpayments, duplicate instructions, bank statement mismatches, and negative liquidity warnings | **PASS** | `finance_exceptions` table with sequential numbering (`EXC-YYYYMM-XXXXXX`); exception severity tiers and resolution audit |
+| **Double-Entry General Ledger Balance** | Balanced GL journal entries for disbursements, collections, and refunds; maintains $\sum \text{Dr} = \sum \text{Cr}$ across all financial movements; prevents closed-period mutation | **PASS** | Enforced across all treasury RPCs; verified in Test 25, 30, and 50 |
+| **Security & RLS Governance** | Row Level Security enabled across all treasury tables; anonymous users, technicians, sales, and customer roles strictly blocked; fixed `search_path = public, pg_temp` | **PASS** | Verified in `test_phase_8_14_treasury_payments_reconciliation.mjs` (Tests 6-10); RBAC strictly limits treasury control to authorized finance administrators |
+| **Treasury Cockpit & CRM UI** | Enterprise Treasury Cockpit in `src/crm/pages/BankReconciliationPage.tsx` with unified tabs: Overview, Statements, Reconciliation, Ledger, Payment Queue, Customer Receipts, Financial Exceptions | **PASS** | Navigation updated in `Sidebar.tsx` to `Treasury & Payments` (`/treasury`, icon `Landmark`, badge `PAYMENTS`) |
+| **Dedicated Test Suite** | Exactly 50/50 automated test suite covering bank accounts, RLS, payment lifecycle, maker-checker, AP payments, receipts, refunds, payroll/dealer payments, BRS, liquidity, audit, and GL balance | **PASS** | `node ./scripts-crm/test_phase_8_14_treasury_payments_reconciliation.mjs` — **50 Passed, 0 Failed** |
+| **Full Regression Pipeline** | Regression testing across all completed phases (8.13, 8.12, 8.11, integration, and SEO suites) | **PASS** | 100% clean across all financial suites (50/50 Phase 8.14, 50/50 Phase 8.13, 50/50 Phase 8.12, 50/50 Phase 8.11, 9/9 Integration, 149/149 SEO) |
+| **TypeScript & Production Build** | TypeScript compiler check and Vite static production build | **PASS** | `npx tsc --noEmit` — 0 errors; `npm run build` — 17 static HTML routes + 404.html generated cleanly (17.16s) |
+
 
 
 

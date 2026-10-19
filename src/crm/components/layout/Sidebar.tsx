@@ -241,9 +241,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'treasury',
-      label: 'Treasury & BRS',
+      label: 'Treasury & Payments',
       icon: Landmark,
       allowedRoles: ['super_admin', 'admin', 'sales'],
+      badge: 'PAYMENTS',
     },
     {
       id: 'budgetary_control',

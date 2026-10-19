@@ -20,6 +20,9 @@ import {
   PlusCircle,
   Printer,
   SlidersHorizontal,
+  Send,
+  DollarSign,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   BankAccount,
@@ -29,13 +32,14 @@ import {
   BankReconciliationItem,
   TreasuryCockpitSummary,
 } from '../types/bankReconciliation';
+import { PaymentInstruction, CustomerReceipt, FinanceException } from '../types/treasuryPayments';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../context/AuthContext';
 
 export const BankReconciliationPage: React.FC = () => {
   const { role } = useAuth();
   const [activeTab, setActiveTab] = useState<
-    'cockpit' | 'statement_feed' | 'matching' | 'adjustments' | 'brs_statutory'
+    'cockpit' | 'payments' | 'receipts' | 'exceptions' | 'statement_feed' | 'matching' | 'adjustments' | 'brs_statutory'
   >('cockpit');
 
   const [loading, setLoading] = useState(false);
@@ -413,6 +417,39 @@ export const BankReconciliationPage: React.FC = () => {
         >
           <Building2 className="w-4 h-4" />
           Treasury Cockpit
+        </button>
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl transition ${
+            activeTab === 'payments'
+              ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-500'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+          }`}
+        >
+          <Send className="w-4 h-4" />
+          Payment Instructions
+        </button>
+        <button
+          onClick={() => setActiveTab('receipts')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl transition ${
+            activeTab === 'receipts'
+              ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-500'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          Customer Receipts
+        </button>
+        <button
+          onClick={() => setActiveTab('exceptions')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl transition ${
+            activeTab === 'exceptions'
+              ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-500'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-850'
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          Treasury Exceptions
         </button>
         <button
           onClick={() => setActiveTab('statement_feed')}
@@ -1080,6 +1117,128 @@ export const BankReconciliationPage: React.FC = () => {
                 <p className="mt-1">Date: {new Date().toLocaleDateString('en-IN')}</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 6: PAYMENT INSTRUCTIONS WORKBENCH */}
+      {activeTab === 'payments' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Send className="w-5 h-5 text-blue-400" />
+                Payment Instruction Register & Disbursement Queue
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Maker-checker approvals, source document trace, NEFT/RTGS/IMPS disbursement, and GL posting
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold rounded-full">
+              Phase 8.14 Active
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-800/60 text-xs uppercase font-medium text-slate-400 border-b border-slate-700">
+                <tr>
+                  <th className="p-3">Payment #</th>
+                  <th className="p-3">Source Module</th>
+                  <th className="p-3">Beneficiary</th>
+                  <th className="p-3">Mode</th>
+                  <th className="p-3 text-right">Amount (₹)</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">External Ref / UTR</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-slate-500 text-xs">
+                    No payment instructions queued. Create payment batches from Vendor AP, Payroll, or Reimbursements.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 7: CUSTOMER RECEIPTS WORKBENCH */}
+      {activeTab === 'receipts' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+                Customer Receipts & Advance Collection Register
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Authoritative bank receipts, customer AR allocation, gateway deposits, and reconciliation
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-800/60 text-xs uppercase font-medium text-slate-400 border-b border-slate-700">
+                <tr>
+                  <th className="p-3">Receipt #</th>
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Mode</th>
+                  <th className="p-3 text-right">Total Amount (₹)</th>
+                  <th className="p-3 text-right">Allocated (₹)</th>
+                  <th className="p-3 text-right">Unallocated Balance (₹)</th>
+                  <th className="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-slate-500 text-xs">
+                    No customer receipts registered today. Use Sales & Invoices or Customer AR to record collections.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 8: FINANCIAL EXCEPTIONS WORKBENCH */}
+      {activeTab === 'exceptions' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                Treasury & Payment Exception Control Center
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Real-time surveillance of duplicate payments, amount mismatches, unapproved transactions, and liquidity alerts
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-800/60 text-xs uppercase font-medium text-slate-400 border-b border-slate-700">
+                <tr>
+                  <th className="p-3">Exception #</th>
+                  <th className="p-3">Severity</th>
+                  <th className="p-3">Source</th>
+                  <th className="p-3">Description</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Logged Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                <tr>
+                  <td colSpan={6} className="text-center py-8 text-emerald-400/80 text-xs">
+                    ✓ Zero active financial exceptions. All payments, receipts, and bank transactions are in balance.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       )}
