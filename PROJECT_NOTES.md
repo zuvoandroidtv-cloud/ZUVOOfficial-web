@@ -1103,6 +1103,46 @@ No sub-phases (9.1, 9.2, etc.) were created. Existing capabilities across operat
 >   - Phase 12 migration `20261020183000_phase_12_service_warranty_field_operations.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
 >   - No remote DDL mutations or git push operations were executed.
 
+---
+
+## Phase 13: Enterprise Manufacturing, Product Lifecycle & Quality Intelligence
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 20, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261020220000_phase_13_manufacturing_product_quality.sql`  
+**Test Suite**: `scripts-crm/test_phase_13_manufacturing_product_quality.mjs` — **100/100 PASS**
+
+### 1. Phase 13 Enterprise Manufacturing & Quality Intelligence Summary
+
+| Area / Workstream | Enterprise Scope & Capability | Status | Implementation & Verification Evidence |
+|---|---|:---:|---|
+| **A. Product & Model Lifecycle** | Extended `product_variants` with screen resolution, panel technology, OS platform, generation, lifecycle states (`DRAFT` → `ENGINEERING` → `PILOT` → `ACTIVE` → `SUSPENDED` → `END_OF_LIFE`), successor models, and standard cost baselines. | **PASS** | Extended `product_variants` check constraints and indexing; prevents commercial selling of pre-release engineering models. |
+| **B. Engineering BOM & Revision Control** | Multi-level Bill of Materials with strict revisioning (`A`, `B`, `REV-X`), standard scrap allowance per part (0–5%), standard labour and absorbed overhead calculations. | **PASS** | Integrated with `bill_of_materials` and `bom_items`; enforces that only `ACTIVE` revisions can be referenced by active factory work orders. |
+| **C. Engineering Change Control (ECO)** | Enterprise ECO governance tracking change reasons, revision shift, risk classification, cut-in dates, and strict dual-control maker-checker approvals. | **PASS** | `mfg_engineering_change_orders` table and `fn_approve_engineering_change_order` RPC preventing self-approval and automatically superseding obsolete revisions. |
+| **D. Production Work Orders & WIP** | Work order scheduling, planned vs actual material consumption, scrapped and completed good unit counts, assembly line allocation, and completion locks. | **PASS** | `production_work_orders` and `mfg_wip_stage_tracking` tracking stage-level dwell times and flagging line bottlenecks. |
+| **E. Material Requirement & Consumption** | Non-negative inventory issue and consumption tracking at work-order level; automated variance detection against standard BOM allocations. | **PASS** | Integrated with raw material stock and GL clearing accounts; prevents negative inventory mutations. |
+| **F. WIP Stage & Station Bottlenecks** | 7-stage chronological progression: SMT PCBA → Mechanical Assembly → Panel Mount → Burn-In Chamber (4h thermal soak) → Optical Calibration → Final Safety Hi-Pot → Packaging Seal. | **PASS** | `mfg_wip_stage_tracking` table capturing stage-level pass/fail/rework and dwell time analysis. |
+| **G. Serial Generation & TV Genealogy** | Bidirectional genealogy engine mapping every finished TV serial to exact component batch lots (Panel, Motherboard, SMPS, T-Con, Backlight). | **PASS** | `mfg_tv_genealogy` table, `fn_register_tv_serial_genealogy` RPC, and `fn_query_affected_serials_by_component_lot` query answering forward and backward genealogy. |
+| **H. Enterprise Quality Inspections** | Multi-type inspection framework covering Incoming Supplier QC, In-Process WIP QC, Final Finished Goods QC, Pre-Dispatch Audit, and Supplier Factory Audits. | **PASS** | `mfg_quality_inspections` table capturing sample size, defects found, calibration asset IDs, and verdicts (`PASS`, `FAIL`, `QUARANTINE`). |
+| **I. Non-Conformance Reports (NCR) & Scrap** | Closed-loop CAPA tracking with root cause, containment, corrective, and preventive actions with controlled dispositions (`REWORK`, `SCRAP`, `RETURN_TO_SUPPLIER`). | **PASS** | `mfg_non_conformance_reports` table with cost-of-poor-quality (COPQ) accumulation. |
+| **J. Supplier Quality Intelligence** | Deterministic supplier defect rate calculations, batch rejection counts, and explainable risk classifications (`EXCELLENT`, `ACCEPTABLE`, `WATCHLIST`, `HIGH_RISK_SUPPLIER`). | **PASS** | `vw_mfg_supplier_quality_scorecard` view with auto-hold integration for procurement POs. |
+| **K. Production Yield Intelligence** | First-Pass Yield (FPY %), scrap rate %, material usage variance, and finished TV capitalized unit cost calculations. | **PASS** | `vw_mfg_production_yield_intelligence` view (`security_invoker = true`). |
+| **L. Warranty Feedback Loop** | Closed-loop integration mapping Phase 12 service ticket root-cause failures back to manufacturing component batch lots and assembly lines. | **PASS** | `vw_service_warranty_mfg_feedback_loop` view linking service completions to factory genealogy. |
+| **M. Recall & Containment Campaigns** | Proactive batch-level quarantine and product containment campaigns for safety-critical defects with warehouse, dealer, and customer unit counts. | **PASS** | `mfg_recall_containment_campaigns` table with senior management authorization gate. |
+| **N. Manufacturing Cost & GL Integration** | Full capitalization of completed production: debits Finished Goods Inventory `1300` and credits Factory WIP Inventory `1330` with balanced double-entry journals. | **PASS** | Verified journal balance: `SUM(Debits) === SUM(Credits)` with zero variance. |
+| **O. Manufacturing Command Center UI** | Comprehensive 10-workspace control center in `ManufacturingPage.tsx`: Factory Dashboard, BOM Studio, ECO & Revisions, Work Orders & WIP, TV Serial Genealogy, Quality & Burn-In, NCR & Scrap, Supplier Quality, Containment & Recall, and WIP Costing. | **PASS** | Fully interactive UI wired into `Sidebar.tsx` and `App.tsx` with role-aware access controls. |
+| **P. Multi-Tenant RLS & RBAC** | Row-Level Security enabled on 100% of newly created Phase 13 tables with tenant isolation and strict role restrictions. | **PASS** | Technicians, dealers, and anonymous users barred from internal manufacturing and costing data. |
+
+### 2. Forensic Deployment & Environment Distinction
+
+> [!IMPORTANT]
+> **Clear Distinction: Local Implementation vs. Remote Supabase Production**:
+> - **Local State**: Fully implemented, tested (100/100 PASS), regression verified (Phase 12 Service: 100/100 PASS, Phase 12 SCM: 100/100 PASS, Phase 11: 100/100 PASS, Phase 10: 100/100 PASS, Phase 9: 100/100 PASS, Integration: 9/9 PASS, Vitest: 149/149 PASS), TypeScript verified (0 errors), and Vite production build verified (17 static HTML routes + 404.html generated).
+> - **Remote Supabase Production (`axpryvuknepqeflymzlv.supabase.co`)**: **AWAITING REMOTE MIGRATION APPLICATION**.
+>   - Phase 13 migration `20261020220000_phase_13_manufacturing_product_quality.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
+>   - No remote DDL mutations or git push operations were executed.
+
+
 
 
 

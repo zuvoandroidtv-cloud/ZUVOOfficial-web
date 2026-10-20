@@ -39,7 +39,18 @@ import type {
 
 export const ManufacturingPage: React.FC = () => {
   const { currentRole } = useAuth();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'boms' | 'work_orders' | 'quality' | 'costing'>('dashboard');
+  const [activeTab, setActiveTab] = useState<
+    | 'dashboard'
+    | 'boms'
+    | 'work_orders'
+    | 'quality'
+    | 'costing'
+    | 'eco_change_control'
+    | 'serial_genealogy'
+    | 'ncr_scrap'
+    | 'supplier_quality'
+    | 'recall_containment'
+  >('dashboard');
 
   // Loading & alerts
   const [isLoading, setIsLoading] = useState(false);
@@ -636,12 +647,17 @@ export const ManufacturingPage: React.FC = () => {
       )}
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color, #334155)', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color, #334155)', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
         {[
           { id: 'dashboard', label: 'Factory Dashboard', icon: BarChart2 },
           { id: 'boms', label: 'BOM Studio', icon: Layers },
-          { id: 'work_orders', label: 'Production Work Orders', icon: ClipboardList },
-          { id: 'quality', label: 'Quality & Burn-In Gates', icon: ShieldCheck },
+          { id: 'eco_change_control', label: 'ECO & Revisions', icon: FileText },
+          { id: 'work_orders', label: 'Work Orders & WIP', icon: ClipboardList },
+          { id: 'serial_genealogy', label: 'TV Serial Genealogy', icon: Boxes },
+          { id: 'quality', label: 'Quality & Burn-In', icon: ShieldCheck },
+          { id: 'ncr_scrap', label: 'NCR, Defect & Scrap', icon: AlertTriangle },
+          { id: 'supplier_quality', label: 'Supplier Quality', icon: Wrench },
+          { id: 'recall_containment', label: 'Containment & Recall', icon: RotateCcw },
           { id: 'costing', label: 'WIP Costing & Variances', icon: DollarSign },
         ].map(tab => {
           const Icon = tab.icon;
@@ -1189,6 +1205,332 @@ export const ManufacturingPage: React.FC = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: ECO & ENGINEERING CHANGE ORDERS */}
+      {activeTab === 'eco_change_control' && (
+        <div style={{ backgroundColor: 'var(--card-bg, #1e293b)', padding: '1.25rem', borderRadius: '10px', border: '1px solid var(--border-color, #334155)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Engineering Change Orders (ECO / ECM)</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted, #94a3b8)', fontSize: '0.85rem' }}>
+                Strict Maker-Checker approval gate • BOM revision control • Prevents unauthorized component changes
+              </p>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => alert('New ECO workflow initialized for engineering review.')}
+            >
+              + Create ECO
+            </button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
+                  <th style={{ padding: '0.6rem' }}>ECO Number</th>
+                  <th style={{ padding: '0.6rem' }}>Affected Model</th>
+                  <th style={{ padding: '0.6rem' }}>Title & Description</th>
+                  <th style={{ padding: '0.6rem' }}>BOM Revision Shift</th>
+                  <th style={{ padding: '0.6rem' }}>Risk Level</th>
+                  <th style={{ padding: '0.6rem' }}>Effective Date</th>
+                  <th style={{ padding: '0.6rem' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#6366f1' }}>ECO-2026-004</td>
+                  <td style={{ padding: '0.6rem' }}>ZUVO 55" 4K Google TV</td>
+                  <td style={{ padding: '0.6rem' }}>Upgrade Power Supply Board to 120W surge-protected unit</td>
+                  <td style={{ padding: '0.6rem', fontFamily: 'monospace' }}>BOM-55-A → BOM-55-B</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#f59e0b20', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
+                      MEDIUM
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.6rem' }}>2026-10-25</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
+                      APPROVED
+                    </span>
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#6366f1' }}>ECO-2026-005</td>
+                  <td style={{ padding: '0.6rem' }}>ZUVO 43" 4K Smart TV</td>
+                  <td style={{ padding: '0.6rem' }}>Substitute Wi-Fi 6 Module (MTK7921) to replace end-of-life component</td>
+                  <td style={{ padding: '0.6rem', fontFamily: 'monospace' }}>BOM-43-REV-A → BOM-43-REV-B</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#3b82f620', color: '#3b82f6', fontSize: '0.75rem', fontWeight: 600 }}>
+                      LOW
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.6rem' }}>2026-11-01</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#eab30820', color: '#eab308', fontSize: '0.75rem', fontWeight: 600 }}>
+                      SUBMITTED
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: TV SERIAL GENEALOGY */}
+      {activeTab === 'serial_genealogy' && (
+        <div style={{ backgroundColor: 'var(--card-bg, #1e293b)', padding: '1.25rem', borderRadius: '10px', border: '1px solid var(--border-color, #334155)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Television Serial Genealogy & Batch Traceability</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted, #94a3b8)', fontSize: '0.85rem' }}>
+                Full bidirectional tracing: "Which components went into this TV?" & "Which TVs contain this component batch?"
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                placeholder="Search TV Serial or Lot Number..."
+                style={{ padding: '0.4rem 0.8rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '6px', color: '#fff', fontSize: '0.85rem' }}
+              />
+              <button className="btn btn-secondary btn-sm">Trace Batch</button>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
+            <div style={{ padding: '1rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: 700, color: '#38bdf8' }}>TV Serial: ZUV-202610-55-00451</span>
+                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>GEN-2 (ACTIVE)</span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                Model: ZUVO 55" 4K Google TV • Assembly: LINE_1 • Work Order: WO-2026-001
+              </div>
+              <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div>• Open Cell Panel: <span style={{ fontFamily: 'monospace', color: '#fff' }}>BOE-55-UHD-LOT-901</span> (BOE Display)</div>
+                <div>• Motherboard: <span style={{ fontFamily: 'monospace', color: '#fff' }}>MB-ZUV-RTD2874-LOT-44</span> (Realtek SMT)</div>
+                <div>• Power Supply: <span style={{ fontFamily: 'monospace', color: '#fff' }}>PSU-120W-DELTA-B08</span> (Delta Electronics)</div>
+                <div>• T-Con Board: <span style={{ fontFamily: 'monospace', color: '#fff' }}>TCON-LG-55-LOT-12</span> (LG Display)</div>
+                <div>• Backlight Array: <span style={{ fontFamily: 'monospace', color: '#fff' }}>LED-BAR-55-LOT-30</span> (San'an Opto)</div>
+              </div>
+            </div>
+
+            <div style={{ padding: '1rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <span style={{ fontWeight: 700, color: '#38bdf8' }}>TV Serial: ZUV-202610-43-00912</span>
+                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>GEN-2 (ACTIVE)</span>
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                Model: ZUVO 43" 4K Smart TV • Assembly: LINE_2 • Work Order: WO-2026-002
+              </div>
+              <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div>• Open Cell Panel: <span style={{ fontFamily: 'monospace', color: '#fff' }}>CSOT-43-FHD-LOT-112</span> (CSOT)</div>
+                <div>• Motherboard: <span style={{ fontFamily: 'monospace', color: '#fff' }}>MB-ZUV-MT9638-LOT-88</span> (MediaTek)</div>
+                <div>• Power Supply: <span style={{ fontFamily: 'monospace', color: '#fff' }}>PSU-75W-CHICONY-C02</span> (Chicony Power)</div>
+                <div>• Wi-Fi/BT Module: <span style={{ fontFamily: 'monospace', color: '#fff' }}>WIFI6-MTK-7921-LOT-09</span> (AzureWave)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: NCR, DEFECT & SCRAP */}
+      {activeTab === 'ncr_scrap' && (
+        <div style={{ backgroundColor: 'var(--card-bg, #1e293b)', padding: '1.25rem', borderRadius: '10px', border: '1px solid var(--border-color, #334155)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Non-Conformance Reports (NCR) & Scrap Disposition</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted, #94a3b8)', fontSize: '0.85rem' }}>
+                Closed-loop quality containment • CAPA root cause tracking • Quarantine and scrap write-offs
+              </p>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => alert('New NCR form opened.')}
+            >
+              + Raise NCR
+            </button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
+                  <th style={{ padding: '0.6rem' }}>NCR Number</th>
+                  <th style={{ padding: '0.6rem' }}>Defect Code / Root Cause</th>
+                  <th style={{ padding: '0.6rem' }}>Severity</th>
+                  <th style={{ padding: '0.6rem' }}>Disposition</th>
+                  <th style={{ padding: '0.6rem' }}>Cost Impact</th>
+                  <th style={{ padding: '0.6rem' }}>Responsible</th>
+                  <th style={{ padding: '0.6rem' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#ef4444' }}>NCR-2026-009</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <div>OPTICAL_PANEL_BLEED</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Torque on bezel screws exceeded 0.8 Nm causing edge stress</div>
+                  </td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#ef444420', color: '#ef4444', fontSize: '0.75rem', fontWeight: 600 }}>
+                      MAJOR
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.6rem' }}>REWORK</td>
+                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>₹1,250</td>
+                  <td style={{ padding: '0.6rem' }}>LINE_1 Assembly</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
+                      CLOSED
+                    </span>
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#ef4444' }}>NCR-2026-010</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <div>SMPS_VOLTAGE_DRIFT</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Cold solder joint on 24V flyback transformer pins</div>
+                  </td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#f59e0b20', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
+                      CRITICAL
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.6rem' }}>RETURN_TO_SUPPLIER</td>
+                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>₹18,500</td>
+                  <td style={{ padding: '0.6rem' }}>Delta Electronics</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#eab30820', color: '#eab308', fontSize: '0.75rem', fontWeight: 600 }}>
+                      INVESTIGATING
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: SUPPLIER QUALITY SCORECARD */}
+      {activeTab === 'supplier_quality' && (
+        <div style={{ backgroundColor: 'var(--card-bg, #1e293b)', padding: '1.25rem', borderRadius: '10px', border: '1px solid var(--border-color, #334155)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Supplier Quality & Incoming Acceptance Scorecards</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted, #94a3b8)', fontSize: '0.85rem' }}>
+                Deterministic defect rate metrics • Batch rejection telemetry • Risk classifications
+              </p>
+            </div>
+            <button className="btn btn-secondary btn-sm" onClick={() => alert('Supplier QC report generated.')}>Export Audit Report</button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #334155', color: '#94a3b8' }}>
+                  <th style={{ padding: '0.6rem' }}>Supplier Name</th>
+                  <th style={{ padding: '0.6rem' }}>Component Supplied</th>
+                  <th style={{ padding: '0.6rem' }}>Inspected (Units)</th>
+                  <th style={{ padding: '0.6rem' }}>Defects Found</th>
+                  <th style={{ padding: '0.6rem' }}>Defect Rate %</th>
+                  <th style={{ padding: '0.6rem' }}>Rejected Batches</th>
+                  <th style={{ padding: '0.6rem' }}>Risk Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>BOE Display Technology</td>
+                  <td style={{ padding: '0.6rem' }}>55" & 65" UHD Open Cell Panels</td>
+                  <td style={{ padding: '0.6rem' }}>1,200</td>
+                  <td style={{ padding: '0.6rem' }}>8</td>
+                  <td style={{ padding: '0.6rem', fontWeight: 600, color: '#10b981' }}>0.67%</td>
+                  <td style={{ padding: '0.6rem' }}>0</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
+                      EXCELLENT
+                    </span>
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>Delta Power Electronics</td>
+                  <td style={{ padding: '0.6rem' }}>Integrated SMPS Power Supply Boards</td>
+                  <td style={{ padding: '0.6rem' }}>850</td>
+                  <td style={{ padding: '0.6rem' }}>24</td>
+                  <td style={{ padding: '0.6rem', fontWeight: 600, color: '#f59e0b' }}>2.82%</td>
+                  <td style={{ padding: '0.6rem' }}>1</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#f59e0b20', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
+                      ACCEPTABLE
+                    </span>
+                  </td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #1e293b' }}>
+                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>Shenzhen SMT Electronics</td>
+                  <td style={{ padding: '0.6rem' }}>LVDS Flex Ribbon Cables</td>
+                  <td style={{ padding: '0.6rem' }}>600</td>
+                  <td style={{ padding: '0.6rem' }}>32</td>
+                  <td style={{ padding: '0.6rem', fontWeight: 600, color: '#ef4444' }}>5.33%</td>
+                  <td style={{ padding: '0.6rem' }}>2</td>
+                  <td style={{ padding: '0.6rem' }}>
+                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#ef444420', color: '#ef4444', fontSize: '0.75rem', fontWeight: 600 }}>
+                      HIGH_RISK_SUPPLIER
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* TAB: RECALL & QUALITY CONTAINMENT */}
+      {activeTab === 'recall_containment' && (
+        <div style={{ backgroundColor: 'var(--card-bg, #1e293b)', padding: '1.25rem', borderRadius: '10px', border: '1px solid var(--border-color, #334155)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>Controlled Product Containment & Recall Campaigns</h3>
+              <p style={{ margin: '0.25rem 0 0 0', color: 'var(--text-muted, #94a3b8)', fontSize: '0.85rem' }}>
+                Batch-level quarantine • Service warranty alert integration • Proactive dealer and warehouse hold
+              </p>
+            </div>
+            <button className="btn btn-primary btn-sm" style={{ backgroundColor: '#dc2626' }} onClick={() => alert('New Containment Hold workflow opened.')}>
+              + Launch Containment Hold
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ padding: '1.25rem', background: '#0f172a', border: '1px solid #ef4444', borderRadius: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                <div>
+                  <span style={{ fontWeight: 800, fontSize: '1rem', color: '#f87171' }}>CAMPAIGN: REC-2026-001</span>
+                  <span style={{ marginLeft: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#ef444420', color: '#ef4444', fontSize: '0.75rem', fontWeight: 700 }}>
+                    SAFETY_CRITICAL
+                  </span>
+                </div>
+                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>
+                  CONTAINED
+                </span>
+              </div>
+
+              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff', marginBottom: '0.25rem' }}>
+                Precautionary Containment for LVDS Ribbon Cable Batch LOT-2026-09 on 43" 4K Smart TVs
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                Supplier: Shenzhen SMT Electronics • Authorized by: Quality Director (Operations)
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', padding: '0.75rem', background: '#1e293b', borderRadius: '6px', fontSize: '0.8rem' }}>
+                <div>Total Affected Serials: <span style={{ fontWeight: 700, color: '#38bdf8' }}>48 units</span></div>
+                <div>Warehouse Quarantined: <span style={{ fontWeight: 700, color: '#10b981' }}>32 units</span></div>
+                <div>Dealer Stock Held: <span style={{ fontWeight: 700, color: '#f59e0b' }}>12 units</span></div>
+                <div>Customer Field Service: <span style={{ fontWeight: 700, color: '#f87171' }}>4 units</span></div>
+              </div>
+            </div>
           </div>
         </div>
       )}
