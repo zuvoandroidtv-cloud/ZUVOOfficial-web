@@ -28,10 +28,12 @@ import {
   Award,
   Percent,
   Wallet,
+  TrendingUp,
 } from 'lucide-react';
 
 export type NavTabId =
   | 'dashboard'
+  | 'operations_planning'
   | 'manufacturing'
   | 'products'
   | 'inventory'
@@ -106,6 +108,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Dashboard',
       icon: LayoutDashboard,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'],
+    },
+    {
+      id: 'operations_planning',
+      label: 'Operations Planning & Intel',
+      icon: TrendingUp,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service'],
+      badge: 'INTEL',
     },
     {
       id: 'notifications',

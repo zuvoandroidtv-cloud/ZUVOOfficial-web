@@ -8,6 +8,7 @@ import './index.css';
 
 // CRM Pages
 import { DashboardPage } from './pages/DashboardPage';
+import { OperationsPlanningPage } from './pages/OperationsPlanningPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ManufacturingPage } from './pages/ManufacturingPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -222,6 +223,8 @@ export const App: React.FC = () => {
             onOpenBarcodeModal={() => setBarcodeModalOpen(true)}
           />
         );
+      case 'operations_planning':
+        return <OperationsPlanningPage />;
       case 'notifications':
         return <NotificationsPage onNavigate={(tab) => setActiveTab(tab as NavTabId)} />;
       case 'communications':
