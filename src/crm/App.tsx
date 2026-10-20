@@ -10,6 +10,7 @@ import './index.css';
 import { DashboardPage } from './pages/DashboardPage';
 import { OperationsPlanningPage } from './pages/OperationsPlanningPage';
 import { GrowthEnginePage } from './pages/GrowthEnginePage';
+import { SupplyChainControlPage } from './pages/SupplyChainControlPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ManufacturingPage } from './pages/ManufacturingPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -228,6 +229,8 @@ export const App: React.FC = () => {
         return <OperationsPlanningPage />;
       case 'growth_engine':
         return <GrowthEnginePage />;
+      case 'supply_chain':
+        return <SupplyChainControlPage />;
       case 'notifications':
         return <NotificationsPage onNavigate={(tab) => setActiveTab(tab as NavTabId)} />;
       case 'communications':

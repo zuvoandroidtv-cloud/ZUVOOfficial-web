@@ -29,12 +29,14 @@ import {
   Percent,
   Wallet,
   TrendingUp,
+  Boxes,
 } from 'lucide-react';
 
 export type NavTabId =
   | 'dashboard'
   | 'operations_planning'
   | 'growth_engine'
+  | 'supply_chain'
   | 'manufacturing'
   | 'products'
   | 'inventory'
@@ -123,6 +125,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Users,
       allowedRoles: ['super_admin', 'admin', 'sales', 'support'],
       badge: 'GROWTH',
+    },
+    {
+      id: 'supply_chain',
+      label: 'Supply Chain & Warehouse',
+      icon: Boxes,
+      allowedRoles: ['super_admin', 'admin', 'inventory', 'sales', 'service'],
+      badge: 'SCM',
     },
     {
       id: 'notifications',

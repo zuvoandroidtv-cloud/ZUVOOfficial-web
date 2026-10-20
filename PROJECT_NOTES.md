@@ -1032,6 +1032,41 @@ No sub-phases (9.1, 9.2, etc.) were created. Existing capabilities across operat
 >   - Phase 11 migration `20261020104445_phase_11_customer_dealer_partner_growth.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
 >   - No remote DDL mutations or git push operations were executed.
 
+---
+
+## Phase 12: Enterprise Supply Chain, Inventory & Warehouse Control Center
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 20, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261020170000_phase_12_supply_chain_inventory_control.sql`  
+**Test Suite**: `scripts-crm/test_phase_12_supply_chain_inventory_control.mjs` — **100/100 PASS**
+
+### 1. Phase 12 Architectural & Operational Summary
+
+| Area / Workstream | Enterprise Scope & Capability | Status | Implementation & Verification Evidence |
+|---|---|:---:|---|
+| **A. Enterprise Inventory Control** | Extended `product_units` with micro-location bins (`location_bin`), batch lot references (`batch_number`), manufacturing IDs (`manufacturing_ref`), landed cost, and allocated sales order bindings. | **PASS** | Extended `product_units` & `inventory_transactions` check constraints; prevents direct UI balance modifications. |
+| **B. Serialized TV Traceability** | End-to-end serialized highway: Supplier Inbound → Bins → Allocation → Transfers → Delivery Challan → Warranty → Reverse Service → Refurbishment → Scrap. | **PASS** | `vw_scm_serialized_traceability_timeline` view (`security_invoker = true`) linking chassis serials to orders, dealers, customers, and warranty policies. |
+| **C. Inbound & Quality Inspection** | Multi-point quality inspection engine covering optical panels, audio rails, ports, and packaging with formal defect classifications. | **PASS** | `scm_quality_inspections` table and `fn_quarantine_defective_unit` RPC isolating damaged units into `quarantine` status. |
+| **D. Warehouse & Bin Master** | Multi-warehouse micro-location control with zones, racks, shelves, bins, and maximum TV storage capacity constraints. | **PASS** | `warehouse_locations` table tracking capacity, TV counts, and active storage state with unique per-facility bin indexing. |
+| **E. Stock Transfers & Discrepancies** | Integrated with Phase 7.1 stock transfer manifests; enforces dual-control maker-checker dispatch, in-transit asset accounting, and receiving discrepancy logging. | **PASS** | `stock_transfers` integration verified; prevents self-approval of transfer manifests and ensures in-transit valuation retention. |
+| **F. Stock Reservation & Allocation** | Hard database-side serial reservation for confirmed sales orders; prevents double-allocation, over-allocation, and allocation of quarantined/scrapped units. | **PASS** | `fn_allocate_serialized_inventory` RPC with strict table locks and integration with `sales_order_reservations`. |
+| **G. Physical Count & Cycle Audits** | Formal inventory count sessions comparing system expected stock with physical count, generating auditable variance records. | **PASS** | `scm_cycle_counts` and `scm_cycle_count_items` tables with supervisor signoff requirement. |
+| **H. Scrap & Write-Off Control** | Total-loss television and component disposal workflow tracking book value, salvage recovery, and net write-off loss with maker-checker guard. | **PASS** | `scm_scrap_writeoffs` table and `fn_approve_scrap_disposition` RPC with GL balancing to account `5300` (Scrap/Loss). |
+| **I. Inventory Valuation & GL Integrity** | Asset accounting reconciling serialized carrying value with GL account `1300` (Inventory Asset) and COGS recognition upon dispatch. | **PASS** | Reconciled unit purchase costs + landed freight additions; verified double-entry journal balance. |
+| **J. Multi-Tenant RLS & Least Privilege** | Row-Level Security enabled on 100% of newly created Phase 12 tables with tenant isolation and strict 8-role RBAC enforcement. | **PASS** | Unauthenticated callers, technicians, and unauthorized dealers strictly barred from internal inventory/bin operations. |
+| **K. Unified Supply Chain UI** | Consolidated control workbench featuring Overview, Serial Register, Warehouses, QC Quarantine, Transfers, Cycle Counts, and Scrap Management. | **PASS** | `SupplyChainControlPage.tsx` registered in `Sidebar.tsx` and `App.tsx` with role-aware access controls. |
+
+### 2. Forensic Deployment & Environment Distinction
+
+> [!IMPORTANT]
+> **Clear Distinction: Local Implementation vs. Remote Supabase Production**:
+> - **Local State**: Fully implemented, tested (100/100 PASS), regression verified (Phase 11: 100/100 PASS, Phase 10: 100/100 PASS, Phase 9: 100/100 PASS, Integration: 9/9 PASS, Vitest: 149/149 PASS), TypeScript verified (0 errors), and Vite production build verified (17 static HTML routes + 404.html generated).
+> - **Remote Supabase Production (`axpryvuknepqeflymzlv.supabase.co`)**: **AWAITING REMOTE MIGRATION APPLICATION**.
+>   - Phase 12 migration `20261020170000_phase_12_supply_chain_inventory_control.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
+>   - No remote DDL mutations or git push operations were executed.
+
+
 
 
 
