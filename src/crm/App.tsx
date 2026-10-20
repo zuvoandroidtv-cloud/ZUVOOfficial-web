@@ -9,6 +9,7 @@ import './index.css';
 // CRM Pages
 import { DashboardPage } from './pages/DashboardPage';
 import { OperationsPlanningPage } from './pages/OperationsPlanningPage';
+import { GrowthEnginePage } from './pages/GrowthEnginePage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ManufacturingPage } from './pages/ManufacturingPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -225,6 +226,8 @@ export const App: React.FC = () => {
         );
       case 'operations_planning':
         return <OperationsPlanningPage />;
+      case 'growth_engine':
+        return <GrowthEnginePage />;
       case 'notifications':
         return <NotificationsPage onNavigate={(tab) => setActiveTab(tab as NavTabId)} />;
       case 'communications':

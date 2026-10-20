@@ -34,6 +34,7 @@ import {
 export type NavTabId =
   | 'dashboard'
   | 'operations_planning'
+  | 'growth_engine'
   | 'manufacturing'
   | 'products'
   | 'inventory'
@@ -115,6 +116,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: TrendingUp,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service'],
       badge: 'INTEL',
+    },
+    {
+      id: 'growth_engine',
+      label: 'Growth & Partner Engine',
+      icon: Users,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'support'],
+      badge: 'GROWTH',
     },
     {
       id: 'notifications',
