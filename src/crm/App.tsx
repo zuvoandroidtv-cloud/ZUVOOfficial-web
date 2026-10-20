@@ -11,6 +11,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { OperationsPlanningPage } from './pages/OperationsPlanningPage';
 import { GrowthEnginePage } from './pages/GrowthEnginePage';
 import { SupplyChainControlPage } from './pages/SupplyChainControlPage';
+import { ServiceOperationsPage } from './pages/ServiceOperationsPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { ManufacturingPage } from './pages/ManufacturingPage';
 import { InventoryPage } from './pages/InventoryPage';
@@ -231,6 +232,8 @@ export const App: React.FC = () => {
         return <GrowthEnginePage />;
       case 'supply_chain':
         return <SupplyChainControlPage />;
+      case 'service_operations':
+        return <ServiceOperationsPage />;
       case 'notifications':
         return <NotificationsPage onNavigate={(tab) => setActiveTab(tab as NavTabId)} />;
       case 'communications':

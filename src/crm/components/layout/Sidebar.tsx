@@ -37,6 +37,7 @@ export type NavTabId =
   | 'operations_planning'
   | 'growth_engine'
   | 'supply_chain'
+  | 'service_operations'
   | 'manufacturing'
   | 'products'
   | 'inventory'
@@ -132,6 +133,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Boxes,
       allowedRoles: ['super_admin', 'admin', 'inventory', 'sales', 'service'],
       badge: 'SCM',
+    },
+    {
+      id: 'service_operations',
+      label: 'Service & Field Ops Intel',
+      icon: Wrench,
+      allowedRoles: ['super_admin', 'admin', 'service', 'inventory', 'support'],
+      badge: 'SLA',
     },
     {
       id: 'notifications',

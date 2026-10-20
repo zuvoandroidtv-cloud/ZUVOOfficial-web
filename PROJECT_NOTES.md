@@ -1066,6 +1066,44 @@ No sub-phases (9.1, 9.2, etc.) were created. Existing capabilities across operat
 >   - Phase 12 migration `20261020170000_phase_12_supply_chain_inventory_control.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
 >   - No remote DDL mutations or git push operations were executed.
 
+---
+
+## Phase 12: Consolidated Enterprise Service, Warranty & Field Operations Intelligence
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 20, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261020183000_phase_12_service_warranty_field_operations.sql`  
+**Test Suite**: `scripts-crm/test_phase_12_service_warranty_field_operations.mjs` — **100/100 PASS**
+
+### 1. Phase 12 Service, Warranty & Field Operations Summary
+
+| Area / Workstream | Enterprise Scope & Capability | Status | Implementation & Verification Evidence |
+|---|---|:---:|---|
+| **A. Enterprise Service Case Management** | Extended `service_tickets` schema with tenant isolation, root-cause coding, resolution classification, customer confirmation flag, and strict status state machine (`open` → `assigned` → `scheduled` → `en_route` → `in_progress` → `waiting_parts` / `revisit_required` → `resolved` → `closed` / `cancelled`). | **PASS** | Extended `service_tickets` check constraint; prevents invalid status skips, unconfirmed closures, and duplicate active cases on identical serials. |
+| **B. Warranty Claim Validation** | Server-authoritative warranty decision engine verifying TV serial, purchase records, factory warranty tenure, extended warranty, and ownership match. | **PASS** | `fn_validate_warranty_eligibility` RPC (`SECURITY DEFINER`, search_path set) with explainable validation codes. Client never decides warranty coverage alone. |
+| **C. Technician Dispatch & Field Service** | Mobile field execution tracking scheduling, geo-location arrival, diagnostic observations, labour time, travel distance, van stock, and dispatch conflict prevention. | **PASS** | `fn_assign_technician_dispatch` RPC enforcing a 1-hour conflict detection buffer on technician assignments. |
+| **D. SLA & Escalation Engine** | Automated tracking of response, assignment, visit, and resolution SLAs by ticket priority (Critical = 4h, High = 24h, Medium = 48h, Low = 72h). | **PASS** | `calculateSlaStatus` engine flagging approaching breaches (< 2h) and breached states, automatically dispatching exceptions into the enterprise register. |
+| **E. Service Parts & Inventory Integration** | End-to-end parts management: requisition, reservation, issue to field van, repair consumption, and defective core return tracking to quarantine. | **PASS** | Integrated with `service_parts` and inventory GL accounts; enforces non-negative stock and anti-re-consumption invariants. |
+| **F. Unit Replacement Governance** | Controlled TV chassis swaps for DOA and irreparable failures preserving customer ownership lineage and warranty continuity under dual-control maker-checker rules. | **PASS** | `service_unit_replacements` table and `fn_approve_unit_replacement` RPC retiring defective chassis to `quarantined_scrapped` and activating replacement units. |
+| **G. Service Cost & Warranty Accounting** | Financial integration capturing parts cost, technician labour, travel, and out-of-warranty customer charges with balancing double-entry GL journals. | **PASS** | Automatic balancing journal entries debiting Warranty Reserve `2150` and crediting Spare Parts `1410` & Bank `1010` with zero debit/credit variance. |
+| **H. Customer Service Journey** | Real-time service milestones timeline maintaining complete transparency without exposing internal margins or confidential dealer financial figures. | **PASS** | Sanitized customer journey timeline with verified customer confirmation prior to administrative case closure. |
+| **I. CSAT & Resolution Quality** | Verified customer satisfaction rating (1 to 5 stars), resolution quality feedback, first-visit resolution (FVR) tracking, and repeat visit monitoring. | **PASS** | `recordCsatFeedback` engine with anti-duplicate guards, bounds checking (1–5), and FVR metric aggregation. |
+| **J. Root-Cause & Quality Intelligence** | Deterministic, explainable failure classification (NORMAL, WATCH, HIGH_FAILURE, CRITICAL) by TV model, panel supplier, and component batch. | **PASS** | `vw_product_quality_root_cause_intelligence` view exposing failure shares, average repair costs, and proactive engineering action plans. |
+| **K. Service Performance KPIs** | Executive scorecards tracking active ticket volume, SLA compliance %, FVR %, parts waiting cases, technician utilization, and warranty cost per unit. | **PASS** | `vw_service_operations_cockpit` view (`security_invoker = true`) providing real-time telemetry. |
+| **L. Service Command Center UI** | Dedicated unified operations page (`ServiceOperationsPage.tsx`) featuring Cockpit, Live Cases, SLA Monitor, Field Dispatch, Parts Waiting, Replacements, and Root Cause Intel. | **PASS** | Route `/service-operations` wired into `Sidebar.tsx` and `App.tsx` with role-aware access controls and real-time tabs. |
+| **M. Multi-Tenant RLS & RBAC** | Row-Level Security enabled on 100% of new service and replacement tables with strict tenant isolation and role restrictions. | **PASS** | Technicians barred from financial ledger modifications; cross-tenant service cases strictly isolated. |
+| **N. Forensic Audit & Idempotency** | Append-only audit trail logging all ticket mutations, warranty validations, part issues, chassis swaps, and SLA sweeps with guaranteed idempotency. | **PASS** | Tested idempotent sweeps preventing duplicate exception generation, repeat GL postings, and duplicate CSAT submissions. |
+
+### 2. Forensic Deployment & Environment Distinction
+
+> [!IMPORTANT]
+> **Clear Distinction: Local Implementation vs. Remote Supabase Production**:
+> - **Local State**: Fully implemented, tested (100/100 PASS), regression verified (Phase 12 SCM: 100/100 PASS, Phase 11: 100/100 PASS, Phase 10: 100/100 PASS, Phase 9: 100/100 PASS, Integration: 9/9 PASS, Vitest: 149/149 PASS), TypeScript verified (0 errors), and Vite production build verified (17 static HTML routes + 404.html generated).
+> - **Remote Supabase Production (`axpryvuknepqeflymzlv.supabase.co`)**: **AWAITING REMOTE MIGRATION APPLICATION**.
+>   - Phase 12 migration `20261020183000_phase_12_service_warranty_field_operations.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
+>   - No remote DDL mutations or git push operations were executed.
+
+
 
 
 
