@@ -35,6 +35,7 @@ import { BudgetaryControlPage } from './pages/BudgetaryControlPage';
 import { WithholdingTaxTdsPage } from './pages/WithholdingTaxTdsPage';
 import { PayrollManagementPage } from './pages/PayrollManagementPage';
 import { SecurityCompliancePage } from './pages/SecurityCompliancePage';
+import { FinanceCommercialIntelligencePage } from './pages/FinanceCommercialIntelligencePage';
 import { ReportsPage } from './pages/ReportsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CommunicationsPage } from './pages/CommunicationsPage';
@@ -287,6 +288,8 @@ export const App: React.FC = () => {
         return <PayrollManagementPage />;
       case 'security_compliance':
         return <SecurityCompliancePage />;
+      case 'finance_intelligence':
+        return <FinanceCommercialIntelligencePage />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':

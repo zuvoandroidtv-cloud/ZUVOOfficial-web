@@ -61,6 +61,7 @@ export type NavTabId =
   | 'withholding_tax'
   | 'payroll'
   | 'security_compliance'
+  | 'finance_intelligence'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -308,6 +309,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: ShieldAlert,
       allowedRoles: ['super_admin', 'admin'],
       badge: 'SEC',
+    },
+    {
+      id: 'finance_intelligence',
+      label: 'Finance & BI Control',
+      icon: TrendingUp,
+      allowedRoles: ['super_admin', 'admin', 'sales'],
+      badge: 'BI',
     },
     {
       id: 'reports',
