@@ -60,6 +60,7 @@ export type NavTabId =
   | 'budgetary_control'
   | 'withholding_tax'
   | 'payroll'
+  | 'security_compliance'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -300,6 +301,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Wallet,
       allowedRoles: ['super_admin', 'admin', 'sales'],
       badge: 'PAYROLL',
+    },
+    {
+      id: 'security_compliance',
+      label: 'Security & Compliance',
+      icon: ShieldAlert,
+      allowedRoles: ['super_admin', 'admin'],
+      badge: 'SEC',
     },
     {
       id: 'reports',

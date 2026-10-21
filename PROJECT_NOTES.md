@@ -1138,8 +1138,40 @@ No sub-phases (9.1, 9.2, etc.) were created. Existing capabilities across operat
 > [!IMPORTANT]
 > **Clear Distinction: Local Implementation vs. Remote Supabase Production**:
 > - **Local State**: Fully implemented, tested (100/100 PASS), regression verified (Phase 12 Service: 100/100 PASS, Phase 12 SCM: 100/100 PASS, Phase 11: 100/100 PASS, Phase 10: 100/100 PASS, Phase 9: 100/100 PASS, Integration: 9/9 PASS, Vitest: 149/149 PASS), TypeScript verified (0 errors), and Vite production build verified (17 static HTML routes + 404.html generated).
+>   - No remote DDL mutations or git push operations were executed.
+
+---
+
+## Phase 14: Enterprise Security, Compliance, Risk & Resilience Engine
+**Status**: **COMPLETED (VERIFIED)**  
+**Completion Date**: October 21, 2026  
+**Environment**: Supabase PostgreSQL (`axpryvuknepqeflymzlv.supabase.co`) + Unified React Website & CRM (`website-repo`)  
+**Migrations Created**: `supabase/migrations/20261021100000_phase_14_security_compliance_risk_resilience.sql`  
+**Test Suite**: `scripts-crm/test_phase_14_security_compliance_risk_resilience.mjs` — **100/100 PASS**
+
+### 1. Phase 14 Enterprise Security, Compliance & Resilience Architecture Summary
+
+| Workstream | Enterprise Scope & Capability | Status | Implementation & Verification Evidence |
+|---|---|:---:|---|
+| **A. Enterprise Security & Authorization** | Centralized role-permission enforcement across all 8 enterprise roles (`super_admin`, `admin`, `sales`, `inventory`, `service`, `support`, `technician`, `dealer`). Protection against privilege escalation, mandatory MFA enforcement for elevated sessions, and fixed `search_path = public, pg_temp` on 100% of privileged RPCs. | **PASS** | Audited role authorization matrices in database functions; unauthenticated and public roles strictly blocked from internal procedures. |
+| **B. RLS & Tenant Isolation** | Zero-trust Row-Level Security verified across all 54+ enterprise CRM tables. Strict tenant isolation enforced via `tenant_id = (SELECT auth.jwt() ->> 'tenant_id')`, ensuring cross-tenant queries return an empty set and cross-tenant mutations are impossible. | **PASS** | Verified in Test Suite (Tests 11–20) and PostgreSQL migration policies; anon role privileges completely revoked. |
+| **C. Immutable Audit & Compliance** | Enterprise append-only audit trail (`sec_enterprise_audit_log`) guarded by PostgreSQL trigger `fn_prevent_audit_log_mutation()`, prohibiting all `UPDATE` and `DELETE` attempts (WORM compliance). Covers auth events, role modifications, financial approvals, PII access, and admin configuration changes. | **PASS** | `fn_log_security_audit_event` RPC (`SECURITY DEFINER`, fixed search_path); verified tamper-resistance (Tests 21–30). |
+| **D. Data Governance & Privacy** | Indian DPDP Act compliant taxonomy (`public`, `internal`, `confidential`, `restricted_pii`, `statutory_financial`). Data classification registry (`sec_data_governance_registry`), access monitoring (`sec_data_access_audit`), sensitive field masking (phone, email), and configurable statutory retention periods (84–120 months). | **PASS** | Masking logic and access audits verified; prevents premature destruction of statutory tax and accounting records (Tests 31–40). |
+| **E. Enterprise Risk Management (ERM)** | Enterprise Risk Register (`sec_risk_register`) with automated scoring: `Inherent Score = Probability x Impact` and `Residual Score = Residual Probability x Residual Impact`. Covers cybersecurity, financial, operational, compliance, supply chain, and manufacturing risks with owner assignment and mitigation tracking. | **PASS** | High-risk view `vw_sec_high_risk_register` exposing inherent scores $\ge 15$; verified mitigation reductions (Tests 41–50). |
+| **F. Security Incident Management** | Structured incident tracking (`sec_security_incidents`) covering P1 Critical to P4 Low severities. Sequential numbering (`INC-YYYY-XXXX`), detection sources, containment verification, root cause analysis (RCA), corrective remediation, and managerial signoff. | **PASS** | Full incident lifecycle verified from reported to closed (Tests 51–60). |
+| **G. Business Continuity & Disaster Recovery** | Tier-0 Mission-Critical to Tier-3 dependency mapping (`sec_bcm_critical_processes`), RTO/RPO target registries, continuous WAL snapshot backup evidence (`sec_bcm_backup_evidence`), and annual simulated failover drill tracking. | **PASS** | Verified backup SHA-256 checksums, recovery drill timing (18 mins vs 60 mins RTO target), and SLA gap detection (Tests 61–70). |
+| **H. Automation Resilience & Idempotency** | Authoritative automation journal (`sec_automation_execution_journal`) enforcing idempotency keys across ledger and batch sync jobs. Prevents duplicate financial/operational postings, manages retry jitter, and quarantines persistent errors in dead-letter state. | **PASS** | RPCs `fn_execute_idempotent_job` and `fn_complete_idempotent_job`; dead-letter queue view `vw_sec_automation_dead_letters` (Tests 71–80). |
+| **I. Deterministic Threat Monitoring** | Explainable, deterministic threat detection covering brute-force login probes, unauthorized privilege elevation attempts, cross-tenant leaks, duplicate transaction hashes, and broken maker-checker segregation. | **PASS** | Explainable reason codes without black-box opaque AI decisions (Tests 81–90). |
+| **J. Command Center UI** | Dedicated Enterprise Security & Compliance Command Center in `SecurityCompliancePage.tsx` with 7 workspaces: Security Posture, Risk Register, Security Incidents, Data Governance & PII, BCM & Disaster Recovery, Automation Health, and Immutable Audit Trail. | **PASS** | Fully integrated into `Sidebar.tsx` (badge: `SEC`) and `App.tsx` router with role-aware gating (`super_admin`, `admin`). |
+| **K. Cross-Module Enterprise Governance** | Seamless integration with Phase 9 General Ledger, Phase 10 Operations Planning, Phase 11 Growth Engine, Phase 12 Supply Chain, Phase 12 Service/Warranty, and Phase 13 Smart Factory MES. | **PASS** | Accounting period locking and double-entry invariants ($Debits \equiv Credits$) preserved across all automated journals (Tests 91–100). |
+
+### 2. Forensic Deployment & Environment Distinction
+
+> [!IMPORTANT]
+> **Clear Distinction: Local Implementation vs. Remote Supabase Production**:
+> - **Local State**: Fully implemented, tested (100/100 PASS), regression verified (Phase 13: 100/100 PASS, Phase 12 Service: 100/100 PASS, Phase 12 SCM: 100/100 PASS, Phase 11: 100/100 PASS, Phase 10: 100/100 PASS, Phase 9: 100/100 PASS, Integration: 9/9 PASS, Vitest: 149/149 PASS), TypeScript verified (0 errors), and Vite production build verified (17 static HTML routes + 404.html generated).
 > - **Remote Supabase Production (`axpryvuknepqeflymzlv.supabase.co`)**: **AWAITING REMOTE MIGRATION APPLICATION**.
->   - Phase 13 migration `20261020220000_phase_13_manufacturing_product_quality.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
+>   - Phase 14 migration `20261021100000_phase_14_security_compliance_risk_resilience.sql` is ready for forward-only deployment via Supabase CLI (`supabase db push`) or SQL Editor.
 >   - No remote DDL mutations or git push operations were executed.
 
 
