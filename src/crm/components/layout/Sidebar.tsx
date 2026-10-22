@@ -192,9 +192,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: 'procurement',
-      label: 'Procurement (Vendors & POs)',
+      label: 'Procurement & P2P',
       icon: Truck,
-      allowedRoles: ['super_admin', 'admin', 'inventory'],
+      allowedRoles: ['super_admin', 'admin', 'inventory', 'sales'],
+      badge: 'PROC',
     },
     {
       id: 'customers',
