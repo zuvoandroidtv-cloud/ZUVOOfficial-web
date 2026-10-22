@@ -21,6 +21,7 @@ import { ProcurementManagementPage } from './pages/ProcurementManagementPage';
 import { CustomersPage } from './pages/CustomersPage';
 import { SalesPage } from './pages/SalesPage';
 import { SalesOrderFulfillmentPage } from './pages/SalesOrderFulfillmentPage';
+import { OrderToCashManagementPage } from './pages/OrderToCashManagementPage';
 import { CommercialReturnsCreditNotesPage } from './pages/CommercialReturnsCreditNotesPage';
 import { DealerIncentiveSchemesPage } from './pages/DealerIncentiveSchemesPage';
 import { DealersPage } from './pages/DealersPage';
@@ -261,6 +262,8 @@ export const App: React.FC = () => {
         return <SalesPage />;
       case 'sales_order_fulfillment':
         return <SalesOrderFulfillmentPage />;
+      case 'order_to_cash':
+        return <OrderToCashManagementPage />;
       case 'commercial_returns':
         return <CommercialReturnsCreditNotesPage />;
       case 'dealer_incentives':

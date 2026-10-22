@@ -47,6 +47,7 @@ export type NavTabId =
   | 'customers'
   | 'sales'
   | 'sales_order_fulfillment'
+  | 'order_to_cash'
   | 'commercial_returns'
   | 'dealer_incentives'
   | 'dealers'
@@ -215,6 +216,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: PackageCheck,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
       badge: 'B2B',
+    },
+    {
+      id: 'order_to_cash',
+      label: 'Order to Cash (O2C)',
+      icon: TrendingUp,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'],
+      badge: 'O2C',
     },
     {
       id: 'commercial_returns',
