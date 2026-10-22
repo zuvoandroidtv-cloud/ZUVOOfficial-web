@@ -37,6 +37,7 @@ import { PayrollManagementPage } from './pages/PayrollManagementPage';
 import { SecurityCompliancePage } from './pages/SecurityCompliancePage';
 import { FinanceCommercialIntelligencePage } from './pages/FinanceCommercialIntelligencePage';
 import { EnterpriseExecutionPage } from './pages/EnterpriseExecutionPage';
+import { WorkforceManagementPage } from './pages/WorkforceManagementPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CommunicationsPage } from './pages/CommunicationsPage';
@@ -293,6 +294,8 @@ export const App: React.FC = () => {
         return <FinanceCommercialIntelligencePage />;
       case 'enterprise_execution':
         return <EnterpriseExecutionPage />;
+      case 'workforce':
+        return <WorkforceManagementPage />;
       case 'reports':
         return <ReportsPage />;
       case 'settings':

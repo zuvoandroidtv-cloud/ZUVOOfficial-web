@@ -64,6 +64,7 @@ export type NavTabId =
   | 'security_compliance'
   | 'finance_intelligence'
   | 'enterprise_execution'
+  | 'workforce'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -325,6 +326,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: CheckSquare,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service'],
       badge: 'EXEC',
+    },
+    {
+      id: 'workforce',
+      label: 'People & Workforce',
+      icon: Users,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service'],
+      badge: 'HR',
     },
     {
       id: 'reports',
