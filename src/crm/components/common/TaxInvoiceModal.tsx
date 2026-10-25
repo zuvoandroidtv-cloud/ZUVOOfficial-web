@@ -225,7 +225,7 @@ export const TaxInvoiceModal: React.FC<TaxInvoiceModalProps> = ({ sale, onClose 
           {/* Footer Terms */}
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1rem', textAlign: 'center', fontSize: '0.75rem', color: '#94a3b8' }}>
             This is a computer-generated tax invoice issued by ZUVO Electronics India Pvt Ltd. Goods once sold carry official 1-year manufacturer warranty.<br />
-            Register warranty online at <strong>http://localhost:3000/?view=warranty</strong> using the barcode printed above.
+            Register warranty online at <strong>{typeof window !== 'undefined' ? `${window.location.origin}/?view=warranty` : 'https://zuvoandroidtv.com/?view=warranty'}</strong> using the barcode printed above.
           </div>
         </div>
       </div>
