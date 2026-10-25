@@ -68,6 +68,7 @@ export type NavTabId =
   | 'enterprise_execution'
   | 'workforce'
   | 'integration_command'
+  | 'enterprise_governance'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -351,6 +352,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Network,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'],
       badge: 'API',
+    },
+    {
+      id: 'enterprise_governance',
+      label: 'Governance & Workflows',
+      icon: ShieldCheck,
+      allowedRoles: ['super_admin', 'admin', 'sales'],
+      badge: 'GOV',
     },
     {
       id: 'reports',
