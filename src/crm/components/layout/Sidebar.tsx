@@ -31,6 +31,7 @@ import {
   TrendingUp,
   Boxes,
   CheckSquare,
+  Network,
 } from 'lucide-react';
 
 export type NavTabId =
@@ -66,6 +67,7 @@ export type NavTabId =
   | 'finance_intelligence'
   | 'enterprise_execution'
   | 'workforce'
+  | 'integration_command'
   | 'reports'
   | 'notifications'
   | 'communications'
@@ -342,6 +344,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: Users,
       allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service'],
       badge: 'HR',
+    },
+    {
+      id: 'integration_command',
+      label: 'Integration Command',
+      icon: Network,
+      allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'],
+      badge: 'API',
     },
     {
       id: 'reports',
