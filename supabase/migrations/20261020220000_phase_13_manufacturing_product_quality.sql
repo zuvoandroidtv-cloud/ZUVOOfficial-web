@@ -498,11 +498,13 @@ AS $$
         g.component_batch_lot,
         g.assembled_at,
         COALESCE(pu.status, 'IN_PRODUCTION') AS current_tv_status,
-        pu.customer_id
+        s.customer_id
     FROM public.mfg_tv_genealogy g
     JOIN public.production_work_orders wo ON wo.id = g.work_order_id
     JOIN public.product_variants pv ON pv.id = wo.product_variant_id
     LEFT JOIN public.product_units pu ON pu.serial_number = g.tv_serial_number
+    LEFT JOIN public.sale_items si ON si.product_unit_id = pu.id
+    LEFT JOIN public.sales s ON s.id = si.sale_id
     WHERE g.component_batch_lot = p_component_batch_lot
     ORDER BY g.assembled_at DESC;
 $$;
@@ -547,7 +549,7 @@ CREATE OR REPLACE VIEW public.vw_mfg_supplier_quality_scorecard
 WITH (security_invoker = true) AS
 SELECT 
     v.id AS supplier_id,
-    v.name AS supplier_name,
+    COALESCE(v.display_name, v.legal_name) AS supplier_name,
     COUNT(qi.id) AS total_inspections,
     SUM(qi.sample_size) AS total_units_inspected,
     SUM(qi.defects_found) AS total_defects_found,
@@ -561,7 +563,7 @@ SELECT
     END AS supplier_risk_classification
 FROM public.vendors v
 JOIN public.mfg_quality_inspections qi ON qi.supplier_id = v.id
-GROUP BY v.id, v.name;
+GROUP BY v.id, v.display_name, v.legal_name;
 
 -- View 3: Closed-Loop Warranty Failure to Manufacturing Genealogy Link
 CREATE OR REPLACE VIEW public.vw_service_warranty_mfg_feedback_loop
@@ -569,20 +571,21 @@ WITH (security_invoker = true) AS
 SELECT 
     st.id AS ticket_id,
     st.ticket_number,
-    st.serial_number,
+    pu.serial_number,
     st.root_cause_code,
-    st.complaint_category,
+    st.issue_category AS complaint_category,
     st.total_service_cost,
     g.component_category,
     g.component_part_code,
     g.component_batch_lot,
-    v.name AS supplier_name,
+    COALESCE(v.display_name, v.legal_name) AS supplier_name,
     wo.work_order_number,
     wo.assembly_line,
     pv.product_name,
     pv.product_code
 FROM public.service_tickets st
-JOIN public.mfg_tv_genealogy g ON g.tv_serial_number = st.serial_number
+JOIN public.product_units pu ON pu.id = st.product_unit_id
+JOIN public.mfg_tv_genealogy g ON g.tv_serial_number = pu.serial_number
 JOIN public.production_work_orders wo ON wo.id = g.work_order_id
 JOIN public.product_variants pv ON pv.id = wo.product_variant_id
 LEFT JOIN public.vendors v ON v.id = g.supplier_id
@@ -600,77 +603,65 @@ ALTER TABLE public.mfg_non_conformance_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mfg_recall_containment_campaigns ENABLE ROW LEVEL SECURITY;
 
 -- Read policies for authenticated CRM staff
+DROP POLICY IF EXISTS p_mfg_eco_read ON public.mfg_engineering_change_orders;
 CREATE POLICY p_mfg_eco_read ON public.mfg_engineering_change_orders
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_mfg_wip_read ON public.mfg_wip_stage_tracking;
 CREATE POLICY p_mfg_wip_read ON public.mfg_wip_stage_tracking
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_mfg_genealogy_read ON public.mfg_tv_genealogy;
 CREATE POLICY p_mfg_genealogy_read ON public.mfg_tv_genealogy
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_mfg_qc_read ON public.mfg_quality_inspections;
 CREATE POLICY p_mfg_qc_read ON public.mfg_quality_inspections
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_mfg_ncr_read ON public.mfg_non_conformance_reports;
 CREATE POLICY p_mfg_ncr_read ON public.mfg_non_conformance_reports
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_mfg_recall_read ON public.mfg_recall_containment_campaigns;
 CREATE POLICY p_mfg_recall_read ON public.mfg_recall_containment_campaigns
     FOR SELECT TO authenticated USING (true);
 
 -- Write policies for authorized manufacturing and admin roles
+DROP POLICY IF EXISTS p_mfg_eco_write ON public.mfg_engineering_change_orders;
 CREATE POLICY p_mfg_eco_write ON public.mfg_engineering_change_orders
     FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur 
-            WHERE ur.user_id = auth.uid() 
-              AND ur.role_name IN ('super_admin', 'admin', 'manufacturing')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'manufacturing')
     );
 
+DROP POLICY IF EXISTS p_mfg_wip_write ON public.mfg_wip_stage_tracking;
 CREATE POLICY p_mfg_wip_write ON public.mfg_wip_stage_tracking
     FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur 
-            WHERE ur.user_id = auth.uid() 
-              AND ur.role_name IN ('super_admin', 'admin', 'manufacturing', 'quality')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'manufacturing', 'quality')
     );
 
+DROP POLICY IF EXISTS p_mfg_genealogy_write ON public.mfg_tv_genealogy;
 CREATE POLICY p_mfg_genealogy_write ON public.mfg_tv_genealogy
     FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur 
-            WHERE ur.user_id = auth.uid() 
-              AND ur.role_name IN ('super_admin', 'admin', 'manufacturing')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'manufacturing')
     );
 
+DROP POLICY IF EXISTS p_mfg_qc_write ON public.mfg_quality_inspections;
 CREATE POLICY p_mfg_qc_write ON public.mfg_quality_inspections
     FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur 
-            WHERE ur.user_id = auth.uid() 
-              AND ur.role_name IN ('super_admin', 'admin', 'quality', 'manufacturing')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'quality', 'manufacturing')
     );
 
+DROP POLICY IF EXISTS p_mfg_ncr_write ON public.mfg_non_conformance_reports;
 CREATE POLICY p_mfg_ncr_write ON public.mfg_non_conformance_reports
     FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur 
-            WHERE ur.user_id = auth.uid() 
-              AND ur.role_name IN ('super_admin', 'admin', 'quality', 'manufacturing')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'quality', 'manufacturing')
     );
 
+DROP POLICY IF EXISTS p_mfg_recall_write ON public.mfg_recall_containment_campaigns;
 CREATE POLICY p_mfg_recall_write ON public.mfg_recall_containment_campaigns
     FOR ALL TO authenticated USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur 
-            WHERE ur.user_id = auth.uid() 
-              AND ur.role_name IN ('super_admin', 'admin', 'management')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'management')
     );
 
 -- Revoke public access

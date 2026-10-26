@@ -5,6 +5,13 @@
 -- Migration: 20261020100046_phase_10_operations_planning_intelligence.sql
 -- ====================================================================
 
+-- 0. SCHEMA PREREQUISITES
+ALTER TABLE public.dealers 
+  ADD COLUMN IF NOT EXISTS outstanding_credit NUMERIC NOT NULL DEFAULT 0.00;
+
+ALTER TABLE public.service_tickets
+  ADD COLUMN IF NOT EXISTS sla_due_at TIMESTAMPTZ NULL;
+
 -- 1. WORKSTREAM A: ENTERPRISE PLANNING & TARGETS
 CREATE TABLE IF NOT EXISTS public.enterprise_planning_targets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -35,24 +42,18 @@ CREATE INDEX IF NOT EXISTS idx_plan_targets_dept_status ON public.enterprise_pla
 
 ALTER TABLE public.enterprise_planning_targets ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "plan_targets_staff_read" ON public.enterprise_planning_targets;
 CREATE POLICY "plan_targets_staff_read" ON public.enterprise_planning_targets
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid()
-        AND p.role IN ('super_admin', 'admin', 'sales', 'finance', 'inventory', 'service')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance', 'inventory', 'service')
   );
 
+DROP POLICY IF EXISTS "plan_targets_admin_mutate" ON public.enterprise_planning_targets;
 CREATE POLICY "plan_targets_admin_mutate" ON public.enterprise_planning_targets
   FOR ALL TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid()
-        AND p.role IN ('super_admin', 'admin', 'finance')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
   );
 
 -- 2. WORKSTREAM B: SALES FORECASTING ENGINE
@@ -91,13 +92,17 @@ CREATE INDEX IF NOT EXISTS idx_forecast_items_run ON public.sales_forecast_items
 ALTER TABLE public.sales_forecast_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sales_forecast_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "forecast_runs_read" ON public.sales_forecast_runs;
 CREATE POLICY "forecast_runs_read" ON public.sales_forecast_runs FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "forecast_items_read" ON public.sales_forecast_items;
 CREATE POLICY "forecast_items_read" ON public.sales_forecast_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "forecast_admin_mutate" ON public.sales_forecast_runs;
 CREATE POLICY "forecast_admin_mutate" ON public.sales_forecast_runs FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
+DROP POLICY IF EXISTS "forecast_items_admin_mutate" ON public.sales_forecast_items;
 CREATE POLICY "forecast_items_admin_mutate" ON public.sales_forecast_items FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
 
 -- 3. WORKSTREAMS C & D: DEMAND, INVENTORY, PROCUREMENT & PRODUCTION PLANNING RECOMMENDATIONS
@@ -128,9 +133,11 @@ CREATE INDEX IF NOT EXISTS idx_plan_recs_tenant_type ON public.operations_planni
 
 ALTER TABLE public.operations_planning_recommendations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "plan_recs_staff_read" ON public.operations_planning_recommendations;
 CREATE POLICY "plan_recs_staff_read" ON public.operations_planning_recommendations FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "plan_recs_admin_mutate" ON public.operations_planning_recommendations;
 CREATE POLICY "plan_recs_admin_mutate" ON public.operations_planning_recommendations FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'inventory', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'finance')
 );
 
 -- 4. WORKSTREAM H: ENTERPRISE EXCEPTION CENTER
@@ -160,11 +167,13 @@ CREATE INDEX IF NOT EXISTS idx_ent_exceptions_severity ON public.enterprise_exce
 
 ALTER TABLE public.enterprise_exceptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "exceptions_staff_read" ON public.enterprise_exceptions;
 CREATE POLICY "exceptions_staff_read" ON public.enterprise_exceptions FOR SELECT TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance', 'service', 'sales', 'inventory'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'service', 'sales', 'inventory')
 );
+DROP POLICY IF EXISTS "exceptions_admin_mutate" ON public.enterprise_exceptions;
 CREATE POLICY "exceptions_admin_mutate" ON public.enterprise_exceptions FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance', 'service'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'service')
 );
 
 -- 5. WORKSTREAM J: CONFIGURABLE KPI SCORECARDS
@@ -189,9 +198,11 @@ CREATE TABLE IF NOT EXISTS public.enterprise_kpi_scorecards (
 CREATE INDEX IF NOT EXISTS idx_kpi_scorecards_tenant_group ON public.enterprise_kpi_scorecards(tenant_id, kpi_group);
 
 ALTER TABLE public.enterprise_kpi_scorecards ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "kpi_scorecards_read" ON public.enterprise_kpi_scorecards;
 CREATE POLICY "kpi_scorecards_read" ON public.enterprise_kpi_scorecards FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "kpi_scorecards_admin_mutate" ON public.enterprise_kpi_scorecards;
 CREATE POLICY "kpi_scorecards_admin_mutate" ON public.enterprise_kpi_scorecards FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin'))
+  public.get_current_user_role() IN ('super_admin', 'admin')
 );
 
 -- 6. REPORTING & INTELLIGENCE VIEWS (SECURITY_INVOKER = TRUE)
@@ -228,8 +239,8 @@ LEFT JOIN (
 ) sales_stat ON sales_stat.dealer_id = d.id
 LEFT JOIN (
   SELECT dealer_id, COUNT(*) AS total_consignment_units
-  FROM public.dealer_consignment_inventory
-  WHERE status IN ('active', 'in_stock')
+  FROM public.dealer_consignment_stock
+  WHERE consignment_status IN ('dispatched', 'received', 'available', 'reserved')
   GROUP BY dealer_id
 ) csg ON csg.dealer_id = d.id
 LEFT JOIN (
@@ -242,9 +253,9 @@ LEFT JOIN (
 CREATE OR REPLACE VIEW public.vw_service_warranty_intelligence WITH (security_invoker = true) AS
 SELECT
   pv.id AS variant_id,
-  p.name AS product_name,
+  COALESCE(pm.model_name, pv.product_name, 'ZUVO Smart TV') AS product_name,
   pv.screen_size,
-  pv.model_name,
+  COALESCE(pm.model_name, 'ZUVO') AS model_name,
   COUNT(DISTINCT pu.id)::INT AS total_units_sold,
   COUNT(DISTINCT w.id)::INT AS active_warranties,
   COUNT(DISTINCT st.id)::INT AS service_tickets_count,
@@ -253,14 +264,14 @@ SELECT
       ROUND((COUNT(DISTINCT st.id)::NUMERIC / COUNT(DISTINCT pu.id)::NUMERIC) * 100, 2)
     ELSE 0.00
   END AS failure_rate_pct,
-  COALESCE(SUM(stp.cost), 0.00) AS total_parts_cost_absorbed
+  COALESCE(SUM(sp.quantity * sp.unit_cost), 0.00) AS total_parts_cost_absorbed
 FROM public.product_variants pv
-JOIN public.products p ON p.id = pv.product_id
-LEFT JOIN public.product_units pu ON pu.product_variant_id = pv.id AND pu.status = 'sold'
+LEFT JOIN public.product_models pm ON pm.id = pv.model_id
+LEFT JOIN public.product_units pu ON pu.variant_id = pv.id AND pu.status = 'sold'
 LEFT JOIN public.warranties w ON w.product_unit_id = pu.id AND w.status = 'active'
 LEFT JOIN public.service_tickets st ON st.product_unit_id = pu.id
-LEFT JOIN public.service_ticket_parts stp ON stp.service_ticket_id = st.id
-GROUP BY pv.id, p.name, pv.screen_size, pv.model_name;
+LEFT JOIN public.service_parts sp ON sp.service_ticket_id = st.id
+GROUP BY pv.id, pm.model_name, pv.product_name, pv.screen_size;
 
 -- C. Management Executive KPI Intelligence Summary
 CREATE OR REPLACE VIEW public.vw_management_executive_intelligence WITH (security_invoker = true) AS

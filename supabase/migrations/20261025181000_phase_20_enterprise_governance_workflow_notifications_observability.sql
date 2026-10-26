@@ -317,92 +317,78 @@ CREATE INDEX IF NOT EXISTS idx_gov_obs_time ON public.gov_observability_events(c
 DROP POLICY IF EXISTS "gov_policy_staff_manage" ON public.gov_policy_registry;
 CREATE POLICY "gov_policy_staff_manage" ON public.gov_policy_registry
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin', 'finance', 'sales', 'service')
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales', 'service')
     );
 
 DROP POLICY IF EXISTS "gov_policy_versions_staff" ON public.gov_policy_versions;
 CREATE POLICY "gov_policy_versions_staff" ON public.gov_policy_versions
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin')
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 -- Workflow RLS
 DROP POLICY IF EXISTS "gov_wf_def_staff" ON public.gov_workflow_definitions;
 CREATE POLICY "gov_wf_def_staff" ON public.gov_workflow_definitions
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory')
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory')
     );
 
 DROP POLICY IF EXISTS "gov_wf_inst_staff" ON public.gov_workflow_instances;
 CREATE POLICY "gov_wf_inst_staff" ON public.gov_workflow_instances
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory', 'support')
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory', 'support')
     );
 
 DROP POLICY IF EXISTS "gov_wf_steps_staff" ON public.gov_workflow_steps;
 CREATE POLICY "gov_wf_steps_staff" ON public.gov_workflow_steps
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory')
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory')
     );
 
 DROP POLICY IF EXISTS "gov_wf_hist_staff" ON public.gov_workflow_history;
 CREATE POLICY "gov_wf_hist_staff" ON public.gov_workflow_history
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin', 'finance', 'sales', 'service')
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales', 'service')
     );
 
 -- Notification Queue RLS
 DROP POLICY IF EXISTS "gov_notif_q_staff" ON public.gov_notification_queue;
 CREATE POLICY "gov_notif_q_staff" ON public.gov_notification_queue
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (
-            (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin')
-            OR recipient_user_id = auth.uid()
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin')
+        OR recipient_user_id = auth.uid()
     );
 
 DROP POLICY IF EXISTS "gov_notif_tmpl_staff" ON public.gov_notification_templates;
 CREATE POLICY "gov_notif_tmpl_staff" ON public.gov_notification_templates
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin')
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 DROP POLICY IF EXISTS "gov_notif_pref_user" ON public.gov_notification_preferences;
 CREATE POLICY "gov_notif_pref_user" ON public.gov_notification_preferences
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND user_id = auth.uid()
+        user_id = auth.uid()
     );
 
 -- Exceptions RLS
 DROP POLICY IF EXISTS "gov_exc_staff" ON public.gov_enterprise_exceptions;
 CREATE POLICY "gov_exc_staff" ON public.gov_enterprise_exceptions
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory')
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales', 'service', 'inventory')
     );
 
 -- Automation & Observability RLS
 DROP POLICY IF EXISTS "gov_auto_health_staff" ON public.gov_automation_health;
 CREATE POLICY "gov_auto_health_staff" ON public.gov_automation_health
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin')
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 DROP POLICY IF EXISTS "gov_obs_events_staff" ON public.gov_observability_events;
 CREATE POLICY "gov_obs_events_staff" ON public.gov_observability_events
     FOR ALL USING (
-        tenant_id = (SELECT tenant_id FROM public.profiles WHERE id = auth.uid())
-        AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('super_admin', 'admin')
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 -- =============================================================================
@@ -844,7 +830,7 @@ BEGIN
             END IF;
         EXCEPTION WHEN OTHERS THEN
             NULL;
-        END IF;
+        END;
     END IF;
 
     RETURN jsonb_build_object(

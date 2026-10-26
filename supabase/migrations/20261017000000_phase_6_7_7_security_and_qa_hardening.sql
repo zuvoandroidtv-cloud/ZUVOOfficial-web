@@ -553,10 +553,11 @@ END;
 $$;
 
 -- 6.6 fn_verify_visit_otp_and_complete (Constant-time HMAC-SHA-256, max 5 attempts, single-use purge, no backdoor)
+DROP FUNCTION IF EXISTS public.fn_verify_visit_otp_and_complete(UUID, TEXT, UUID);
 CREATE OR REPLACE FUNCTION public.fn_verify_visit_otp_and_complete(
   p_visit_id UUID,
   p_entered_otp TEXT,
-  p_technician_id UUID
+  p_technician_id UUID DEFAULT NULL
 )
 RETURNS public.service_visits
 LANGUAGE plpgsql

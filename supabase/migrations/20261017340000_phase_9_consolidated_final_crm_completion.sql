@@ -39,24 +39,18 @@ CREATE INDEX IF NOT EXISTS idx_sla_escalation_events_tenant_entity ON public.sla
 ALTER TABLE public.automation_job_runs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sla_escalation_audit_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "automation_job_runs_admin_read" ON public.automation_job_runs;
 CREATE POLICY "automation_job_runs_admin_read" ON public.automation_job_runs
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid()
-        AND p.role IN ('super_admin', 'admin', 'service', 'finance')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'service', 'finance')
   );
 
+DROP POLICY IF EXISTS "sla_escalation_events_admin_read" ON public.sla_escalation_audit_events;
 CREATE POLICY "sla_escalation_events_admin_read" ON public.sla_escalation_audit_events
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid()
-        AND p.role IN ('super_admin', 'admin', 'service', 'finance')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'service', 'finance')
   );
 
 -- 2. REPORTING VIEWS FOR MISSING ADVANCED REPORT CATEGORIES
@@ -75,7 +69,7 @@ SELECT
     ELSE COALESCE(SUM(jel.credit_amount - jel.debit_amount), 0)
   END AS net_balance,
   COUNT(DISTINCT je.id)::int AS journal_count,
-  MAX(je.journal_date) AS latest_entry_date
+  MAX(je.entry_date) AS latest_entry_date
 FROM public.chart_of_accounts coa
 LEFT JOIN public.journal_entry_lines jel ON jel.account_id = coa.id
 LEFT JOIN public.journal_entries je ON je.id = jel.journal_entry_id AND je.status = 'POSTED'
@@ -124,15 +118,16 @@ GROUP BY sec.section_code, sec.description, sec.default_rate_pct;
 -- D. Fixed Assets Net Book Value & Asset Depreciation Schedule
 CREATE OR REPLACE VIEW public.vw_fixed_assets_depreciation_summary WITH (security_invoker = true) AS
 SELECT
-  fa.asset_category,
+  COALESCE(fac.category_name, 'Uncategorized') AS asset_category,
   COUNT(fa.id)::int AS asset_count,
-  COALESCE(SUM(fa.original_cost), 0) AS total_gross_cost,
+  COALESCE(SUM(fa.total_capitalized_cost), 0) AS total_gross_cost,
   COALESCE(SUM(fa.accumulated_depreciation), 0) AS total_accumulated_depreciation,
-  COALESCE(SUM(fa.original_cost - fa.accumulated_depreciation), 0) AS total_net_book_value,
+  COALESCE(SUM(fa.current_book_value), 0) AS total_net_book_value,
   COUNT(CASE WHEN fa.status = 'ACTIVE' THEN 1 END)::int AS active_asset_count,
   COUNT(CASE WHEN fa.status = 'DISPOSED' THEN 1 END)::int AS disposed_asset_count
 FROM public.fixed_assets fa
-GROUP BY fa.asset_category;
+LEFT JOIN public.fixed_asset_categories fac ON fac.id = fa.category_id
+GROUP BY COALESCE(fac.category_name, 'Uncategorized');
 
 -- E. Manufacturing Work Orders & WIP Cost Efficiency
 CREATE OR REPLACE VIEW public.vw_manufacturing_wip_summary WITH (security_invoker = true) AS
@@ -179,13 +174,14 @@ BEGIN
     RAISE EXCEPTION 'Authentication required to execute automation sweep.';
   END IF;
 
-  -- 2. Caller profile and role authorization check
-  SELECT p.role, p.tenant_id
-  INTO v_caller_role, v_caller_tenant_id
+  -- 2. Caller role authorization check
+  v_caller_role := public.get_current_user_role();
+  SELECT p.tenant_id
+  INTO v_caller_tenant_id
   FROM public.profiles p
   WHERE p.id = v_caller_id;
 
-  IF NOT FOUND OR v_caller_role NOT IN ('super_admin', 'admin') THEN
+  IF v_caller_role NOT IN ('super_admin', 'admin') THEN
     RAISE EXCEPTION 'Access denied. Insufficient administrative privileges to trigger automation sweeps.';
   END IF;
 
@@ -293,11 +289,9 @@ BEGIN
   END IF;
 
   -- 2. Authorization check - internal administrative & operational staff only
-  SELECT p.role INTO v_caller_role
-  FROM public.profiles p
-  WHERE p.id = v_caller_id;
+  v_caller_role := public.get_current_user_role();
 
-  IF NOT FOUND OR v_caller_role NOT IN ('super_admin', 'admin', 'service', 'finance') THEN
+  IF v_caller_role NOT IN ('super_admin', 'admin', 'service', 'finance') THEN
     RAISE EXCEPTION 'Access denied. Insufficient permissions to view system compliance telemetry.';
   END IF;
 

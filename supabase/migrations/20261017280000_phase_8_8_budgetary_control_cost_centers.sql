@@ -1070,11 +1070,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
-    SELECT EXISTS (
-        SELECT 1 FROM public.profiles
-        WHERE id = auth.uid()
-          AND role IN ('super_admin', 'admin', 'finance', 'cfo', 'accounting')
-    );
+    SELECT public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'cfo', 'accounting');
 $$;
 
 -- A. cost_centers policies

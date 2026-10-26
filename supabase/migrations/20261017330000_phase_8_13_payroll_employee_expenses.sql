@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS public.employee_master (
     date_of_exit DATE,
     department TEXT NOT NULL CHECK (department IN ('MANUFACTURING', 'WAREHOUSE', 'SERVICE', 'SALES', 'FINANCE', 'HR', 'MANAGEMENT')),
     designation TEXT NOT NULL,
-    location_depot_id UUID REFERENCES public.depots(id) ON DELETE SET NULL,
+    location_depot_id UUID NULL,
     employment_type TEXT NOT NULL DEFAULT 'FULL_TIME' CHECK (employment_type IN ('FULL_TIME', 'PROBATION', 'CONTRACTOR', 'INTERN')),
     status TEXT NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'ON_LEAVE', 'SUSPENDED', 'RESIGNED', 'TERMINATED')),
     pan_number TEXT,
@@ -321,88 +321,77 @@ ALTER TABLE public.employee_advances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payslip_records ENABLE ROW LEVEL SECURITY;
 
 -- 1. Employee Master
+DROP POLICY IF EXISTS "HR manage employee_master" ON public.employee_master;
 CREATE POLICY "HR manage employee_master" ON public.employee_master
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'hr', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'hr', 'finance')
     );
 
+DROP POLICY IF EXISTS "Employees read own employee_master" ON public.employee_master;
 CREATE POLICY "Employees read own employee_master" ON public.employee_master
     FOR SELECT TO authenticated
     USING (profile_id = auth.uid());
 
 -- 2. Compensation & Payroll Runs: Strictly HR/Finance/Admin
+DROP POLICY IF EXISTS "Finance manage employee_compensation" ON public.employee_compensation;
 CREATE POLICY "Finance manage employee_compensation" ON public.employee_compensation
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'hr', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'hr', 'finance')
     );
 
+DROP POLICY IF EXISTS "Finance manage payroll_periods" ON public.payroll_periods;
 CREATE POLICY "Finance manage payroll_periods" ON public.payroll_periods
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'hr', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'hr', 'finance')
     );
 
+DROP POLICY IF EXISTS "Finance manage payroll_runs" ON public.payroll_runs;
 CREATE POLICY "Finance manage payroll_runs" ON public.payroll_runs
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'hr', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'hr', 'finance')
     );
 
+DROP POLICY IF EXISTS "Finance manage payroll_entries" ON public.payroll_employee_entries;
 CREATE POLICY "Finance manage payroll_entries" ON public.payroll_employee_entries
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'hr', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'hr', 'finance')
     );
 
 -- 3. Employee Expense Claims: Staff can manage their own; Finance can approve/pay
+DROP POLICY IF EXISTS "Employees manage own expense_claims" ON public.employee_expense_claims;
 CREATE POLICY "Employees manage own expense_claims" ON public.employee_expense_claims
     FOR ALL TO authenticated
     USING (
         employee_id IN (SELECT id FROM public.employee_master WHERE profile_id = auth.uid())
-        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'finance'))
+        OR public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
 -- 4. Advances & Payslips
+DROP POLICY IF EXISTS "Finance manage employee_advances" ON public.employee_advances;
 CREATE POLICY "Finance manage employee_advances" ON public.employee_advances
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'finance', 'hr')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'hr')
     );
 
+DROP POLICY IF EXISTS "Employees read own payslips" ON public.payslip_records;
 CREATE POLICY "Employees read own payslips" ON public.payslip_records
     FOR SELECT TO authenticated
     USING (
         employee_id IN (SELECT id FROM public.employee_master WHERE profile_id = auth.uid())
-        OR EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'finance', 'hr'))
+        OR public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'hr')
     );
 
+DROP POLICY IF EXISTS "Finance manage payslip_records" ON public.payslip_records;
 CREATE POLICY "Finance manage payslip_records" ON public.payslip_records
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'finance', 'hr')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'hr')
     );
 
 -- =============================================================================

@@ -414,7 +414,7 @@ WITH (security_invoker = true)
 AS
 SELECT 
     pv.id AS variant_id,
-    pv.model_name,
+    COALESCE(pm.model_name, pv.product_name, 'ZUVO Smart TV') AS model_name,
     pv.screen_size,
     COUNT(DISTINCT pu.id) AS deployed_units_count,
     COUNT(DISTINCT st.id) AS failure_ticket_count,
@@ -431,10 +431,11 @@ SELECT
         ELSE 'NORMAL'
     END AS quality_health_tier
 FROM public.product_variants pv
+LEFT JOIN public.product_models pm ON pm.id = pv.model_id
 LEFT JOIN public.product_units pu ON pv.id = pu.variant_id
 LEFT JOIN public.service_tickets st ON pu.id = st.product_unit_id
 LEFT JOIN public.service_unit_replacements ur ON st.id = ur.service_ticket_id AND ur.status = 'APPROVED'
-GROUP BY pv.id, pv.model_name, pv.screen_size;
+GROUP BY pv.id, pm.model_name, pv.product_name, pv.screen_size;
 
 -- =============================================================================
 -- 8. ENABLE ROW LEVEL SECURITY (RLS) ON ALL NEW TABLES

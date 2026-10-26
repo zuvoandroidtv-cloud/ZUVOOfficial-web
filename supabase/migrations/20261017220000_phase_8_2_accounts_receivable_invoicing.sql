@@ -204,51 +204,59 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.payment_receipts_unallocate
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.ar_dunning_cases TO authenticated;
 
 -- Policies: Super Admin, Admin, and Finance have full access to AR ledger
+DROP POLICY IF EXISTS "Finance & Admin view customer AR ledger" ON public.customer_ar_ledger;
 CREATE POLICY "Finance & Admin view customer AR ledger"
     ON public.customer_ar_ledger FOR SELECT
     TO authenticated
     USING (
         public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales') OR
-        (public.get_current_user_role() = 'dealer' AND dealer_id IN (SELECT id FROM public.dealers WHERE user_id = auth.uid()))
+        (public.get_current_user_role() = 'dealer' AND dealer_id = public.get_current_user_dealer_id())
     );
 
+DROP POLICY IF EXISTS "Finance & Admin manage customer AR ledger" ON public.customer_ar_ledger;
 CREATE POLICY "Finance & Admin manage customer AR ledger"
     ON public.customer_ar_ledger FOR ALL
     TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'finance'));
 
 -- Policies: AR Transactions (Append-Only / Immutable)
+DROP POLICY IF EXISTS "Finance & Admin view AR transactions" ON public.customer_ar_transactions;
 CREATE POLICY "Finance & Admin view AR transactions"
     ON public.customer_ar_transactions FOR SELECT
     TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'finance'));
 
+DROP POLICY IF EXISTS "Finance & Admin insert AR transactions" ON public.customer_ar_transactions;
 CREATE POLICY "Finance & Admin insert AR transactions"
     ON public.customer_ar_transactions FOR INSERT
     TO authenticated
     WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'finance'));
 
 -- Policies: Commercial Tax Invoices
+DROP POLICY IF EXISTS "Authorized view commercial tax invoices" ON public.commercial_tax_invoices;
 CREATE POLICY "Authorized view commercial tax invoices"
     ON public.commercial_tax_invoices FOR SELECT
     TO authenticated
     USING (
         public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales') OR
-        (public.get_current_user_role() = 'dealer' AND dealer_id IN (SELECT id FROM public.dealers WHERE user_id = auth.uid()))
+        (public.get_current_user_role() = 'dealer' AND dealer_id = public.get_current_user_dealer_id())
     );
 
+DROP POLICY IF EXISTS "Finance & Admin manage commercial tax invoices" ON public.commercial_tax_invoices;
 CREATE POLICY "Finance & Admin manage commercial tax invoices"
     ON public.commercial_tax_invoices FOR ALL
     TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'finance'));
 
 -- Policies: Payment Receipts Unallocated
+DROP POLICY IF EXISTS "Finance & Admin view and manage unallocated receipts" ON public.payment_receipts_unallocated;
 CREATE POLICY "Finance & Admin view and manage unallocated receipts"
     ON public.payment_receipts_unallocated FOR ALL
     TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'finance'));
 
 -- Policies: AR Dunning Cases
+DROP POLICY IF EXISTS "Finance & Admin manage dunning cases" ON public.ar_dunning_cases;
 CREATE POLICY "Finance & Admin manage dunning cases"
     ON public.ar_dunning_cases FOR ALL
     TO authenticated

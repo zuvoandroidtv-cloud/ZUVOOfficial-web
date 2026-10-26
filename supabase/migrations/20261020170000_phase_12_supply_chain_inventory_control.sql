@@ -90,7 +90,7 @@ CHECK (transaction_type IN (
     'DISPATCH_TO_DEALER', 'DEALER_SALE', 'DEALER_RECEIPT', 'DEALER_DISCREPANCY',
     'CONSIGNMENT_RECALL', 'DEALER_TRANSFER', 'CONSIGNMENT_SETTLEMENT', 'RECONCILIATION',
     'GOODS_RECEIPT', 'VENDOR_RETURN'
-));
+)) NOT VALID;
 
 -- =============================================================================
 -- 2. SEQUENCES FOR SUPPLY CHAIN CONCURRENCY-SAFE IDENTIFIERS
@@ -519,20 +519,21 @@ SELECT
     pu.received_at,
     w.warehouse_code,
     w.warehouse_name,
-    pv.model_name,
+    COALESCE(pm.model_name, pv.product_name, 'ZUVO Smart TV') AS model_name,
     pv.screen_size,
     so.so_number AS allocated_so_number,
     d.dealer_name,
     c.full_name AS customer_name,
-    wp.policy_number AS warranty_policy_number,
-    wp.status AS warranty_status
+    w_pol.warranty_number AS warranty_policy_number,
+    w_pol.status AS warranty_status
 FROM public.product_units pu
 JOIN public.warehouses w ON pu.warehouse_id = w.id
 JOIN public.product_variants pv ON pu.variant_id = pv.id
+LEFT JOIN public.product_models pm ON pm.id = pv.model_id
 LEFT JOIN public.sales_orders so ON pu.allocated_order_id = so.id
 LEFT JOIN public.dealers d ON so.dealer_id = d.id
 LEFT JOIN public.customers c ON so.customer_id = c.id
-LEFT JOIN public.warranty_policies wp ON pu.id = wp.product_unit_id;
+LEFT JOIN public.warranties w_pol ON pu.id = w_pol.product_unit_id;
 
 -- =============================================================================
 -- 11. ENABLE ROW LEVEL SECURITY (RLS) ON ALL PHASE 12 TABLES

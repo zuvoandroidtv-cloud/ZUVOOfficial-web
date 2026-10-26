@@ -244,81 +244,68 @@ ALTER TABLE public.tds_form_26q_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tds_form_16a_certificates ENABLE ROW LEVEL SECURITY;
 
 -- 1. Master Sections: Readable by authenticated staff, writable by super_admin & admin
+DROP POLICY IF EXISTS "Staff read tds_sections_master" ON public.tds_sections_master;
 CREATE POLICY "Staff read tds_sections_master" ON public.tds_sections_master
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS "Admin manage tds_sections_master" ON public.tds_sections_master;
 CREATE POLICY "Admin manage tds_sections_master" ON public.tds_sections_master
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 -- 2. Vendor TDS Profiles: Full access by finance staff; vendors can only view their own
+DROP POLICY IF EXISTS "Finance manage vendor_tds_profiles" ON public.vendor_tds_profiles;
 CREATE POLICY "Finance manage vendor_tds_profiles" ON public.vendor_tds_profiles
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin', 'inventory')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'finance')
     );
 
 -- 3. Deduction Ledger: Managed by finance; vendors/dealers can only read their records
+DROP POLICY IF EXISTS "Finance manage tds_deduction_ledger" ON public.tds_deduction_ledger;
 CREATE POLICY "Finance manage tds_deduction_ledger" ON public.tds_deduction_ledger
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
+DROP POLICY IF EXISTS "Dealers read own tds_deductions" ON public.tds_deduction_ledger;
 CREATE POLICY "Dealers read own tds_deductions" ON public.tds_deduction_ledger
     FOR SELECT TO authenticated
     USING (
-        dealer_id IN (
-            SELECT id FROM public.dealers WHERE user_id = auth.uid()
-        )
+        dealer_id = public.get_current_user_dealer_id()
     );
 
 -- 4. Challan Settlements & 26Q Batches: Strictly restricted to super_admin and admin
+DROP POLICY IF EXISTS "Finance manage tds_challan_settlements" ON public.tds_challan_settlements;
 CREATE POLICY "Finance manage tds_challan_settlements" ON public.tds_challan_settlements
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
+DROP POLICY IF EXISTS "Finance manage tds_form_26q_batches" ON public.tds_form_26q_batches;
 CREATE POLICY "Finance manage tds_form_26q_batches" ON public.tds_form_26q_batches
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
 -- 5. Form 16A Certificates: Finance manages; vendors/dealers can read their own
+DROP POLICY IF EXISTS "Finance manage tds_form_16a_certificates" ON public.tds_form_16a_certificates;
 CREATE POLICY "Finance manage tds_form_16a_certificates" ON public.tds_form_16a_certificates
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.profiles 
-            WHERE id = auth.uid() AND role IN ('super_admin', 'admin')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
+DROP POLICY IF EXISTS "Dealers read own form_16a_certificates" ON public.tds_form_16a_certificates;
 CREATE POLICY "Dealers read own form_16a_certificates" ON public.tds_form_16a_certificates
     FOR SELECT TO authenticated
     USING (
-        recipient_dealer_id IN (
-            SELECT id FROM public.dealers WHERE user_id = auth.uid()
-        )
+        recipient_dealer_id = public.get_current_user_dealer_id()
     );
 
 -- =============================================================================

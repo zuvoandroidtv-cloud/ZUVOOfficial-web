@@ -169,49 +169,39 @@ ALTER TABLE public.customer_refunds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_exceptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_treasury_audit_events ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "payment_instructions_admin_read" ON public.finance_payment_instructions;
 CREATE POLICY "payment_instructions_admin_read" ON public.finance_payment_instructions
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
   );
 
+DROP POLICY IF EXISTS "customer_receipts_admin_read" ON public.customer_receipts;
 CREATE POLICY "customer_receipts_admin_read" ON public.customer_receipts
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance', 'sales')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales')
   );
 
+DROP POLICY IF EXISTS "customer_refunds_admin_read" ON public.customer_refunds;
 CREATE POLICY "customer_refunds_admin_read" ON public.customer_refunds
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance', 'sales')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'sales')
   );
 
+DROP POLICY IF EXISTS "finance_exceptions_admin_read" ON public.finance_exceptions;
 CREATE POLICY "finance_exceptions_admin_read" ON public.finance_exceptions
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
   );
 
+DROP POLICY IF EXISTS "treasury_audit_admin_read" ON public.finance_treasury_audit_events;
 CREATE POLICY "treasury_audit_admin_read" ON public.finance_treasury_audit_events
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance')
-    )
+    public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
   );
 
 -- ====================================================================

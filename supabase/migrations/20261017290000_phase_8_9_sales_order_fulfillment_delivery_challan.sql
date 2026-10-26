@@ -251,18 +251,21 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.delivery_challan_items TO a
 GRANT SELECT, INSERT ON TABLE public.sales_order_audit_events TO authenticated;
 
 -- Policies: sales_orders
+DROP POLICY IF EXISTS "so_staff_and_dealers_select" ON public.sales_orders;
 CREATE POLICY "so_staff_and_dealers_select" ON public.sales_orders
     FOR SELECT TO authenticated
     USING (
         public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory', 'finance') OR
-        (public.get_current_user_role() = 'dealer' AND dealer_id IN (SELECT id FROM public.dealers WHERE user_id = auth.uid()))
+        (public.get_current_user_role() = 'dealer' AND dealer_id = public.get_current_user_dealer_id())
     );
 
+DROP POLICY IF EXISTS "so_staff_manage" ON public.sales_orders;
 CREATE POLICY "so_staff_manage" ON public.sales_orders
     FOR ALL TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory'));
 
 -- Policies: sales_order_items
+DROP POLICY IF EXISTS "so_items_select" ON public.sales_order_items;
 CREATE POLICY "so_items_select" ON public.sales_order_items
     FOR SELECT TO authenticated
     USING (
@@ -270,37 +273,43 @@ CREATE POLICY "so_items_select" ON public.sales_order_items
             SELECT 1 FROM public.sales_orders so
             WHERE so.id = sales_order_items.sales_order_id AND (
                 public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory', 'finance') OR
-                (public.get_current_user_role() = 'dealer' AND so.dealer_id IN (SELECT id FROM public.dealers WHERE user_id = auth.uid()))
+                (public.get_current_user_role() = 'dealer' AND so.dealer_id = public.get_current_user_dealer_id())
             )
         )
     );
 
+DROP POLICY IF EXISTS "so_items_staff_manage" ON public.sales_order_items;
 CREATE POLICY "so_items_staff_manage" ON public.sales_order_items
     FOR ALL TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory'));
 
 -- Policies: sales_order_reservations
+DROP POLICY IF EXISTS "so_reservations_staff_select" ON public.sales_order_reservations;
 CREATE POLICY "so_reservations_staff_select" ON public.sales_order_reservations
     FOR SELECT TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory'));
 
+DROP POLICY IF EXISTS "so_reservations_staff_manage" ON public.sales_order_reservations;
 CREATE POLICY "so_reservations_staff_manage" ON public.sales_order_reservations
     FOR ALL TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory'));
 
 -- Policies: delivery_challans
+DROP POLICY IF EXISTS "dc_select" ON public.delivery_challans;
 CREATE POLICY "dc_select" ON public.delivery_challans
     FOR SELECT TO authenticated
     USING (
         public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory', 'finance') OR
-        (public.get_current_user_role() = 'dealer' AND dealer_id IN (SELECT id FROM public.dealers WHERE user_id = auth.uid()))
+        (public.get_current_user_role() = 'dealer' AND dealer_id = public.get_current_user_dealer_id())
     );
 
+DROP POLICY IF EXISTS "dc_staff_manage" ON public.delivery_challans;
 CREATE POLICY "dc_staff_manage" ON public.delivery_challans
     FOR ALL TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory'));
 
 -- Policies: delivery_challan_items
+DROP POLICY IF EXISTS "dc_items_select" ON public.delivery_challan_items;
 CREATE POLICY "dc_items_select" ON public.delivery_challan_items
     FOR SELECT TO authenticated
     USING (
@@ -308,11 +317,12 @@ CREATE POLICY "dc_items_select" ON public.delivery_challan_items
             SELECT 1 FROM public.delivery_challans dc
             WHERE dc.id = delivery_challan_items.delivery_challan_id AND (
                 public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory', 'finance') OR
-                (public.get_current_user_role() = 'dealer' AND dc.dealer_id IN (SELECT id FROM public.dealers WHERE user_id = auth.uid()))
+                (public.get_current_user_role() = 'dealer' AND dc.dealer_id = public.get_current_user_dealer_id())
             )
         )
     );
 
+DROP POLICY IF EXISTS "dc_items_staff_manage" ON public.delivery_challan_items;
 CREATE POLICY "dc_items_staff_manage" ON public.delivery_challan_items
     FOR ALL TO authenticated
     USING (public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'inventory'));

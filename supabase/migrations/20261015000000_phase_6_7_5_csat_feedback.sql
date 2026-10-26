@@ -28,7 +28,7 @@ BEGIN
       'system_alert'::text, 'PO_SUBMITTED'::text, 'GOODS_RECEIVED'::text,
       'csat_low_rating'::text, 'csat_followup'::text, 'csat_followup_resolved'::text
     ])
-  );
+  ) NOT VALID;
 END $$;
 
 -- 3. COMMUNICATION TEMPLATES FOR CSAT
@@ -138,14 +138,17 @@ ALTER TABLE public.csat_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.csat_followups ENABLE ROW LEVEL SECURITY;
 
 -- csat_surveys policies
+DROP POLICY IF EXISTS "csat_surveys_staff_select" ON public.csat_surveys;
 CREATE POLICY "csat_surveys_staff_select" ON public.csat_surveys
   FOR SELECT TO authenticated
   USING (get_current_user_role() = ANY (ARRAY['super_admin', 'admin', 'service', 'support']));
 
+DROP POLICY IF EXISTS "csat_surveys_staff_all" ON public.csat_surveys;
 CREATE POLICY "csat_surveys_staff_all" ON public.csat_surveys
   FOR ALL TO authenticated
   USING (get_current_user_role() = ANY (ARRAY['super_admin', 'admin']));
 
+DROP POLICY IF EXISTS "csat_surveys_dealer_select" ON public.csat_surveys;
 CREATE POLICY "csat_surveys_dealer_select" ON public.csat_surveys
   FOR SELECT TO authenticated
   USING (
@@ -155,14 +158,17 @@ CREATE POLICY "csat_surveys_dealer_select" ON public.csat_surveys
   );
 
 -- csat_responses policies
+DROP POLICY IF EXISTS "csat_responses_staff_select" ON public.csat_responses;
 CREATE POLICY "csat_responses_staff_select" ON public.csat_responses
   FOR SELECT TO authenticated
   USING (get_current_user_role() = ANY (ARRAY['super_admin', 'admin', 'service', 'support']));
 
+DROP POLICY IF EXISTS "csat_responses_staff_all" ON public.csat_responses;
 CREATE POLICY "csat_responses_staff_all" ON public.csat_responses
   FOR ALL TO authenticated
   USING (get_current_user_role() = ANY (ARRAY['super_admin', 'admin']));
 
+DROP POLICY IF EXISTS "csat_responses_dealer_select" ON public.csat_responses;
 CREATE POLICY "csat_responses_dealer_select" ON public.csat_responses
   FOR SELECT TO authenticated
   USING (
@@ -173,15 +179,18 @@ CREATE POLICY "csat_responses_dealer_select" ON public.csat_responses
   );
 
 -- csat_followups policies
+DROP POLICY IF EXISTS "csat_followups_staff_select" ON public.csat_followups;
 CREATE POLICY "csat_followups_staff_select" ON public.csat_followups
   FOR SELECT TO authenticated
   USING (get_current_user_role() = ANY (ARRAY['super_admin', 'admin', 'service', 'support']));
 
+DROP POLICY IF EXISTS "csat_followups_staff_update" ON public.csat_followups;
 CREATE POLICY "csat_followups_staff_update" ON public.csat_followups
   FOR UPDATE TO authenticated
   USING (get_current_user_role() = ANY (ARRAY['super_admin', 'admin', 'service', 'support']))
   WITH CHECK (get_current_user_role() = ANY (ARRAY['super_admin', 'admin', 'service', 'support']));
 
+DROP POLICY IF EXISTS "csat_followups_dealer_select" ON public.csat_followups;
 CREATE POLICY "csat_followups_dealer_select" ON public.csat_followups
   FOR SELECT TO authenticated
   USING (
@@ -298,6 +307,7 @@ DECLARE
   v_survey_number text;
   v_new_survey public.csat_surveys%ROWTYPE;
   v_survey_url text;
+  v_masked_url text;
   v_technician_id uuid;
 BEGIN
   -- 1. Fetch ticket and validate eligibility

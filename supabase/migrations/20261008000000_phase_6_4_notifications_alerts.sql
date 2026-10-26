@@ -297,6 +297,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_sale_created_notify ON public.sales;
 CREATE TRIGGER trg_sale_created_notify
     AFTER INSERT ON public.sales
     FOR EACH ROW
@@ -316,6 +317,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_payment_received_notify ON public.payments;
 CREATE TRIGGER trg_payment_received_notify
     AFTER INSERT ON public.payments
     FOR EACH ROW
@@ -337,6 +339,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_inventory_transaction_notify ON public.inventory_transactions;
 CREATE TRIGGER trg_inventory_transaction_notify
     AFTER INSERT ON public.inventory_transactions
     FOR EACH ROW
@@ -356,6 +359,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_warranty_registered_notify ON public.warranties;
 CREATE TRIGGER trg_warranty_registered_notify
     AFTER INSERT ON public.warranties
     FOR EACH ROW
@@ -377,6 +381,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_service_created_notify ON public.service_tickets;
 CREATE TRIGGER trg_service_created_notify
     AFTER INSERT ON public.service_tickets
     FOR EACH ROW
@@ -396,6 +401,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_rma_created_notify ON public.sales_returns;
 CREATE TRIGGER trg_rma_created_notify
     AFTER INSERT ON public.sales_returns
     FOR EACH ROW

@@ -15,7 +15,7 @@ ALTER TABLE public.inventory_transactions
     'DISPATCH_TO_DEALER', 'DEALER_SALE', 'DEALER_RECEIPT', 'DEALER_DISCREPANCY',
     'CONSIGNMENT_RECALL', 'DEALER_TRANSFER', 'CONSIGNMENT_SETTLEMENT', 'RECONCILIATION',
     'GOODS_RECEIPT', 'VENDOR_RETURN'
-  ));
+  )) NOT VALID;
 
 ALTER TABLE public.notifications DROP CONSTRAINT IF EXISTS chk_notifications_type;
 ALTER TABLE public.notifications ADD CONSTRAINT chk_notifications_type 
@@ -23,13 +23,13 @@ CHECK (notification_type IN (
     'sale_created', 'sale_completed', 'payment_received', 'inventory_low', 'inventory_transfer', 
     'warranty_registered', 'warranty_expiring', 'service_created', 'service_updated', 'service_completed', 
     'spare_part_low_stock', 'rma_created', 'system_alert', 'PO_SUBMITTED', 'GOODS_RECEIVED'
-));
+)) NOT VALID;
 
 ALTER TABLE public.product_units DROP CONSTRAINT IF EXISTS product_units_status_check;
 ALTER TABLE public.product_units ADD CONSTRAINT product_units_status_check 
 CHECK (status IN (
     'in_stock', 'reserved', 'in_transit', 'sold', 'returned', 'in_service', 'damaged', 'return_pending'
-));
+)) NOT VALID;
 
 -- 2. VENDORS MASTER TABLE
 CREATE TABLE IF NOT EXISTS public.vendors (
@@ -181,42 +181,49 @@ ALTER TABLE public.purchase_receipt_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendor_returns ENABLE ROW LEVEL SECURITY;
 
 -- Staff Read Policy for Vendors and Procurement
+DROP POLICY IF EXISTS "Staff read procurement data" ON public.vendors;
 CREATE POLICY "Staff read procurement data"
   ON public.vendors FOR SELECT
   USING (
     public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'service', 'support')
   );
 
+DROP POLICY IF EXISTS "Staff read vendor contacts" ON public.vendor_contacts;
 CREATE POLICY "Staff read vendor contacts"
   ON public.vendor_contacts FOR SELECT
   USING (
     public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'service', 'support')
   );
 
+DROP POLICY IF EXISTS "Staff read purchase orders" ON public.purchase_orders;
 CREATE POLICY "Staff read purchase orders"
   ON public.purchase_orders FOR SELECT
   USING (
     public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'service', 'support')
   );
 
+DROP POLICY IF EXISTS "Staff read purchase order items" ON public.purchase_order_items;
 CREATE POLICY "Staff read purchase order items"
   ON public.purchase_order_items FOR SELECT
   USING (
     public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'service', 'support')
   );
 
+DROP POLICY IF EXISTS "Staff read purchase receipts" ON public.purchase_receipts;
 CREATE POLICY "Staff read purchase receipts"
   ON public.purchase_receipts FOR SELECT
   USING (
     public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'service', 'support')
   );
 
+DROP POLICY IF EXISTS "Staff read purchase receipt items" ON public.purchase_receipt_items;
 CREATE POLICY "Staff read purchase receipt items"
   ON public.purchase_receipt_items FOR SELECT
   USING (
     public.get_current_user_role() IN ('super_admin', 'admin', 'inventory', 'sales', 'service', 'support')
   );
 
+DROP POLICY IF EXISTS "Staff read vendor returns" ON public.vendor_returns;
 CREATE POLICY "Staff read vendor returns"
   ON public.vendor_returns FOR SELECT
   USING (
@@ -224,36 +231,43 @@ CREATE POLICY "Staff read vendor returns"
   );
 
 -- Procurement Management Write Policies (Admin, Super Admin, Inventory)
+DROP POLICY IF EXISTS "Procurement staff manage vendors" ON public.vendors;
 CREATE POLICY "Procurement staff manage vendors"
   ON public.vendors FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))
   WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'));
 
+DROP POLICY IF EXISTS "Procurement staff manage vendor contacts" ON public.vendor_contacts;
 CREATE POLICY "Procurement staff manage vendor contacts"
   ON public.vendor_contacts FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))
   WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'));
 
+DROP POLICY IF EXISTS "Procurement staff manage purchase orders" ON public.purchase_orders;
 CREATE POLICY "Procurement staff manage purchase orders"
   ON public.purchase_orders FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))
   WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'));
 
+DROP POLICY IF EXISTS "Procurement staff manage purchase order items" ON public.purchase_order_items;
 CREATE POLICY "Procurement staff manage purchase order items"
   ON public.purchase_order_items FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))
   WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'));
 
+DROP POLICY IF EXISTS "Procurement staff manage purchase receipts" ON public.purchase_receipts;
 CREATE POLICY "Procurement staff manage purchase receipts"
   ON public.purchase_receipts FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))
   WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'));
 
+DROP POLICY IF EXISTS "Procurement staff manage purchase receipt items" ON public.purchase_receipt_items;
 CREATE POLICY "Procurement staff manage purchase receipt items"
   ON public.purchase_receipt_items FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))
   WITH CHECK (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'));
 
+DROP POLICY IF EXISTS "Procurement staff manage vendor returns" ON public.vendor_returns;
 CREATE POLICY "Procurement staff manage vendor returns"
   ON public.vendor_returns FOR ALL
   USING (public.get_current_user_role() IN ('super_admin', 'admin', 'inventory'))

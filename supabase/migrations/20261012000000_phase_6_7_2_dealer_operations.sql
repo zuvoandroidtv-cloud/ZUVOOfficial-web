@@ -23,6 +23,10 @@ ALTER TABLE public.sales_returns
   ADD COLUMN IF NOT EXISTS dealer_id UUID NULL REFERENCES public.dealers(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_sales_returns_dealer_id ON public.sales_returns(dealer_id);
 
+ALTER TABLE public.customers
+  ADD COLUMN IF NOT EXISTS created_by UUID NULL REFERENCES auth.users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_created_by ON public.customers(created_by);
+
 -- 3. HELPER FUNCTION: get_current_user_dealer_id
 CREATE OR REPLACE FUNCTION public.get_current_user_dealer_id()
 RETURNS uuid
@@ -259,10 +263,11 @@ END;
 $$;
 
 -- RPC 3: fn_dealer_create_sale_order
+DROP FUNCTION IF EXISTS public.fn_dealer_create_sale_order(UUID, UUID, NUMERIC, TEXT);
 CREATE OR REPLACE FUNCTION public.fn_dealer_create_sale_order(
   p_customer_id UUID,
   p_product_unit_id UUID,
-  p_unit_price NUMERIC,
+  p_unit_price NUMERIC DEFAULT NULL,
   p_notes TEXT DEFAULT NULL
 )
 RETURNS JSONB

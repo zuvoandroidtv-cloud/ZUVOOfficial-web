@@ -7,6 +7,24 @@
 
 SET search_path = public, pg_temp;
 
+-- 0. MULTI-TENANT FOUNDATION
+CREATE TABLE IF NOT EXISTS public.tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS p_tenants_read ON public.tenants;
+CREATE POLICY p_tenants_read ON public.tenants FOR SELECT TO authenticated USING (true);
+
+INSERT INTO public.tenants (id, code, name, is_active)
+VALUES ('00000000-0000-0000-0000-000000000001'::UUID, 'DEFAULT', 'ZUVO TV Enterprise', true)
+ON CONFLICT (id) DO NOTHING;
+
 -- =============================================================================
 -- A. ENTERPRISE INTEGRATION REGISTRY
 -- =============================================================================
@@ -461,7 +479,7 @@ SELECT
     ec.message_type,
     ec.recipient_identifier,
     ec.customer_id,
-    c.name AS customer_name,
+    c.full_name AS customer_name,
     ec.status,
     ec.queued_at,
     ec.sent_at,

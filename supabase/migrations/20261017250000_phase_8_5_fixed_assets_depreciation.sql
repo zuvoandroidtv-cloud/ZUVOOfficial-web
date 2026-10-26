@@ -6,6 +6,8 @@
 -- =============================================================================
 
 -- 1. EXTEND CHART OF ACCOUNTS FOR PROPERTY, PLANT & EQUIPMENT (PPE)
+ALTER TABLE public.chart_of_accounts DROP CONSTRAINT IF EXISTS chart_of_accounts_system_control_type_check;
+
 -- Group 1500s (Non-Current Assets) & Group 5300/5600s Depreciation
 INSERT INTO public.chart_of_accounts 
 (account_number, account_name, account_type, account_subtype, normal_balance, is_system_account, system_control_type, description)
@@ -829,118 +831,78 @@ ALTER TABLE public.asset_maintenance_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.asset_disposals ENABLE ROW LEVEL SECURITY;
 
 -- 1. fixed_asset_categories RLS
+DROP POLICY IF EXISTS "categories_select_internal" ON public.fixed_asset_categories;
 CREATE POLICY "categories_select_internal" ON public.fixed_asset_categories
     FOR SELECT TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
     );
 
+DROP POLICY IF EXISTS "categories_admin_modify" ON public.fixed_asset_categories;
 CREATE POLICY "categories_admin_modify" ON public.fixed_asset_categories
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
 -- 2. fixed_assets RLS
+DROP POLICY IF EXISTS "assets_select_internal" ON public.fixed_assets;
 CREATE POLICY "assets_select_internal" ON public.fixed_assets
     FOR SELECT TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
     );
 
+DROP POLICY IF EXISTS "assets_admin_modify" ON public.fixed_assets;
 CREATE POLICY "assets_admin_modify" ON public.fixed_assets
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
 -- 3. asset_depreciation_schedules RLS
+DROP POLICY IF EXISTS "deprec_sched_select_finance" ON public.asset_depreciation_schedules;
 CREATE POLICY "deprec_sched_select_finance" ON public.asset_depreciation_schedules
     FOR SELECT TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
+DROP POLICY IF EXISTS "deprec_sched_modify_finance" ON public.asset_depreciation_schedules;
 CREATE POLICY "deprec_sched_modify_finance" ON public.asset_depreciation_schedules
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
 -- 4. asset_maintenance_logs RLS
+DROP POLICY IF EXISTS "maintenance_select_internal" ON public.asset_maintenance_logs;
 CREATE POLICY "maintenance_select_internal" ON public.asset_maintenance_logs
     FOR SELECT TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
     );
 
+DROP POLICY IF EXISTS "maintenance_insert_internal" ON public.asset_maintenance_logs;
 CREATE POLICY "maintenance_insert_internal" ON public.asset_maintenance_logs
     FOR INSERT TO authenticated
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance', 'inventory', 'service')
     );
 
 -- 5. asset_disposals RLS
+DROP POLICY IF EXISTS "disposals_select_finance" ON public.asset_disposals;
 CREATE POLICY "disposals_select_finance" ON public.asset_disposals
     FOR SELECT TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
+DROP POLICY IF EXISTS "disposals_modify_finance" ON public.asset_disposals;
 CREATE POLICY "disposals_modify_finance" ON public.asset_disposals
     FOR ALL TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.user_roles ur
-            JOIN public.roles r ON ur.role_id = r.id
-            WHERE ur.user_id = auth.uid()
-              AND r.name IN ('super_admin', 'admin', 'finance')
-        )
+        public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
     );
 
 -- Strict Denial for Anonymous & Unauthorized Public Access

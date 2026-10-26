@@ -454,47 +454,57 @@ ALTER TABLE public.sec_bcm_backup_evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.sec_automation_execution_journal ENABLE ROW LEVEL SECURITY;
 
 -- Read policies for authenticated staff
+DROP POLICY IF EXISTS p_sec_audit_read ON public.sec_enterprise_audit_log;
 CREATE POLICY p_sec_audit_read ON public.sec_enterprise_audit_log
     FOR SELECT TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role_name IN ('super_admin', 'admin'))
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
+DROP POLICY IF EXISTS p_sec_governance_read ON public.sec_data_governance_registry;
 CREATE POLICY p_sec_governance_read ON public.sec_data_governance_registry
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_sec_risk_read ON public.sec_risk_register;
 CREATE POLICY p_sec_risk_read ON public.sec_risk_register
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_sec_incidents_read ON public.sec_security_incidents;
 CREATE POLICY p_sec_incidents_read ON public.sec_security_incidents
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_sec_bcm_read ON public.sec_bcm_critical_processes;
 CREATE POLICY p_sec_bcm_read ON public.sec_bcm_critical_processes
     FOR SELECT TO authenticated USING (true);
 
+DROP POLICY IF EXISTS p_sec_backup_read ON public.sec_bcm_backup_evidence;
 CREATE POLICY p_sec_backup_read ON public.sec_bcm_backup_evidence
     FOR SELECT TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role_name IN ('super_admin', 'admin'))
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
+DROP POLICY IF EXISTS p_sec_automation_read ON public.sec_automation_execution_journal;
 CREATE POLICY p_sec_automation_read ON public.sec_automation_execution_journal
     FOR SELECT TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role_name IN ('super_admin', 'admin'))
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 -- Write policies strictly restricted to Super Admin & Admin
+DROP POLICY IF EXISTS p_sec_risk_write ON public.sec_risk_register;
 CREATE POLICY p_sec_risk_write ON public.sec_risk_register
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role_name IN ('super_admin', 'admin'))
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
+DROP POLICY IF EXISTS p_sec_incidents_write ON public.sec_security_incidents;
 CREATE POLICY p_sec_incidents_write ON public.sec_security_incidents
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role_name IN ('super_admin', 'admin'))
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
+DROP POLICY IF EXISTS p_sec_bcm_write ON public.sec_bcm_critical_processes;
 CREATE POLICY p_sec_bcm_write ON public.sec_bcm_critical_processes
     FOR ALL TO authenticated USING (
-        EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role_name IN ('super_admin', 'admin'))
+        public.get_current_user_role() IN ('super_admin', 'admin')
     );
 
 -- Revoke all permissions from anonymous / public users

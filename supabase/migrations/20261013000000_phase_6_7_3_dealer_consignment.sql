@@ -14,7 +14,7 @@ ALTER TABLE public.inventory_transactions
     'damaged', 'stock_adjustment', 'warehouse_transfer', 'DISPATCH_TO_DEALER', 
     'DEALER_SALE', 'DEALER_RECEIPT', 'DEALER_DISCREPANCY', 'CONSIGNMENT_RECALL', 
     'DEALER_TRANSFER', 'CONSIGNMENT_SETTLEMENT', 'RECONCILIATION'
-  ));
+  )) NOT VALID;
 
 -- 2. Add ownership_type column to product_units if not present
 ALTER TABLE public.product_units 

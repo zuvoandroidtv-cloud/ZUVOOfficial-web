@@ -46,12 +46,14 @@ CREATE INDEX IF NOT EXISTS idx_crm_leads_assigned ON public.crm_leads(assigned_s
 
 ALTER TABLE public.crm_leads ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "crm_leads_staff_read" ON public.crm_leads;
 CREATE POLICY "crm_leads_staff_read" ON public.crm_leads FOR SELECT TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'support', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'support', 'finance')
 );
 
+DROP POLICY IF EXISTS "crm_leads_staff_mutate" ON public.crm_leads;
 CREATE POLICY "crm_leads_staff_mutate" ON public.crm_leads FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales')
 );
 
 -- 3. CRM OPPORTUNITIES
@@ -84,12 +86,14 @@ CREATE INDEX IF NOT EXISTS idx_crm_opps_sales_rep ON public.crm_opportunities(sa
 
 ALTER TABLE public.crm_opportunities ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "crm_opps_staff_read" ON public.crm_opportunities;
 CREATE POLICY "crm_opps_staff_read" ON public.crm_opportunities FOR SELECT TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
 
+DROP POLICY IF EXISTS "crm_opps_staff_mutate" ON public.crm_opportunities;
 CREATE POLICY "crm_opps_staff_mutate" ON public.crm_opportunities FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales')
 );
 
 -- 4. CRM QUOTATIONS
@@ -132,13 +136,17 @@ CREATE INDEX IF NOT EXISTS idx_crm_quotes_tenant_status ON public.crm_quotations
 ALTER TABLE public.crm_quotations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_quotation_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "crm_quotes_read" ON public.crm_quotations;
 CREATE POLICY "crm_quotes_read" ON public.crm_quotations FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "crm_quotes_mutate" ON public.crm_quotations;
 CREATE POLICY "crm_quotes_mutate" ON public.crm_quotations FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
+DROP POLICY IF EXISTS "crm_quote_items_read" ON public.crm_quotation_items;
 CREATE POLICY "crm_quote_items_read" ON public.crm_quotation_items FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "crm_quote_items_mutate" ON public.crm_quotation_items;
 CREATE POLICY "crm_quote_items_mutate" ON public.crm_quotation_items FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
 
 -- 5. CRM SALES ACTIVITIES & INTERACTIONS
@@ -163,9 +171,11 @@ CREATE TABLE IF NOT EXISTS public.crm_sales_activities (
 CREATE INDEX IF NOT EXISTS idx_crm_activities_tenant_sched ON public.crm_sales_activities(tenant_id, scheduled_at, status);
 
 ALTER TABLE public.crm_sales_activities ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "crm_activities_read" ON public.crm_sales_activities;
 CREATE POLICY "crm_activities_read" ON public.crm_sales_activities FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "crm_activities_mutate" ON public.crm_sales_activities;
 CREATE POLICY "crm_activities_mutate" ON public.crm_sales_activities FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'service', 'support'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'service', 'support')
 );
 
 -- 6. DEALER ONBOARDING & KYC GOVERNANCE
@@ -197,11 +207,13 @@ CREATE TABLE IF NOT EXISTS public.dealer_onboarding_applications (
 CREATE INDEX IF NOT EXISTS idx_dealer_onboard_status ON public.dealer_onboarding_applications(status);
 
 ALTER TABLE public.dealer_onboarding_applications ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "dealer_onboard_staff_read" ON public.dealer_onboarding_applications;
 CREATE POLICY "dealer_onboard_staff_read" ON public.dealer_onboarding_applications FOR SELECT TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
+DROP POLICY IF EXISTS "dealer_onboard_staff_mutate" ON public.dealer_onboarding_applications;
 CREATE POLICY "dealer_onboard_staff_mutate" ON public.dealer_onboarding_applications FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'finance')
 );
 
 -- 7. COMMERCIAL CAMPAIGNS & PARTICIPATION
@@ -241,13 +253,17 @@ CREATE TABLE IF NOT EXISTS public.crm_referrals (
 ALTER TABLE public.crm_commercial_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.crm_referrals ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "campaigns_read" ON public.crm_commercial_campaigns;
 CREATE POLICY "campaigns_read" ON public.crm_commercial_campaigns FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "campaigns_mutate" ON public.crm_commercial_campaigns;
 CREATE POLICY "campaigns_mutate" ON public.crm_commercial_campaigns FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales')
 );
+DROP POLICY IF EXISTS "referrals_read" ON public.crm_referrals;
 CREATE POLICY "referrals_read" ON public.crm_referrals FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "referrals_mutate" ON public.crm_referrals;
 CREATE POLICY "referrals_mutate" ON public.crm_referrals FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'sales', 'dealer'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'sales', 'dealer')
 );
 
 -- 8. CUSTOMER LOYALTY & REWARDS LEDGER
@@ -266,9 +282,11 @@ CREATE TABLE IF NOT EXISTS public.customer_loyalty_ledger (
 CREATE INDEX IF NOT EXISTS idx_loyalty_cust ON public.customer_loyalty_ledger(customer_id, created_at);
 
 ALTER TABLE public.customer_loyalty_ledger ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "loyalty_read" ON public.customer_loyalty_ledger;
 CREATE POLICY "loyalty_read" ON public.customer_loyalty_ledger FOR SELECT TO authenticated USING (true);
+DROP POLICY IF EXISTS "loyalty_admin_mutate" ON public.customer_loyalty_ledger;
 CREATE POLICY "loyalty_admin_mutate" ON public.customer_loyalty_ledger FOR ALL TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role IN ('super_admin', 'admin', 'finance'))
+  public.get_current_user_role() IN ('super_admin', 'admin', 'finance')
 );
 
 -- 9. REPORTING & PIPELINE INTELLIGENCE VIEWS (SECURITY_INVOKER = TRUE)
