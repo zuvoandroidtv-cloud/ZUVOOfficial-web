@@ -97,48 +97,18 @@ export const BankReconciliationPage: React.FC = () => {
         .order('created_at', { ascending: true });
 
       if (accErr) {
-        // Fallback default mock for display if offline
-        const fallbackAccounts: BankAccount[] = [
-          {
-            id: 'acc_hdfc_curr',
-            tenant_id: 'ZUVO_MAIN',
-            bank_name: 'HDFC Bank',
-            account_name: 'ZUVO Operational Current Account',
-            masked_account_number: 'XXXX-XXXX-4589',
-            ifsc: 'HDFC0001234',
-            account_type: 'CURRENT',
-            opening_balance: 500000.00,
-            current_book_balance: 524500.00,
-            statement_date: '2026-10-15',
-            currency: 'INR',
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            id: 'acc_icici_esc',
-            tenant_id: 'ZUVO_MAIN',
-            bank_name: 'ICICI Bank',
-            account_name: 'ZUVO Dealer Escrow & Security Pool',
-            masked_account_number: 'XXXX-XXXX-8821',
-            ifsc: 'ICIC0005678',
-            account_type: 'ESCROW',
-            opening_balance: 1200000.00,
-            current_book_balance: 1200000.00,
-            statement_date: '2026-10-15',
-            currency: 'INR',
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ];
-        setBankAccounts(fallbackAccounts);
-        setSelectedAccountId(fallbackAccounts[0].id);
-        calculateSummary(fallbackAccounts, []);
+        // Fallback empty accounts if offline
+        setBankAccounts([]);
+        setSelectedAccountId('');
+        calculateSummary([], []);
       } else if (accounts && accounts.length > 0) {
         setBankAccounts(accounts);
         setSelectedAccountId(accounts[0].id);
         calculateSummary(accounts, []);
+      } else {
+        setBankAccounts([]);
+        setSelectedAccountId('');
+        calculateSummary([], []);
       }
     } catch (err: any) {
       console.error('Error fetching bank accounts:', err);

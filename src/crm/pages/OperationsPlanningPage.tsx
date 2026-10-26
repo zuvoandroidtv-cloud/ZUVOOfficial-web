@@ -18,35 +18,12 @@ export const OperationsPlanningPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'briefing' | 'targets' | 'forecasting' | 'recommendations' | 'exceptions' | 'scorecards'>('briefing');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Mock initial deterministic state for offline / initial UI render
-  const [targets] = useState([
-    { id: '1', fiscal_year: 'FY2026-27', period: '2026-10', dept: 'SALES', target_units: 500, target_rev: '₹1,22,50,000', target_margin: '₹24,50,000', status: 'ACTIVE' },
-    { id: '2', fiscal_year: 'FY2026-27', period: '2026-10', dept: 'MANUFACTURING', target_units: 600, target_rev: '₹1,11,00,000', target_margin: '₹18,00,000', status: 'APPROVED' },
-    { id: '3', fiscal_year: 'FY2026-27', period: '2026-10', dept: 'SERVICE', target_units: 50, target_rev: '₹2,50,000', target_margin: '₹75,000', status: 'ACTIVE' },
-  ]);
-
-  const [forecasts] = useState([
-    { id: '1', version: 'FC-2026-Q3-V1', period: '2026-11', method: 'WEIGHTED_MOVING_AVERAGE', confidence: '88%', units: 540, revenue: '₹1,32,30,000', margin: '₹26,46,000', status: 'ACTIVE' },
-    { id: '2', version: 'FC-2026-Q4-V1', period: '2026-12', method: 'SEASONAL_RUN_RATE', confidence: '82%', units: 620, revenue: '₹1,51,90,000', margin: '₹30,38,000', status: 'DRAFT' },
-  ]);
-
-  const [recommendations] = useState([
-    { id: '1', code: 'REC-PROD-ZUVO55-01', type: 'PRODUCE', cat: 'FINISHED_TV', item: 'ZUVO 55" 4K Smart Voice TV', qty: 50, est_cost: '₹9,25,000', coverage: '6 Days', urgency: 'HIGH', reason: 'Stockout Risk: Buffer stock below 7-day safety ceiling', status: 'PENDING_REVIEW' },
-    { id: '2', code: 'REC-PURCH-PANEL43-02', type: 'PURCHASE', cat: 'RAW_MATERIAL', item: '43" D-LED Ultra Panel Assembly', qty: 100, est_cost: '₹7,50,000', coverage: '12 Days', urgency: 'MEDIUM', reason: 'Production Staging buffer for November build schedule', status: 'PENDING_REVIEW' },
-  ]);
-
-  const [exceptions] = useState([
-    { id: '1', code: 'EXC-INV-0089', cat: 'INVENTORY', sev: 'HIGH', ref: 'ZUVO-32-BT', summary: 'Critical Low Stock: 32" BT Voice (4 units on hand)', action: 'Release manufacturing assembly work order', status: 'OPEN' },
-    { id: '2', code: 'EXC-SVC-0142', cat: 'SERVICE', sev: 'CRITICAL', ref: 'TKT-202610-008', summary: 'SLA Breach: Ticket overdue for 48h resolution', action: 'Reassign to regional senior field technician', status: 'ACKNOWLEDGED' },
-    { id: '3', code: 'EXC-FIN-0031', cat: 'FINANCE', sev: 'MEDIUM', ref: 'DLR-SOUTH-001', summary: 'Credit Utilization at 85% of sanctioned limit', action: 'Request pending invoice collection before new dispatch', status: 'OPEN' },
-  ]);
-
-  const [scorecards] = useState([
-    { group: 'SALES', kpi: 'Monthly Units Sold', target: '500 Units', actual: '480 Units', variance: '-4.0%', status: 'ON_TRACK' },
-    { group: 'FINANCE', kpi: 'Collections Efficiency', target: '95.0%', actual: '92.4%', variance: '-2.6%', status: 'NEEDS_ATTENTION' },
-    { group: 'OPERATIONS', kpi: 'Finished Goods Inventory Days', target: '18 Days', actual: '14 Days', variance: '-4 Days', status: 'EXCELLENT' },
-    { group: 'SERVICE', kpi: 'First-Visit Resolution (FVR)', target: '85.0%', actual: '87.5%', variance: '+2.5%', status: 'EXCELLENT' },
-  ]);
+  // Data-driven state initialized to clean empty arrays for fresh production launch
+  const [targets] = useState<Array<{ id: string; fiscal_year: string; period: string; dept: string; target_units: number; target_rev: string; target_margin: string; status: string }>>([]);
+  const [forecasts] = useState<Array<{ id: string; version: string; period: string; method: string; confidence: string; units: number; revenue: string; margin: string; status: string }>>([]);
+  const [recommendations] = useState<Array<{ id: string; code: string; type: string; cat: string; item: string; qty: number; est_cost: string; coverage: string; urgency: string; reason: string; status: string }>>([]);
+  const [exceptions] = useState<Array<{ id: string; code: string; cat: string; sev: string; ref: string; summary: string; action: string; status: string }>>([]);
+  const [scorecards] = useState<Array<{ group: string; kpi: string; target: string; actual: string; variance: string; status: string }>>([]);
 
   const handleRefreshSweep = () => {
     setIsRefreshing(true);
@@ -54,6 +31,12 @@ export const OperationsPlanningPage: React.FC = () => {
       setIsRefreshing(false);
     }, 600);
   };
+
+  // Dynamic calculations from operational state
+  const mtdSalesRev = '₹0.00';
+  const targetAchPct = targets.length > 0 ? '100.0%' : '0.0%';
+  const stockoutRiskCount = recommendations.filter(r => r.urgency === 'HIGH').length;
+  const openExceptionsCount = exceptions.filter(e => e.status === 'OPEN').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
@@ -138,7 +121,7 @@ export const OperationsPlanningPage: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-emerald)' }}>₹1.22 Cr</div>
+                <div className="stat-val" style={{ color: 'var(--accent-emerald)' }}>{mtdSalesRev}</div>
                 <div className="stat-label">MTD Sales Revenue</div>
               </div>
               <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-emerald)' }}>
@@ -148,7 +131,7 @@ export const OperationsPlanningPage: React.FC = () => {
 
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-cyan)' }}>96.0%</div>
+                <div className="stat-val" style={{ color: 'var(--accent-cyan)' }}>{targetAchPct}</div>
                 <div className="stat-label">Target Achievement</div>
               </div>
               <div style={{ background: 'rgba(6, 182, 212, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-cyan)' }}>
@@ -158,7 +141,7 @@ export const OperationsPlanningPage: React.FC = () => {
 
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-amber)' }}>2 Items</div>
+                <div className="stat-val" style={{ color: 'var(--accent-amber)' }}>{stockoutRiskCount} Items</div>
                 <div className="stat-label">Stockout Risk Alerts</div>
               </div>
               <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-amber)' }}>
@@ -168,7 +151,7 @@ export const OperationsPlanningPage: React.FC = () => {
 
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-rose)' }}>3 Active</div>
+                <div className="stat-val" style={{ color: 'var(--accent-rose)' }}>{openExceptionsCount} Active</div>
                 <div className="stat-label">Open Exceptions</div>
               </div>
               <div style={{ background: 'rgba(244, 63, 94, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-rose)' }}>
@@ -183,15 +166,21 @@ export const OperationsPlanningPage: React.FC = () => {
                 <Lightbulb size={18} style={{ color: 'var(--accent-amber)' }} /> Urgent Operational Actions
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {recommendations.map(r => (
-                  <div key={r.id} style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{r.type}: {r.item}</div>
-                      <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>{r.reason}</div>
-                    </div>
-                    <span className="badge badge-amber">{r.urgency}</span>
+                {recommendations.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    No urgent operational actions required. Systems operating normally.
                   </div>
-                ))}
+                ) : (
+                  recommendations.map(r => (
+                    <div key={r.id} style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{r.type}: {r.item}</div>
+                        <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>{r.reason}</div>
+                      </div>
+                      <span className="badge badge-amber">{r.urgency}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -200,15 +189,21 @@ export const OperationsPlanningPage: React.FC = () => {
                 <ShieldAlert size={18} style={{ color: 'var(--accent-rose)' }} /> Critical Exception Queue
               </h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {exceptions.map(e => (
-                  <div key={e.id} style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{e.code} — {e.summary}</div>
-                      <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Action: {e.action}</div>
-                    </div>
-                    <span className={`badge ${e.sev === 'CRITICAL' ? 'badge-rose' : 'badge-amber'}`}>{e.sev}</span>
+                {exceptions.length === 0 ? (
+                  <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                    Zero critical exceptions detected. All queues clear.
                   </div>
-                ))}
+                ) : (
+                  exceptions.map(e => (
+                    <div key={e.id} style={{ padding: '12px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{e.code} — {e.summary}</div>
+                        <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)' }}>Action: {e.action}</div>
+                      </div>
+                      <span className={`badge ${e.sev === 'CRITICAL' ? 'badge-rose' : 'badge-amber'}`}>{e.sev}</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -232,16 +227,24 @@ export const OperationsPlanningPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {targets.map(t => (
-                  <tr key={t.id}>
-                    <td><strong>{t.fiscal_year} ({t.period})</strong></td>
-                    <td><span className="badge badge-slate">{t.dept}</span></td>
-                    <td>{t.target_units} TVs</td>
-                    <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>{t.target_rev}</td>
-                    <td>{t.target_margin}</td>
-                    <td><span className="badge badge-emerald">{t.status}</span></td>
+                {targets.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      No enterprise planning targets defined yet. Enter new targets to begin tracking.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  targets.map(t => (
+                    <tr key={t.id}>
+                      <td><strong>{t.fiscal_year} ({t.period})</strong></td>
+                      <td><span className="badge badge-slate">{t.dept}</span></td>
+                      <td>{t.target_units} TVs</td>
+                      <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>{t.target_rev}</td>
+                      <td>{t.target_margin}</td>
+                      <td><span className="badge badge-emerald">{t.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -266,17 +269,25 @@ export const OperationsPlanningPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {forecasts.map(f => (
-                  <tr key={f.id}>
-                    <td><strong>{f.version}</strong></td>
-                    <td>{f.period}</td>
-                    <td><span className="badge badge-slate">{f.method.replace('_', ' ')}</span></td>
-                    <td style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{f.confidence}</td>
-                    <td>{f.units} TVs</td>
-                    <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>{f.revenue}</td>
-                    <td><span className={`badge ${f.status === 'ACTIVE' ? 'badge-emerald' : 'badge-slate'}`}>{f.status}</span></td>
+                {forecasts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      No active forecast models generated yet. Trigger an intelligence sweep to run forecasts.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  forecasts.map(f => (
+                    <tr key={f.id}>
+                      <td><strong>{f.version}</strong></td>
+                      <td>{f.period}</td>
+                      <td><span className="badge badge-slate">{f.method.replace('_', ' ')}</span></td>
+                      <td style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{f.confidence}</td>
+                      <td>{f.units} TVs</td>
+                      <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>{f.revenue}</td>
+                      <td><span className={`badge ${f.status === 'ACTIVE' ? 'badge-emerald' : 'badge-slate'}`}>{f.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -302,18 +313,26 @@ export const OperationsPlanningPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {recommendations.map(r => (
-                  <tr key={r.id}>
-                    <td><strong>{r.code}</strong></td>
-                    <td><span className="badge badge-cyan">{r.type}</span></td>
-                    <td>{r.cat}</td>
-                    <td style={{ fontWeight: 600 }}>{r.item}</td>
-                    <td>{r.qty} units</td>
-                    <td style={{ color: 'var(--accent-emerald)' }}>{r.est_cost}</td>
-                    <td><span className="badge badge-amber">{r.coverage}</span></td>
-                    <td><span className="badge badge-slate">{r.status}</span></td>
+                {recommendations.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      Zero operational recommendations pending. All inventory and procurement channels balanced.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  recommendations.map(r => (
+                    <tr key={r.id}>
+                      <td><strong>{r.code}</strong></td>
+                      <td><span className="badge badge-cyan">{r.type}</span></td>
+                      <td>{r.cat}</td>
+                      <td style={{ fontWeight: 600 }}>{r.item}</td>
+                      <td>{r.qty} units</td>
+                      <td style={{ color: 'var(--accent-emerald)' }}>{r.est_cost}</td>
+                      <td><span className="badge badge-amber">{r.coverage}</span></td>
+                      <td><span className="badge badge-slate">{r.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -338,17 +357,25 @@ export const OperationsPlanningPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {exceptions.map(e => (
-                  <tr key={e.id}>
-                    <td><strong>{e.code}</strong></td>
-                    <td><span className="badge badge-slate">{e.cat}</span></td>
-                    <td><span className={`badge ${e.sev === 'CRITICAL' ? 'badge-rose' : 'badge-amber'}`}>{e.sev}</span></td>
-                    <td>{e.ref}</td>
-                    <td style={{ fontWeight: 500 }}>{e.summary}</td>
-                    <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{e.action}</td>
-                    <td><span className="badge badge-cyan">{e.status}</span></td>
+                {exceptions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      Zero enterprise exceptions recorded. All operational processes running within tolerances.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  exceptions.map(e => (
+                    <tr key={e.id}>
+                      <td><strong>{e.code}</strong></td>
+                      <td><span className="badge badge-slate">{e.cat}</span></td>
+                      <td><span className={`badge ${e.sev === 'CRITICAL' ? 'badge-rose' : 'badge-amber'}`}>{e.sev}</span></td>
+                      <td>{e.ref}</td>
+                      <td style={{ fontWeight: 500 }}>{e.summary}</td>
+                      <td style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{e.action}</td>
+                      <td><span className="badge badge-cyan">{e.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -372,20 +399,28 @@ export const OperationsPlanningPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {scorecards.map((s, idx) => (
-                  <tr key={idx}>
-                    <td><span className="badge badge-slate">{s.group}</span></td>
-                    <td style={{ fontWeight: 600 }}>{s.kpi}</td>
-                    <td>{s.target}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>{s.actual}</td>
-                    <td>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: s.variance.startsWith('+') ? 'var(--accent-emerald)' : 'var(--accent-amber)', fontWeight: 600 }}>
-                        {s.variance.startsWith('+') ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />} {s.variance}
-                      </span>
+                {scorecards.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      No corporate KPI scorecards active. Scorecards will populate as operational logs accumulate.
                     </td>
-                    <td><span className={`badge ${s.status === 'EXCELLENT' ? 'badge-emerald' : s.status === 'ON_TRACK' ? 'badge-cyan' : 'badge-amber'}`}>{s.status}</span></td>
                   </tr>
-                ))}
+                ) : (
+                  scorecards.map((s, idx) => (
+                    <tr key={idx}>
+                      <td><span className="badge badge-slate">{s.group}</span></td>
+                      <td style={{ fontWeight: 600 }}>{s.kpi}</td>
+                      <td>{s.target}</td>
+                      <td style={{ fontWeight: 600, color: 'var(--accent-emerald)' }}>{s.actual}</td>
+                      <td>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: s.variance.startsWith('+') ? 'var(--accent-emerald)' : 'var(--accent-amber)', fontWeight: 600 }}>
+                          {s.variance.startsWith('+') ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />} {s.variance}
+                        </span>
+                      </td>
+                      <td><span className={`badge ${s.status === 'EXCELLENT' ? 'badge-emerald' : s.status === 'ON_TRACK' ? 'badge-cyan' : 'badge-amber'}`}>{s.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

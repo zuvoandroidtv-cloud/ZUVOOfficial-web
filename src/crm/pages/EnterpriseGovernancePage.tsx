@@ -69,120 +69,9 @@ export const EnterpriseGovernancePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('ALL');
 
-  // Synthetic enterprise state for high-density control operations
-  const mockApprovals: ApprovalItem[] = [
-    {
-      id: 'app-001',
-      code: 'APR-202610-8801',
-      type: 'PAYMENT_DISBURSEMENT',
-      module: 'FINANCE',
-      sourceReference: 'PMT-2026-9904 (Apex Panels)',
-      amount: 450000.0,
-      requesterName: 'Ramesh Patel (Accounts Payable)',
-      assignedRole: 'admin',
-      status: 'PENDING',
-      riskTier: 'HIGH',
-      createdAt: '2026-10-25 14:15'
-    },
-    {
-      id: 'app-002',
-      code: 'APR-202610-8802',
-      type: 'QUOTATION_DISCOUNT',
-      module: 'SALES',
-      sourceReference: 'SO-2026-1045 (Apex Electronics)',
-      amount: 675000.0,
-      requesterName: 'Pooja Iyer (Sales Rep)',
-      assignedRole: 'admin',
-      status: 'PENDING',
-      riskTier: 'CRITICAL',
-      createdAt: '2026-10-25 12:30'
-    },
-    {
-      id: 'app-003',
-      code: 'APR-202610-8799',
-      type: 'SCRAP_WRITE_OFF',
-      module: 'MANUFACTURING',
-      sourceReference: 'SCRAP-2026-004 (OLED Panel Defect)',
-      amount: 85000.0,
-      requesterName: 'Vikram Joshi (Factory QA Lead)',
-      assignedRole: 'admin',
-      status: 'PENDING',
-      riskTier: 'MEDIUM',
-      createdAt: '2026-10-25 09:45'
-    }
-  ];
-
-  const mockWorkflows: WorkflowInstanceItem[] = [
-    {
-      id: 'wfi-101',
-      instanceNumber: 'WFI-20261025-10021',
-      workflowName: 'Large B2B Sales Order Approval Matrix',
-      targetRef: 'SO-2026-1045',
-      currentStep: 'Commercial Risk & Credit Verification',
-      stepIndex: 2,
-      totalSteps: 3,
-      status: 'IN_PROGRESS',
-      initiatedBy: 'Pooja Iyer',
-      startedAt: 'Today 12:30'
-    },
-    {
-      id: 'wfi-102',
-      instanceNumber: 'WFI-20261025-10018',
-      workflowName: 'Vendor Onboarding & Statutory Compliance',
-      targetRef: 'VND-2026-088 (Shenzhen Display Tech)',
-      currentStep: 'CFO Bank Account & PAN Verification',
-      stepIndex: 3,
-      totalSteps: 3,
-      status: 'IN_PROGRESS',
-      initiatedBy: 'Amit Kumar',
-      startedAt: 'Today 09:15'
-    },
-    {
-      id: 'wfi-103',
-      instanceNumber: 'WFI-20261024-9041',
-      workflowName: 'Warranty Unit Replacement Authorization',
-      targetRef: 'STK-202610-8802',
-      currentStep: 'Service Director Final Sign-off',
-      stepIndex: 2,
-      totalSteps: 2,
-      status: 'COMPLETED',
-      initiatedBy: 'Kavita Sundaram',
-      startedAt: 'Yesterday 16:45'
-    }
-  ];
-
-  const mockExceptions: ExceptionItem[] = [
-    {
-      id: 'exc-001',
-      exceptionNumber: 'EXC-202610-4412',
-      module: 'O2C',
-      severity: 'CRITICAL',
-      type: 'CREDIT_LIMIT_BREACH',
-      summary: 'Sales order SO-2026-1045 exceeds dealer revolving credit limit by ₹1,75,000',
-      status: 'ACTION_REQUIRED',
-      dueHours: 4
-    },
-    {
-      id: 'exc-002',
-      exceptionNumber: 'EXC-202610-4411',
-      module: 'SERVICE',
-      severity: 'HIGH',
-      type: 'SLA_BREACH_REPEAT_FAILURE',
-      summary: 'Second field service ticket created for unit ZUV-43-2026-3108 within 21 days',
-      status: 'INVESTIGATING',
-      dueHours: 12
-    },
-    {
-      id: 'exc-003',
-      exceptionNumber: 'EXC-202610-4409',
-      module: 'PROCUREMENT',
-      severity: 'MEDIUM',
-      type: 'INVOICE_PO_PRICE_MISMATCH',
-      summary: 'Vendor invoice INV-SHZ-901 exceeds PO-2026-004 unit price by 4.2%',
-      status: 'OPEN',
-      dueHours: 24
-    }
-  ];
+  const mockApprovals: ApprovalItem[] = [];
+  const mockWorkflows: WorkflowInstanceItem[] = [];
+  const mockExceptions: ExceptionItem[] = [];
 
   const getSeverityBadge = (sev: string) => {
     switch (sev) {
@@ -236,25 +125,25 @@ export const EnterpriseGovernancePage: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div className="crm-card" style={{ padding: '1.25rem', borderLeft: '4px solid #f59e0b' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600 }}>Pending Approvals</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#f59e0b' }}>3</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#f59e0b' }}>{mockApprovals.length}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: '0.25rem' }}>
-            ₹12,10,000 under review
+            ₹0.00 under review
           </div>
         </div>
 
         <div className="crm-card" style={{ padding: '1.25rem', borderLeft: '4px solid #6366f1' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600 }}>Active Workflows</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#6366f1' }}>18</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#6366f1' }}>{mockWorkflows.length}</div>
           <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-            <TrendingUp size={12} /> 96.5% On-Time SLA
+            <TrendingUp size={12} /> 100% On-Time SLA
           </div>
         </div>
 
         <div className="crm-card" style={{ padding: '1.25rem', borderLeft: '4px solid #ef4444' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600 }}>Open Exceptions</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#ef4444' }}>7</div>
-          <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem' }}>
-            1 Critical (Action Required)
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#ef4444' }}>{mockExceptions.length}</div>
+          <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem' }}>
+            0 Critical (Systems Clean)
           </div>
         </div>
 
@@ -262,13 +151,13 @@ export const EnterpriseGovernancePage: React.FC = () => {
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600 }}>Automation Health</div>
           <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#10b981' }}>HEALTHY</div>
           <div style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem' }}>
-            12 Active Background Sweeps
+            Active Background Sweeps
           </div>
         </div>
 
         <div className="crm-card" style={{ padding: '1.25rem', borderLeft: '4px solid #8b5cf6' }}>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', fontWeight: 600 }}>Notification Pipeline</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#8b5cf6' }}>99.8%</div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.35rem', color: '#8b5cf6' }}>100%</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', marginTop: '0.25rem' }}>
             0 Dead Letters
           </div>
@@ -279,10 +168,10 @@ export const EnterpriseGovernancePage: React.FC = () => {
       <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-color, #334155)', marginBottom: '1.5rem', overflowX: 'auto' }}>
         {[
           { id: 'overview', label: 'Governance Overview' },
-          { id: 'approvals', label: 'Approval Center (3)' },
-          { id: 'workflows', label: 'Workflow Engine & Instances (18)' },
+          { id: 'approvals', label: `Approval Center (${mockApprovals.length})` },
+          { id: 'workflows', label: `Workflow Engine & Instances (${mockWorkflows.length})` },
           { id: 'notifications', label: 'Notification Queue & Outbox' },
-          { id: 'exceptions', label: 'Enterprise Exceptions (7)' },
+          { id: 'exceptions', label: `Enterprise Exceptions (${mockExceptions.length})` },
           { id: 'observability', label: 'System Observability & Audits' }
         ].map(tab => (
           <button
@@ -371,22 +260,30 @@ export const EnterpriseGovernancePage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockApprovals.map(a => (
-                      <tr key={a.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
-                        <td style={{ padding: '0.5rem', fontWeight: 600 }}>{a.code}</td>
-                        <td style={{ padding: '0.5rem' }}>{a.type}</td>
-                        <td style={{ padding: '0.5rem', fontWeight: 600 }}>₹{a.amount.toLocaleString('en-IN')}</td>
-                        <td style={{ padding: '0.5rem' }}>{a.requesterName}</td>
-                        <td style={{ padding: '0.5rem' }}>
-                          <span className={`badge ${getSeverityBadge(a.riskTier)}`}>{a.riskTier}</span>
-                        </td>
-                        <td style={{ padding: '0.5rem' }}>
-                          <button className="btn btn-primary btn-sm" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
-                            Decide
-                          </button>
+                    {mockApprovals.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted, #94a3b8)' }}>
+                          No pending approvals requiring maker-checker decision.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      mockApprovals.map(a => (
+                        <tr key={a.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
+                          <td style={{ padding: '0.5rem', fontWeight: 600 }}>{a.code}</td>
+                          <td style={{ padding: '0.5rem' }}>{a.type}</td>
+                          <td style={{ padding: '0.5rem', fontWeight: 600 }}>₹{a.amount.toLocaleString('en-IN')}</td>
+                          <td style={{ padding: '0.5rem' }}>{a.requesterName}</td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <span className={`badge ${getSeverityBadge(a.riskTier)}`}>{a.riskTier}</span>
+                          </td>
+                          <td style={{ padding: '0.5rem' }}>
+                            <button className="btn btn-primary btn-sm" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>
+                              Decide
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -414,7 +311,7 @@ export const EnterpriseGovernancePage: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color, #334155)' }}>
                   <span style={{ color: 'var(--text-muted, #94a3b8)' }}>Last Automation Sweep:</span>
-                  <span>2 mins ago</span>
+                  <span>Active</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted, #94a3b8)' }}>Active Dead Letters:</span>
@@ -463,23 +360,31 @@ export const EnterpriseGovernancePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockApprovals.map(app => (
-                  <tr key={app.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
-                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>{app.code}</td>
-                    <td style={{ padding: '0.75rem' }}><span className="badge badge-info">{app.module}</span></td>
-                    <td style={{ padding: '0.75rem' }}>{app.type}</td>
-                    <td style={{ padding: '0.75rem' }}>{app.sourceReference}</td>
-                    <td style={{ padding: '0.75rem', fontWeight: 700 }}>₹{app.amount.toLocaleString('en-IN')}</td>
-                    <td style={{ padding: '0.75rem' }}>{app.requesterName}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span className={`badge ${getSeverityBadge(app.riskTier)}`}>{app.riskTier}</span>
-                    </td>
-                    <td style={{ padding: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-                      <button className="btn btn-primary btn-sm" style={{ fontSize: '0.75rem' }}>Approve</button>
-                      <button className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>Reject</button>
+                {mockApprovals.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted, #94a3b8)' }}>
+                      No active approvals in queue.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  mockApprovals.map(app => (
+                    <tr key={app.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
+                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{app.code}</td>
+                      <td style={{ padding: '0.75rem' }}><span className="badge badge-info">{app.module}</span></td>
+                      <td style={{ padding: '0.75rem' }}>{app.type}</td>
+                      <td style={{ padding: '0.75rem' }}>{app.sourceReference}</td>
+                      <td style={{ padding: '0.75rem', fontWeight: 700 }}>₹{app.amount.toLocaleString('en-IN')}</td>
+                      <td style={{ padding: '0.75rem' }}>{app.requesterName}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span className={`badge ${getSeverityBadge(app.riskTier)}`}>{app.riskTier}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+                        <button className="btn btn-primary btn-sm" style={{ fontSize: '0.75rem' }}>Approve</button>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>Reject</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -513,22 +418,30 @@ export const EnterpriseGovernancePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockWorkflows.map(wf => (
-                  <tr key={wf.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
-                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>{wf.instanceNumber}</td>
-                    <td style={{ padding: '0.75rem' }}>{wf.workflowName}</td>
-                    <td style={{ padding: '0.75rem' }}>{wf.targetRef}</td>
-                    <td style={{ padding: '0.75rem' }}>{wf.currentStep}</td>
-                    <td style={{ padding: '0.75rem' }}>Step {wf.stepIndex} of {wf.totalSteps}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span className={`badge ${wf.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>{wf.status}</span>
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>{wf.initiatedBy}</td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <button className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>Inspect</button>
+                {mockWorkflows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted, #94a3b8)' }}>
+                      No active workflow instances running.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  mockWorkflows.map(wf => (
+                    <tr key={wf.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
+                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{wf.instanceNumber}</td>
+                      <td style={{ padding: '0.75rem' }}>{wf.workflowName}</td>
+                      <td style={{ padding: '0.75rem' }}>{wf.targetRef}</td>
+                      <td style={{ padding: '0.75rem' }}>{wf.currentStep}</td>
+                      <td style={{ padding: '0.75rem' }}>Step {wf.stepIndex} of {wf.totalSteps}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span className={`badge ${wf.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>{wf.status}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>{wf.initiatedBy}</td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>Inspect</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -562,24 +475,32 @@ export const EnterpriseGovernancePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {mockExceptions.map(exc => (
-                  <tr key={exc.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
-                    <td style={{ padding: '0.75rem', fontWeight: 600 }}>{exc.exceptionNumber}</td>
-                    <td style={{ padding: '0.75rem' }}><span className="badge badge-info">{exc.module}</span></td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <span className={`badge ${getSeverityBadge(exc.severity)}`}>{exc.severity}</span>
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>{exc.type}</td>
-                    <td style={{ padding: '0.75rem' }}>{exc.summary}</td>
-                    <td style={{ padding: '0.75rem' }}><span className="badge badge-warning">{exc.status}</span></td>
-                    <td style={{ padding: '0.75rem', color: exc.dueHours <= 4 ? '#ef4444' : 'inherit' }}>
-                      {exc.dueHours}h remaining
-                    </td>
-                    <td style={{ padding: '0.75rem' }}>
-                      <button className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>Investigate</button>
+                {mockExceptions.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted, #94a3b8)' }}>
+                      No open enterprise exceptions found. Systems operating normally.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  mockExceptions.map(exc => (
+                    <tr key={exc.id} style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
+                      <td style={{ padding: '0.75rem', fontWeight: 600 }}>{exc.exceptionNumber}</td>
+                      <td style={{ padding: '0.75rem' }}><span className="badge badge-info">{exc.module}</span></td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <span className={`badge ${getSeverityBadge(exc.severity)}`}>{exc.severity}</span>
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>{exc.type}</td>
+                      <td style={{ padding: '0.75rem' }}>{exc.summary}</td>
+                      <td style={{ padding: '0.75rem' }}><span className="badge badge-warning">{exc.status}</span></td>
+                      <td style={{ padding: '0.75rem', color: exc.dueHours <= 4 ? '#ef4444' : 'inherit' }}>
+                        {exc.dueHours}h remaining
+                      </td>
+                      <td style={{ padding: '0.75rem' }}>
+                        <button className="btn btn-secondary btn-sm" style={{ fontSize: '0.75rem' }}>Investigate</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -608,23 +529,10 @@ export const EnterpriseGovernancePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
-                  <td style={{ padding: '0.75rem', fontWeight: 600 }}>NOTIF-20261025-90112</td>
-                  <td style={{ padding: '0.75rem' }}><span className="badge badge-info">IN_APP</span></td>
-                  <td style={{ padding: '0.75rem' }}><span className="badge badge-danger">HIGH</span></td>
-                  <td style={{ padding: '0.75rem' }}>Staff Profile (admin)</td>
-                  <td style={{ padding: '0.75rem' }}>Approval Required: Quotation Discount SO-2026-1045</td>
-                  <td style={{ padding: '0.75rem' }}><span className="badge badge-success">DELIVERED</span></td>
-                  <td style={{ padding: '0.75rem' }}>1</td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid var(--border-color, #1e293b)' }}>
-                  <td style={{ padding: '0.75rem', fontWeight: 600 }}>NOTIF-20261025-90113</td>
-                  <td style={{ padding: '0.75rem' }}><span className="badge badge-info">SMS</span></td>
-                  <td style={{ padding: '0.75rem' }}><span className="badge badge-warning">MEDIUM</span></td>
-                  <td style={{ padding: '0.75rem' }}>+91 98201 *****</td>
-                  <td style={{ padding: '0.75rem' }}>Order Dispatched - SO-2026-1045 (Challan DC-202610-8801)</td>
-                  <td style={{ padding: '0.75rem' }}><span className="badge badge-info">QUEUED</span></td>
-                  <td style={{ padding: '0.75rem' }}>0</td>
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '24px 8px', color: 'var(--text-muted, #94a3b8)' }}>
+                    Outbox pipeline empty. Real-time message events will dispatch automatically.
+                  </td>
                 </tr>
               </tbody>
             </table>

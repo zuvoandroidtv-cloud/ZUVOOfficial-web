@@ -20,30 +20,11 @@ import {
 export const GrowthEnginePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'funnel' | 'leads' | 'opportunities' | 'quotations' | 'activities' | 'onboarding' | 'campaigns' | 'loyalty'>('funnel');
 
-  const [leads] = useState([
-    { id: '1', lead_number: 'LEAD-202610-001', name: 'Ramesh Sundaram', phone: '+91 98401 23456', source: 'WEBSITE_INQUIRY', model: 'ZUVO 55" 4K Smart Voice', value: '₹34,500', score: 85, status: 'QUALIFIED' },
-    { id: '2', lead_number: 'LEAD-202610-002', name: 'Apex Electronics Coimbatore', phone: '+91 94432 98765', source: 'DEALER_REFERRAL', model: 'Bulk 43" & 32" Mix', value: '₹4,90,000', score: 92, status: 'NEW' },
-  ]);
-
-  const [opportunities] = useState([
-    { id: '1', opp_number: 'OPP-202610-41002', title: 'Hotel Residency 43" Fleet Upgrade (30 TVs)', account: 'Hotel Residency Grand', stage: 'NEGOTIATION', prob: '75%', value: '₹7,35,000', weighted: '₹5,51,250', close: '2026-11-15' },
-    { id: '2', opp_number: 'OPP-202610-41003', title: 'Cauvery Retail Festival Bulk Order', account: 'Cauvery Hyperstore', stage: 'COMMIT', prob: '90%', value: '₹12,25,000', weighted: '₹11,02,500', close: '2026-10-31' },
-  ]);
-
-  const [quotations] = useState([
-    { id: '1', quote_number: 'QT-202610-089', account: 'Hotel Residency Grand', total: '₹7,35,000', valid_until: '2026-11-10', status: 'SENT' },
-    { id: '2', quote_number: 'QT-202610-090', account: 'Cauvery Hyperstore', total: '₹12,25,000', valid_until: '2026-11-05', status: 'APPROVED' },
-  ]);
-
-  const [applications] = useState([
-    { id: '1', app_number: 'APP-DLR-2026-04', trade_name: 'Sri Krishna Electronics Salem', contact: 'Krishna Murthy', territory: 'Tamil Nadu West', requested_credit: '₹8,00,000', status: 'KYC_REVIEW' },
-    { id: '2', app_number: 'APP-DLR-2026-05', trade_name: 'Metro Digital Hub Madurai', contact: 'M. Pandian', territory: 'Tamil Nadu South', requested_credit: '₹12,00,000', status: 'APPLICATION' },
-  ]);
-
-  const [campaigns] = useState([
-    { id: '1', code: 'CMP-DIWALI-2026', name: 'Diwali Festival 4K Smart Upgrade', type: 'SEASONAL', budget: '₹5,00,000', target: '₹80,00,000', actual: '₹62,40,000', status: 'ACTIVE' },
-    { id: '2', code: 'CMP-DLR-REBATE-Q3', name: 'Q3 Dealer Volume Accelerator', type: 'DEALER_GROWTH', budget: '₹12,00,000', target: '₹2,50,00,000', actual: '₹2,10,00,000', status: 'ACTIVE' },
-  ]);
+  const [leads] = useState<Array<{ id: string; lead_number: string; name: string; phone: string; source: string; model: string; value: string; score: number; status: string }>>([]);
+  const [opportunities] = useState<Array<{ id: string; opp_number: string; title: string; account: string; stage: string; prob: string; value: string; weighted: string; close: string }>>([]);
+  const [quotations] = useState<Array<{ id: string; quote_number: string; account: string; total: string; valid_until: string; status: string }>>([]);
+  const [applications] = useState<Array<{ id: string; app_number: string; trade_name: string; contact: string; territory: string; requested_credit: string; status: string }>>([]);
+  const [campaigns] = useState<Array<{ id: string; code: string; name: string; type: string; budget: string; target: string; actual: string; status: string }>>([]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', paddingBottom: '32px' }}>
@@ -117,7 +98,7 @@ export const GrowthEnginePage: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-blue)' }}>₹19.60 L</div>
+                <div className="stat-val" style={{ color: 'var(--accent-blue)' }}>₹0.00</div>
                 <div className="stat-label">Total Pipeline Value</div>
               </div>
               <div style={{ background: 'rgba(59, 130, 246, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-blue)' }}>
@@ -127,7 +108,7 @@ export const GrowthEnginePage: React.FC = () => {
 
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-emerald)' }}>₹16.53 L</div>
+                <div className="stat-val" style={{ color: 'var(--accent-emerald)' }}>₹0.00</div>
                 <div className="stat-label">Weighted Pipeline</div>
               </div>
               <div style={{ background: 'rgba(16, 185, 129, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-emerald)' }}>
@@ -137,7 +118,7 @@ export const GrowthEnginePage: React.FC = () => {
 
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-purple)' }}>82.5%</div>
+                <div className="stat-val" style={{ color: 'var(--accent-purple)' }}>0.0%</div>
                 <div className="stat-label">Average Win Probability</div>
               </div>
               <div style={{ background: 'rgba(139, 92, 246, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-purple)' }}>
@@ -147,7 +128,7 @@ export const GrowthEnginePage: React.FC = () => {
 
             <div className="stat-card">
               <div>
-                <div className="stat-val" style={{ color: 'var(--accent-cyan)' }}>12 Apps</div>
+                <div className="stat-val" style={{ color: 'var(--accent-cyan)' }}>{applications.length} Apps</div>
                 <div className="stat-label">Active Dealer KYC Queue</div>
               </div>
               <div style={{ background: 'rgba(6, 182, 212, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-cyan)' }}>
@@ -161,23 +142,23 @@ export const GrowthEnginePage: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
               <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>QUALIFICATION</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹4.90 L</div>
-                <span className="badge badge-slate">2 Deals</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹0.00</div>
+                <span className="badge badge-slate">0 Deals</span>
               </div>
               <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>QUOTATION</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹19.60 L</div>
-                <span className="badge badge-cyan">2 Deals</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹0.00</div>
+                <span className="badge badge-cyan">0 Deals</span>
               </div>
               <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>NEGOTIATION</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹7.35 L</div>
-                <span className="badge badge-purple">1 Deal</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹0.00</div>
+                <span className="badge badge-purple">0 Deals</span>
               </div>
               <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-color)', textAlign: 'center' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>COMMIT</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹12.25 L</div>
-                <span className="badge badge-emerald">1 Deal</span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, margin: '4px 0' }}>₹0.00</div>
+                <span className="badge badge-emerald">0 Deals</span>
               </div>
             </div>
           </div>
@@ -203,18 +184,26 @@ export const GrowthEnginePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {leads.map(l => (
-                  <tr key={l.id}>
-                    <td><strong>{l.lead_number}</strong></td>
-                    <td style={{ fontWeight: 600 }}>{l.name}</td>
-                    <td>{l.phone}</td>
-                    <td><span className="badge badge-slate">{l.source.replace('_', ' ')}</span></td>
-                    <td>{l.model}</td>
-                    <td style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{l.value}</td>
-                    <td><span className="badge badge-cyan">{l.score} / 100</span></td>
-                    <td><span className="badge badge-emerald">{l.status}</span></td>
+                {leads.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                      No active commercial leads found. Systems ready for inbound inquiries.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  leads.map(l => (
+                    <tr key={l.id}>
+                      <td><strong>{l.lead_number}</strong></td>
+                      <td style={{ fontWeight: 600 }}>{l.name}</td>
+                      <td>{l.phone}</td>
+                      <td><span className="badge badge-slate">{l.source.replace('_', ' ')}</span></td>
+                      <td>{l.model}</td>
+                      <td style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{l.value}</td>
+                      <td><span className="badge badge-cyan">{l.score} / 100</span></td>
+                      <td><span className="badge badge-emerald">{l.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -240,18 +229,26 @@ export const GrowthEnginePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {opportunities.map(o => (
-                  <tr key={o.id}>
-                    <td><strong>{o.opp_number}</strong></td>
-                    <td style={{ fontWeight: 600 }}>{o.title}</td>
-                    <td>{o.account}</td>
-                    <td><span className="badge badge-purple">{o.stage}</span></td>
-                    <td><span className="badge badge-slate">{o.prob}</span></td>
-                    <td style={{ fontWeight: 600 }}>{o.value}</td>
-                    <td style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{o.weighted}</td>
-                    <td>{o.close}</td>
+                {opportunities.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                      No active deals in pipeline. New opportunities will appear here.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  opportunities.map(o => (
+                    <tr key={o.id}>
+                      <td><strong>{o.opp_number}</strong></td>
+                      <td style={{ fontWeight: 600 }}>{o.title}</td>
+                      <td>{o.account}</td>
+                      <td><span className="badge badge-purple">{o.stage}</span></td>
+                      <td><span className="badge badge-slate">{o.prob}</span></td>
+                      <td style={{ fontWeight: 600 }}>{o.value}</td>
+                      <td style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{o.weighted}</td>
+                      <td>{o.close}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -274,15 +271,23 @@ export const GrowthEnginePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {quotations.map(q => (
-                  <tr key={q.id}>
-                    <td><strong>{q.quote_number}</strong></td>
-                    <td style={{ fontWeight: 600 }}>{q.account}</td>
-                    <td style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{q.total}</td>
-                    <td>{q.valid_until}</td>
-                    <td><span className={`badge ${q.status === 'APPROVED' ? 'badge-emerald' : 'badge-cyan'}`}>{q.status}</span></td>
+                {quotations.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                      No commercial quotations created.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  quotations.map(q => (
+                    <tr key={q.id}>
+                      <td><strong>{q.quote_number}</strong></td>
+                      <td style={{ fontWeight: 600 }}>{q.account}</td>
+                      <td style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{q.total}</td>
+                      <td>{q.valid_until}</td>
+                      <td><span className={`badge ${q.status === 'APPROVED' ? 'badge-emerald' : 'badge-cyan'}`}>{q.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -306,16 +311,24 @@ export const GrowthEnginePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {applications.map(a => (
-                  <tr key={a.id}>
-                    <td><strong>{a.app_number}</strong></td>
-                    <td style={{ fontWeight: 600 }}>{a.trade_name}</td>
-                    <td>{a.contact}</td>
-                    <td>{a.territory}</td>
-                    <td style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{a.requested_credit}</td>
-                    <td><span className={`badge ${a.status === 'KYC_REVIEW' ? 'badge-amber' : 'badge-slate'}`}>{a.status}</span></td>
+                {applications.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                      No dealer onboarding applications in queue.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  applications.map(a => (
+                    <tr key={a.id}>
+                      <td><strong>{a.app_number}</strong></td>
+                      <td style={{ fontWeight: 600 }}>{a.trade_name}</td>
+                      <td>{a.contact}</td>
+                      <td>{a.territory}</td>
+                      <td style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{a.requested_credit}</td>
+                      <td><span className={`badge ${a.status === 'KYC_REVIEW' ? 'badge-amber' : 'badge-slate'}`}>{a.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -340,17 +353,25 @@ export const GrowthEnginePage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {campaigns.map(c => (
-                  <tr key={c.id}>
-                    <td><strong>{c.code}</strong></td>
-                    <td style={{ fontWeight: 600 }}>{c.name}</td>
-                    <td><span className="badge badge-purple">{c.type}</span></td>
-                    <td>{c.budget}</td>
-                    <td>{c.target}</td>
-                    <td style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{c.actual}</td>
-                    <td><span className="badge badge-emerald">{c.status}</span></td>
+                {campaigns.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-muted)' }}>
+                      No active commercial campaigns configured.
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  campaigns.map(c => (
+                    <tr key={c.id}>
+                      <td><strong>{c.code}</strong></td>
+                      <td style={{ fontWeight: 600 }}>{c.name}</td>
+                      <td><span className="badge badge-purple">{c.type}</span></td>
+                      <td>{c.budget}</td>
+                      <td>{c.target}</td>
+                      <td style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>{c.actual}</td>
+                      <td><span className="badge badge-emerald">{c.status}</span></td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

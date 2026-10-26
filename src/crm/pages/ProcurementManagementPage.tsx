@@ -50,97 +50,50 @@ export const ProcurementManagementPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Top KPI Metrics
+  interface VendorItem {
+    code: string;
+    name: string;
+    type: string;
+    category: string;
+    kyc: string;
+    bank: string;
+    risk: string;
+    score: number;
+    otd: string;
+    quality: string;
+  }
+  const [vendors] = useState<VendorItem[]>([]);
+
+  interface RequisitionItem {
+    number: string;
+    department: string;
+    purpose: string;
+    priority: string;
+    estValue: string;
+    status: string;
+    requiredDate: string;
+  }
+  const [requisitions] = useState<RequisitionItem[]>([]);
+
+  interface InvoiceMatchItem {
+    invoiceNumber: string;
+    vendor: string;
+    poRef: string;
+    grnRef: string;
+    amount: string;
+    matchOutcome: string;
+    paymentReadiness: string;
+  }
+  const [invoices] = useState<InvoiceMatchItem[]>([]);
+
   const kpis = [
-    { label: 'Active Direct Suppliers', value: '38 Vendors', sub: '92% Bank & KYC Verified', color: '#10b981', icon: Building2 },
-    { label: 'Open Requisitions', value: '14 Items', sub: '₹48.2L Projected Value', color: '#3b82f6', icon: FileText },
-    { label: 'Active Sourcing RFQs', value: '6 Bids Open', sub: 'Competitive Evaluation', color: '#8b5cf6', icon: Scale },
-    { label: 'Pending PO Approvals', value: '3 Orders', sub: 'Dual-Control Verification', color: '#f59e0b', icon: Clock },
-    { label: '3-Way Match Readiness', value: '94.8%', sub: '₹1.18Cr Ready for Payout', color: '#06b6d4', icon: Receipt },
-    { label: 'Open P2P Exceptions', value: '4 Flags', sub: 'Price/GRN Mismatches', color: '#ef4444', icon: AlertTriangle },
+    { label: 'Active Direct Suppliers', value: `${vendors.length} Vendors`, sub: '100% Bank & KYC Verified', color: '#10b981', icon: Building2 },
+    { label: 'Open Requisitions', value: `${requisitions.length} Items`, sub: '₹0.00 Projected Value', color: '#3b82f6', icon: FileText },
+    { label: 'Active Sourcing RFQs', value: '0 Bids Open', sub: 'Competitive Evaluation', color: '#8b5cf6', icon: Scale },
+    { label: 'Pending PO Approvals', value: '0 Orders', sub: 'Dual-Control Verification', color: '#f59e0b', icon: Clock },
+    { label: '3-Way Match Readiness', value: '100.0%', sub: '₹0.00 Ready for Payout', color: '#06b6d4', icon: Receipt },
+    { label: 'Open P2P Exceptions', value: '0 Flags', sub: 'Price/GRN Mismatches', color: '#ef4444', icon: AlertTriangle },
   ];
-
-  // Mock Vendor Roster
-  const [vendors] = useState([
-    {
-      code: 'VND-1001',
-      name: 'BOE Optoelectronics Technology Ltd',
-      type: 'Component Manufacturer',
-      category: '4K Display Panels & Open Cells',
-      kyc: 'VERIFIED',
-      bank: 'VERIFIED',
-      risk: 'STRATEGIC',
-      score: 96.5,
-      otd: '98.2%',
-      quality: '99.4%',
-    },
-    {
-      code: 'VND-1002',
-      name: 'MediaTek Semiconductor Corp',
-      type: 'Direct Importer',
-      category: 'Smart TV Mainboards & SOCs',
-      kyc: 'VERIFIED',
-      bank: 'VERIFIED',
-      risk: 'PREFERRED',
-      score: 93.8,
-      otd: '95.0%',
-      quality: '98.9%',
-    },
-    {
-      code: 'VND-1003',
-      name: 'Delta Power Electronics India Pvt Ltd',
-      type: 'Domestic Manufacturer',
-      category: 'SMPS Power Supply Modules',
-      kyc: 'VERIFIED',
-      bank: 'VERIFIED',
-      risk: 'STANDARD',
-      score: 89.2,
-      otd: '91.4%',
-      quality: '97.6%',
-    },
-    {
-      code: 'VND-1004',
-      name: 'Cosmo Plastics & Moldings India',
-      type: 'Chassis Supplier',
-      category: 'Bezel Frames & Back Covers',
-      kyc: 'EXPIRED',
-      bank: 'UNVERIFIED',
-      risk: 'WATCHLIST',
-      score: 74.0,
-      otd: '82.5%',
-      quality: '91.0%',
-    },
-  ]);
-
-  // Mock Requisitions
-  const [requisitions] = useState([
-    {
-      number: 'PR-20261022-0041',
-      department: 'MANUFACTURING',
-      purpose: '55-inch 4K Open Cell Panels for Smart Factory Line 2',
-      priority: 'HIGH',
-      estValue: '₹34,50,000.00',
-      status: 'APPROVED',
-      requiredDate: '2026-11-05',
-    },
-    {
-      number: 'PR-20261022-0042',
-      department: 'SERVICE',
-      purpose: 'Emergency Spare Mainboards for South Field Hub',
-      priority: 'CRITICAL',
-      estValue: '₹4,80,000.00',
-      status: 'SOURCING',
-      requiredDate: '2026-10-28',
-    },
-    {
-      number: 'PR-20261022-0043',
-      department: 'WAREHOUSE',
-      purpose: 'Antistatic Bubble Packaging Rolls & Heavy Duty Cartons',
-      priority: 'MEDIUM',
-      estValue: '₹1,95,000.00',
-      status: 'SUBMITTED',
-      requiredDate: '2026-11-12',
-    },
-  ]);
 
   return (
     <div className="p-6 bg-[#0a0f1d] min-h-screen text-slate-100 font-sans">
@@ -260,40 +213,47 @@ export const ProcurementManagementPage: React.FC = () => {
                 </span>
               </div>
               <div className="space-y-3">
-                {requisitions.map((req, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 bg-slate-950/60 border border-slate-850 rounded-lg flex items-center justify-between hover:border-slate-700 transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-cyan-400 font-semibold">{req.number}</span>
-                        <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-semibold">
-                          {req.department}
-                        </span>
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                            req.priority === 'CRITICAL'
-                              ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                              : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                          }`}
-                        >
-                          {req.priority}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-300 mt-1 font-medium">{req.purpose}</p>
-                      <div className="flex items-center gap-4 text-[11px] text-slate-400 mt-1">
-                        <span>Due: {req.requiredDate}</span>
-                        <span>Est: <strong className="text-slate-200">{req.estValue}</strong></span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-md font-semibold border border-emerald-500/20">
-                        {req.status}
-                      </span>
-                    </div>
+                {requisitions.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 bg-slate-950/40 border border-slate-850 rounded-lg">
+                    <FileText className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">No active purchase requisitions logged in system.</p>
                   </div>
-                ))}
+                ) : (
+                  requisitions.map((req, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 bg-slate-950/60 border border-slate-850 rounded-lg flex items-center justify-between hover:border-slate-700 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-cyan-400 font-semibold">{req.number}</span>
+                          <span className="text-[10px] px-2 py-0.5 bg-slate-800 text-slate-300 rounded font-semibold">
+                            {req.department}
+                          </span>
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                              req.priority === 'CRITICAL'
+                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                            }`}
+                          >
+                            {req.priority}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1 font-medium">{req.purpose}</p>
+                        <div className="flex items-center gap-4 text-[11px] text-slate-400 mt-1">
+                          <span>Due: {req.requiredDate}</span>
+                          <span>Est: <strong className="text-slate-200">{req.estValue}</strong></span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-xs px-2.5 py-1 bg-emerald-500/10 text-emerald-400 rounded-md font-semibold border border-emerald-500/20">
+                          {req.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -307,31 +267,38 @@ export const ProcurementManagementPage: React.FC = () => {
                 <span className="text-xs text-slate-400">Weighted Quality & OTD</span>
               </div>
               <div className="space-y-3">
-                {vendors.map((v, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 bg-slate-950/60 border border-slate-850 rounded-lg flex items-center justify-between hover:border-slate-700 transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-emerald-400 font-bold">{v.code}</span>
-                        <span className="text-xs font-semibold text-white">{v.name}</span>
-                      </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">{v.category}</div>
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
-                        <span>OTD: <strong className="text-slate-300">{v.otd}</strong></span>
-                        <span>Quality: <strong className="text-slate-300">{v.quality}</strong></span>
-                        <span className="text-[10px] px-1.5 py-0.2 bg-slate-800 text-slate-300 rounded font-bold">
-                          {v.risk}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-emerald-400">{v.score} / 100</div>
-                      <div className="text-[10px] text-slate-400">Scorecard</div>
-                    </div>
+                {vendors.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 bg-slate-950/40 border border-slate-850 rounded-lg">
+                    <Building2 className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
+                    <p className="text-xs">No strategic suppliers onboarded yet.</p>
                   </div>
-                ))}
+                ) : (
+                  vendors.map((v, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 bg-slate-950/60 border border-slate-850 rounded-lg flex items-center justify-between hover:border-slate-700 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-emerald-400 font-bold">{v.code}</span>
+                          <span className="text-xs font-semibold text-white">{v.name}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">{v.category}</div>
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-1">
+                          <span>OTD: <strong className="text-slate-300">{v.otd}</strong></span>
+                          <span>Quality: <strong className="text-slate-300">{v.quality}</strong></span>
+                          <span className="text-[10px] px-1.5 py-0.2 bg-slate-800 text-slate-300 rounded font-bold">
+                            {v.risk}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-emerald-400">{v.score} / 100</div>
+                        <div className="text-[10px] text-slate-400">Scorecard</div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -365,72 +332,39 @@ export const ProcurementManagementPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-850">
-                  <tr className="hover:bg-slate-850/40 transition-colors">
-                    <td className="py-3 px-3 font-mono font-medium text-white">INV-202610-8801</td>
-                    <td className="py-3 px-3 text-slate-200">BOE Optoelectronics</td>
-                    <td className="py-3 px-3 font-mono text-cyan-400">PO-202610-091</td>
-                    <td className="py-3 px-3 font-mono text-slate-300">GRN-202610-401</td>
-                    <td className="py-3 px-3 font-bold text-white">₹32,50,000.00</td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-semibold border border-emerald-500/20">
-                        EXACT_MATCH
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded font-semibold border border-cyan-500/20">
-                        READY_FOR_PAYMENT
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded text-xs transition-colors font-medium">
-                        View Dossier
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-850/40 transition-colors">
-                    <td className="py-3 px-3 font-mono font-medium text-white">INV-202610-8802</td>
-                    <td className="py-3 px-3 text-slate-200">MediaTek Semiconductor</td>
-                    <td className="py-3 px-3 font-mono text-cyan-400">PO-202610-092</td>
-                    <td className="py-3 px-3 font-mono text-slate-300">GRN-202610-402</td>
-                    <td className="py-3 px-3 font-bold text-white">₹14,20,000.00</td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-semibold border border-emerald-500/20">
-                        EXACT_MATCH
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded font-semibold border border-cyan-500/20">
-                        READY_FOR_PAYMENT
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded text-xs transition-colors font-medium">
-                        View Dossier
-                      </button>
-                    </td>
-                  </tr>
-                  <tr className="hover:bg-slate-850/40 transition-colors">
-                    <td className="py-3 px-3 font-mono font-medium text-white">INV-202610-8803</td>
-                    <td className="py-3 px-3 text-slate-200">Cosmo Plastics & Moldings</td>
-                    <td className="py-3 px-3 font-mono text-cyan-400">PO-202610-095</td>
-                    <td className="py-3 px-3 font-mono text-amber-400">MISSING</td>
-                    <td className="py-3 px-3 font-bold text-white">₹2,80,000.00</td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded font-semibold border border-amber-500/20">
-                        MISSING_GRN
-                      </span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded font-semibold border border-amber-500/20">
-                        ON_HOLD
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded text-xs transition-colors font-medium">
-                        Investigate
-                      </button>
-                    </td>
-                  </tr>
+                  {invoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 px-3 text-center text-slate-400">
+                        <Receipt className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
+                        No vendor invoices pending 3-way match reconciliation.
+                      </td>
+                    </tr>
+                  ) : (
+                    invoices.map((inv, idx) => (
+                      <tr key={idx} className="hover:bg-slate-850/40 transition-colors">
+                        <td className="py-3 px-3 font-mono font-medium text-white">{inv.invoiceNumber}</td>
+                        <td className="py-3 px-3 text-slate-200">{inv.vendor}</td>
+                        <td className="py-3 px-3 font-mono text-cyan-400">{inv.poRef}</td>
+                        <td className="py-3 px-3 font-mono text-slate-300">{inv.grnRef}</td>
+                        <td className="py-3 px-3 font-bold text-white">{inv.amount}</td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded font-semibold border border-emerald-500/20">
+                            {inv.matchOutcome}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded font-semibold border border-cyan-500/20">
+                            {inv.paymentReadiness}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button className="px-2.5 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 rounded text-xs transition-colors font-medium">
+                            View Dossier
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

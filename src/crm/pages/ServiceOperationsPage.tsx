@@ -39,161 +39,89 @@ export const ServiceOperationsPage: React.FC = () => {
   const [filterPriority, setFilterPriority] = useState<string>('all');
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  // Operational KPIs for Service Command Center
-  const kpis = [
-    { label: 'Active Tickets', value: '42 cases', sub: '8 In-Progress, 14 Scheduled', color: '#3b82f6', icon: Wrench },
-    { label: 'SLA Compliance', value: '94.8%', sub: 'Target: >95.0%', color: '#10b981', icon: Clock },
-    { label: 'First-Visit Resolution', value: '88.5%', sub: 'Last 30 Days (Direct)', color: '#8b5cf6', icon: Award },
-    { label: 'Awaiting Spare Parts', value: '5 cases', sub: '3 Mainboards, 2 T-Con', color: '#f59e0b', icon: Boxes },
-    { label: 'Pending TV Replacements', value: '2 units', sub: 'Chassis Swap Authorizations', color: '#ef4444', icon: Tv },
-  ];
+  // Active Service Tickets
+  interface ServiceCase {
+    id: string;
+    customer: string;
+    phone: string;
+    city: string;
+    model: string;
+    serial: string;
+    issue: string;
+    category: string;
+    priority: string;
+    status: string;
+    technician: string;
+    warrantyStatus: string;
+    slaDue: string;
+    slaBreached: boolean;
+    partsRequired: string;
+  }
+  const [serviceCases, setServiceCases] = useState<ServiceCase[]>([]);
 
-  // Mock Active Service Tickets
-  const [serviceCases, setServiceCases] = useState([
-    {
-      id: 'TCK-202610-00101',
-      customer: 'Rajesh Sharma',
-      phone: '+91 98201 11223',
-      city: 'Mumbai (Andheri West)',
-      model: 'ZUVO 55" 4K Google TV',
-      serial: 'ZUV-202610-55-00451',
-      issue: 'Horizontal green lines on display panel',
-      category: 'Display / Panel',
-      priority: 'high',
-      status: 'in_progress',
-      technician: 'Vikram Singh',
-      warrantyStatus: 'ACTIVE_WARRANTY',
-      slaDue: 'Today, 6:00 PM',
-      slaBreached: false,
-      partsRequired: '55" UHD Panel (PNL-55-UHD)',
-    },
-    {
-      id: 'TCK-202610-00102',
-      customer: 'Pooja Verma',
-      phone: '+91 97112 44556',
-      city: 'Delhi (Rohini)',
-      model: 'ZUVO 43" 4K Smart TV',
-      serial: 'ZUV-202610-43-00912',
-      issue: 'No power, red standby LED blinking 3 times',
-      category: 'Power Supply',
-      priority: 'critical',
-      status: 'waiting_parts',
-      technician: 'Amit Deshmukh',
-      warrantyStatus: 'ACTIVE_WARRANTY',
-      slaDue: 'Today, 4:30 PM',
-      slaBreached: true,
-      partsRequired: 'Power Supply Board (PSU-43-ZUVO)',
-    },
-    {
-      id: 'TCK-202610-00103',
-      customer: 'Karthik Raman',
-      phone: '+91 98450 77889',
-      city: 'Bengaluru (Koramangala)',
-      model: 'ZUVO 65" QLED Master Edition',
-      serial: 'ZUV-202610-65-00118',
-      issue: 'HDMI Port 2 and eARC not detecting audio system',
-      category: 'Mainboard / Ports',
-      priority: 'medium',
-      status: 'scheduled',
-      technician: 'Suresh Nair',
-      warrantyStatus: 'ACTIVE_WARRANTY',
-      slaDue: 'Tomorrow, 11:00 AM',
-      slaBreached: false,
-      partsRequired: 'None (Firmware / Cable Check)',
-    },
-    {
-      id: 'TCK-202610-00104',
-      customer: 'Sunil Mehta',
-      phone: '+91 99001 22334',
-      city: 'Ahmedabad (Satellite)',
-      model: 'ZUVO 32" HD Smart TV',
-      serial: 'ZUV-202511-32-00562',
-      issue: 'Audio distortion / speaker buzzing at >40% volume',
-      category: 'Audio / Speaker',
-      priority: 'low',
-      status: 'en_route',
-      technician: 'Deepak Patel',
-      warrantyStatus: 'EXPIRED_OUT_OF_WARRANTY',
-      slaDue: 'Tomorrow, 3:00 PM',
-      slaBreached: false,
-      partsRequired: 'Left/Right Speaker Kit (SPK-32-SET)',
-    },
-  ]);
+  // Root Cause Intelligence Data
+  interface RootCauseItem {
+    category: string;
+    occurrences: number;
+    percentage: string;
+    primarySupplier: string;
+    avgCost: string;
+    action: string;
+    alertLevel: string;
+  }
+  const [rootCauseAnalysis, setRootCauseAnalysis] = useState<RootCauseItem[]>([]);
 
-  // Root Cause Intelligence Mock Data
-  const rootCauseAnalysis = [
-    {
-      category: 'Display / Open Cell Defect',
-      occurrences: 18,
-      percentage: '38.2%',
-      primarySupplier: 'BOE Display Tech',
-      avgCost: '₹8,450',
-      action: 'Batch firmware voltage tweak & cold solder review',
-      alertLevel: 'HIGH_FAILURE',
-    },
-    {
-      category: 'Power Surge / PSU Capacitor Breakdown',
-      occurrences: 12,
-      percentage: '25.5%',
-      primarySupplier: 'Delta Power Electronics',
-      avgCost: '₹1,950',
-      action: 'Recommend external MOV surge suppressors to tier-2 areas',
-      alertLevel: 'WATCH',
-    },
-    {
-      category: 'Software / Boot Loop / WiFi Dropout',
-      occurrences: 9,
-      percentage: '19.1%',
-      primarySupplier: 'Internal Firmware Team',
-      avgCost: '₹350',
-      action: 'OTA Hotfix v3.4.1 scheduled for rolling push',
-      alertLevel: 'NORMAL',
-    },
-    {
-      category: 'Physical Panel Impact / Transit Shock',
-      occurrences: 5,
-      percentage: '10.6%',
-      primarySupplier: 'Logistics / 3PL Couriers',
-      avgCost: '₹14,200',
-      action: 'Strengthen inner corner EPS cushioning on 55" & 65"',
-      alertLevel: 'WATCH',
-    },
-    {
-      category: 'No Fault Found (Customer Education)',
-      occurrences: 3,
-      percentage: '6.4%',
-      primarySupplier: 'N/A (User Error)',
-      avgCost: '₹400',
-      action: 'Update initial setup wizard & quick start manual',
-      alertLevel: 'NORMAL',
-    },
-  ];
+  // Field Technicians
+  interface TechnicianRoster {
+    name: string;
+    territory: string;
+    status: string;
+    activeJob: string;
+    todayCompleted: number;
+    vehicleStock: string;
+  }
+  const [technicians, setTechnicians] = useState<TechnicianRoster[]>([]);
+
+  // Spare Parts Requisitions
+  interface PartsRequisition {
+    sku: string;
+    description: string;
+    linkedTicket: string;
+    warehouse: string;
+    coverage: string;
+    defectiveCore: string;
+  }
+  const [partsRequisitions, setPartsRequisitions] = useState<PartsRequisition[]>([]);
 
   // Replacement authorisations
-  const [replacements, setReplacements] = useState([
-    {
-      id: 'REP-202610-001',
-      ticketId: 'TCK-202610-00089',
-      customer: 'Anita Krishnan',
-      defectSerial: 'ZUV-202610-55-00109',
-      replacementSerial: 'ZUV-202610-55-00890',
-      reason: 'Repeated panel failure (3rd visit within 14 days) - DOA Replacement',
-      approvedBy: 'Service Director (Operations)',
-      status: 'APPROVED',
-      date: '2026-10-20',
-    },
-    {
-      id: 'REP-202610-002',
-      ticketId: 'TCK-202610-00115',
-      customer: 'Manoj Bajpai',
-      defectSerial: 'ZUV-202610-65-00045',
-      replacementSerial: 'Awaiting Serial Allocation',
-      reason: 'Unresolvable chassis frame warp & optical light bleed',
-      approvedBy: 'Pending Regional Head Review',
-      status: 'PENDING_APPROVAL',
-      date: '2026-10-20',
-    },
-  ]);
+  interface ReplacementAuth {
+    id: string;
+    ticketId: string;
+    customer: string;
+    defectSerial: string;
+    replacementSerial: string;
+    reason: string;
+    approvedBy: string;
+    status: string;
+    date: string;
+  }
+  const [replacements, setReplacements] = useState<ReplacementAuth[]>([]);
+
+  // Dynamic Operational KPIs for Service Command Center
+  const activeTicketsCount = serviceCases.filter(c => c.status !== 'resolved' && c.status !== 'closed').length;
+  const inProgressCount = serviceCases.filter(c => c.status === 'in_progress').length;
+  const scheduledCount = serviceCases.filter(c => c.status === 'scheduled').length;
+  const waitingPartsCount = serviceCases.filter(c => c.status === 'waiting_parts').length;
+  const breachedCount = serviceCases.filter(c => c.slaBreached).length;
+  const slaCompliancePct = serviceCases.length > 0 ? (((serviceCases.length - breachedCount) / serviceCases.length) * 100).toFixed(1) : '100.0';
+
+  const kpis = [
+    { label: 'Active Tickets', value: `${activeTicketsCount} cases`, sub: `${inProgressCount} In-Progress, ${scheduledCount} Scheduled`, color: '#3b82f6', icon: Wrench },
+    { label: 'SLA Compliance', value: `${slaCompliancePct}%`, sub: 'Target: >95.0%', color: '#10b981', icon: Clock },
+    { label: 'First-Visit Resolution', value: '0.0%', sub: 'Last 30 Days (Direct)', color: '#8b5cf6', icon: Award },
+    { label: 'Awaiting Spare Parts', value: `${waitingPartsCount} cases`, sub: 'Depot Stock Allocation', color: '#f59e0b', icon: Boxes },
+    { label: 'Pending TV Replacements', value: `${replacements.filter(r => r.status === 'PENDING_APPROVAL').length} units`, sub: 'Chassis Swap Authorizations', color: '#ef4444', icon: Tv },
+  ];
 
   const handleApproveReplacement = (repId: string) => {
     setReplacements(prev =>
@@ -408,83 +336,95 @@ export const ServiceOperationsPage: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem', marginBottom: '1.25rem' }}>
               <div style={{ padding: '0.75rem', background: '#0f172a', borderRadius: '8px', borderLeft: '4px solid #3b82f6' }}>
                 <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Open / Unassigned</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>6 cases</div>
-                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>Avg. Queue: 18 mins</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{serviceCases.filter(c => c.status === 'open' || !c.technician).length} cases</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>Avg. Queue: 0 mins</div>
               </div>
               <div style={{ padding: '0.75rem', background: '#0f172a', borderRadius: '8px', borderLeft: '4px solid #f59e0b' }}>
                 <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Scheduled / En Route</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>14 visits</div>
-                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>4 field techs moving</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{scheduledCount} visits</div>
+                <div style={{ fontSize: '0.65rem', color: '#64748b' }}>{technicians.filter(t => t.status === 'EN_ROUTE').length} field techs moving</div>
               </div>
               <div style={{ padding: '0.75rem', background: '#0f172a', borderRadius: '8px', borderLeft: '4px solid #8b5cf6' }}>
                 <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>In Progress / Repair</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>8 units</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{inProgressCount} units</div>
                 <div style={{ fontSize: '0.65rem', color: '#64748b' }}>Active bench/field</div>
               </div>
               <div style={{ padding: '0.75rem', background: '#0f172a', borderRadius: '8px', borderLeft: '4px solid #10b981' }}>
                 <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Resolved (Today)</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>19 closed</div>
-                <div style={{ fontSize: '0.65rem', color: '#10b981' }}>CSAT: 4.8 / 5.0</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>{serviceCases.filter(c => c.status === 'resolved' || c.status === 'closed').length} closed</div>
+                <div style={{ fontSize: '0.65rem', color: '#10b981' }}>CSAT: 0.0 / 5.0</div>
               </div>
             </div>
 
             <h4 style={{ fontSize: '0.875rem', fontWeight: 700, margin: '1rem 0 0.5rem 0' }}>Urgent Attention Required</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <div
-                style={{
-                  padding: '0.75rem',
-                  background: 'rgba(239, 68, 68, 0.08)',
-                  border: '1px solid rgba(239, 68, 68, 0.25)',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ef4444' }}>
-                    SLA Breached: TCK-202610-00102 (Pooja Verma - Delhi)
-                  </div>
-                  <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
-                    Power supply failure on 43" 4K. Spare part awaiting depot dispatch from Central Finished Goods Hub.
-                  </div>
+              {breachedCount === 0 && replacements.filter(r => r.status === 'PENDING_APPROVAL').length === 0 ? (
+                <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', background: '#0f172a', borderRadius: '6px', fontSize: '0.85rem' }}>
+                  No urgent SLA breaches or pending chassis swaps requiring intervention.
                 </div>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setActiveTab('sla_monitor')}
-                  style={{ fontSize: '0.75rem' }}
-                >
-                  Expedite SLA
-                </button>
-              </div>
+              ) : (
+                <>
+                  {breachedCount > 0 && (
+                    <div
+                      style={{
+                        padding: '0.75rem',
+                        background: 'rgba(239, 68, 68, 0.08)',
+                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#ef4444' }}>
+                          SLA Breaches Detected ({breachedCount} case{breachedCount > 1 ? 's' : ''})
+                        </div>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
+                          Critical service tickets have exceeded resolution time window.
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setActiveTab('sla_monitor')}
+                        style={{ fontSize: '0.75rem' }}
+                      >
+                        Expedite SLA
+                      </button>
+                    </div>
+                  )}
 
-              <div
-                style={{
-                  padding: '0.75rem',
-                  background: 'rgba(245, 158, 11, 0.08)',
-                  border: '1px solid rgba(245, 158, 11, 0.25)',
-                  borderRadius: '6px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f59e0b' }}>
-                    Replacement Pending Approval: REP-202610-002 (Manoj Bajpai)
-                  </div>
-                  <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
-                    Optical light bleed defect on 65" QLED Master Edition requires regional manager sign-off.
-                  </div>
-                </div>
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => setActiveTab('replacements')}
-                  style={{ fontSize: '0.75rem' }}
-                >
-                  View Chassis Swap
-                </button>
-              </div>
+                  {replacements.filter(r => r.status === 'PENDING_APPROVAL').length > 0 && (
+                    <div
+                      style={{
+                        padding: '0.75rem',
+                        background: 'rgba(245, 158, 11, 0.08)',
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f59e0b' }}>
+                          Replacements Pending Approval ({replacements.filter(r => r.status === 'PENDING_APPROVAL').length} unit{replacements.filter(r => r.status === 'PENDING_APPROVAL').length > 1 ? 's' : ''})
+                        </div>
+                        <div style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>
+                          Defective TV chassis replacement authorisations requiring regional manager sign-off.
+                        </div>
+                      </div>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => setActiveTab('replacements')}
+                        style={{ fontSize: '0.75rem' }}
+                      >
+                        View Chassis Swaps
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
@@ -505,23 +445,23 @@ export const ServiceOperationsPage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #334155' }}>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Total Warranty Claims (MTD)</span>
-                <span style={{ fontWeight: 700 }}>128 claims</span>
+                <span style={{ fontWeight: 700 }}>0 claims</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #334155' }}>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Parts Covered Cost</span>
-                <span style={{ fontWeight: 700, color: '#10b981' }}>₹4,18,500</span>
+                <span style={{ fontWeight: 700, color: '#10b981' }}>₹0.00</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #334155' }}>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Labour & Travel Reimbursed</span>
-                <span style={{ fontWeight: 700 }}>₹96,200</span>
+                <span style={{ fontWeight: 700 }}>₹0.00</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #334155' }}>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Customer Paid Repairs (OOW)</span>
-                <span style={{ fontWeight: 700, color: '#3b82f6' }}>₹64,300</span>
+                <span style={{ fontWeight: 700, color: '#3b82f6' }}>₹0.00</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '0.5rem', borderBottom: '1px solid #334155' }}>
                 <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Warranty Reserve Balance</span>
-                <span style={{ fontWeight: 700, color: '#8b5cf6' }}>₹14,50,000</span>
+                <span style={{ fontWeight: 700, color: '#8b5cf6' }}>₹0.00</span>
               </div>
               <div style={{ padding: '0.5rem', background: '#0f172a', borderRadius: '6px', fontSize: '0.7rem', color: '#94a3b8' }}>
                 Balance is maintained in accordance with double-entry General Ledger Account 2150 (Warranty Reserve Provision).
@@ -603,83 +543,92 @@ export const ServiceOperationsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredTickets.map(t => (
-                  <tr key={t.id} style={{ borderBottom: '1px solid #1e293b' }}>
-                    <td style={{ padding: '0.6rem', fontWeight: 700, color: 'var(--brand-primary)' }}>
-                      {t.id}
-                      <div style={{ fontSize: '0.65rem', color: t.warrantyStatus === 'ACTIVE_WARRANTY' ? '#10b981' : '#f59e0b' }}>
-                        {t.warrantyStatus === 'ACTIVE_WARRANTY' ? '• Warranty Active' : '• Out of Warranty'}
-                      </div>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <div style={{ fontWeight: 600 }}>{t.customer}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{t.city}</div>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <div>{t.model}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{t.serial}</div>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <div>{t.category}</div>
-                      <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{t.issue}</div>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <span
-                        style={{
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '4px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          background:
-                            t.priority === 'critical'
-                              ? 'rgba(239, 68, 68, 0.2)'
-                              : t.priority === 'high'
-                              ? 'rgba(245, 158, 11, 0.2)'
-                              : 'rgba(59, 130, 246, 0.2)',
-                          color:
-                            t.priority === 'critical'
-                              ? '#ef4444'
-                              : t.priority === 'high'
-                              ? '#f59e0b'
-                              : '#3b82f6',
-                        }}
-                      >
-                        {t.priority.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <span
-                        style={{
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '4px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          background:
-                            t.status === 'in_progress'
-                              ? 'rgba(139, 92, 246, 0.2)'
-                              : t.status === 'waiting_parts'
-                              ? 'rgba(245, 158, 11, 0.2)'
-                              : 'rgba(16, 185, 129, 0.2)',
-                          color:
-                            t.status === 'in_progress'
-                              ? '#8b5cf6'
-                              : t.status === 'waiting_parts'
-                              ? '#f59e0b'
-                              : '#10b981',
-                        }}
-                      >
-                        {t.status.replace('_', ' ').toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: '0.6rem' }}>{t.technician}</td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <div style={{ color: t.slaBreached ? '#ef4444' : '#94a3b8', fontWeight: t.slaBreached ? 700 : 400 }}>
-                        {t.slaDue}
-                        {t.slaBreached && ' (BREACHED)'}
-                      </div>
+                {filteredTickets.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                      <Wrench size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4, display: 'block' }} />
+                      No service tickets found in queue. All customer service cases will display here when logged.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredTickets.map(t => (
+                    <tr key={t.id} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '0.6rem', fontWeight: 700, color: 'var(--brand-primary)' }}>
+                        {t.id}
+                        <div style={{ fontSize: '0.65rem', color: t.warrantyStatus === 'ACTIVE_WARRANTY' ? '#10b981' : '#f59e0b' }}>
+                          {t.warrantyStatus === 'ACTIVE_WARRANTY' ? '• Warranty Active' : '• Out of Warranty'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <div style={{ fontWeight: 600 }}>{t.customer}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{t.city}</div>
+                      </td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <div>{t.model}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{t.serial}</div>
+                      </td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <div>{t.category}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{t.issue}</div>
+                      </td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <span
+                          style={{
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background:
+                              t.priority === 'critical'
+                                ? 'rgba(239, 68, 68, 0.2)'
+                                : t.priority === 'high'
+                                ? 'rgba(245, 158, 11, 0.2)'
+                                : 'rgba(59, 130, 246, 0.2)',
+                            color:
+                              t.priority === 'critical'
+                                ? '#ef4444'
+                                : t.priority === 'high'
+                                ? '#f59e0b'
+                                : '#3b82f6',
+                          }}
+                        >
+                          {t.priority.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <span
+                          style={{
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            background:
+                              t.status === 'in_progress'
+                                ? 'rgba(139, 92, 246, 0.2)'
+                                : t.status === 'waiting_parts'
+                                ? 'rgba(245, 158, 11, 0.2)'
+                                : 'rgba(16, 185, 129, 0.2)',
+                            color:
+                              t.status === 'in_progress'
+                                ? '#8b5cf6'
+                                : t.status === 'waiting_parts'
+                                ? '#f59e0b'
+                                : '#10b981',
+                          }}
+                        >
+                          {t.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.6rem' }}>{t.technician}</td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <div style={{ color: t.slaBreached ? '#ef4444' : '#94a3b8', fontWeight: t.slaBreached ? 700 : 400 }}>
+                          {t.slaDue}
+                          {t.slaBreached && ' (BREACHED)'}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -759,7 +708,7 @@ export const ServiceOperationsPage: React.FC = () => {
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
-                  setActionMessage('Automated SLA Sweep executed: 1 breached ticket flagged for escalation.');
+                  setActionMessage('Automated SLA Sweep executed: 0 breached tickets currently detected.');
                   setTimeout(() => setActionMessage(null), 3000);
                 }}
                 style={{ textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -788,78 +737,52 @@ export const ServiceOperationsPage: React.FC = () => {
           </h3>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-            {[
-              {
-                name: 'Vikram Singh',
-                territory: 'Mumbai Metro (West)',
-                status: 'ON_VISIT',
-                activeJob: 'TCK-202610-00101',
-                todayCompleted: 3,
-                vehicleStock: '2 Panels, 4 Power Boards',
-              },
-              {
-                name: 'Amit Deshmukh',
-                territory: 'Delhi NCR (North)',
-                status: 'WAITING_PARTS',
-                activeJob: 'TCK-202610-00102',
-                todayCompleted: 2,
-                vehicleStock: '1 Motherboard, 2 Speakers',
-              },
-              {
-                name: 'Suresh Nair',
-                territory: 'Bengaluru Urban',
-                status: 'AVAILABLE',
-                activeJob: 'Scheduled for 11:00 AM',
-                todayCompleted: 4,
-                vehicleStock: 'Full Diagnostic Kit, 3 PSU Boards',
-              },
-              {
-                name: 'Deepak Patel',
-                territory: 'Gujarat Central (Ahmedabad)',
-                status: 'EN_ROUTE',
-                activeJob: 'TCK-202610-00104',
-                todayCompleted: 2,
-                vehicleStock: 'Speaker Kits, LVDS Cables',
-              },
-            ].map((tech, idx) => (
-              <div
-                key={idx}
-                style={{
-                  padding: '1rem',
-                  background: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '8px',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{tech.name}</div>
-                    <div style={{ fontSize: '0.725rem', color: '#94a3b8' }}>{tech.territory}</div>
-                  </div>
-                  <span
-                    style={{
-                      padding: '0.15rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.65rem',
-                      fontWeight: 700,
-                      background: tech.status === 'AVAILABLE' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)',
-                      color: tech.status === 'AVAILABLE' ? '#10b981' : '#3b82f6',
-                    }}
-                  >
-                    {tech.status}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                  <div style={{ color: '#94a3b8' }}>Current Assignment:</div>
-                  <div style={{ fontWeight: 600 }}>{tech.activeJob}</div>
-                </div>
-
-                <div style={{ fontSize: '0.725rem', marginTop: '0.5rem', color: '#64748b' }}>
-                  Van Inventory: {tech.vehicleStock}
-                </div>
+            {technicians.length === 0 ? (
+              <div style={{ gridColumn: '1 / -1', padding: '2.5rem', textAlign: 'center', color: '#94a3b8', background: '#0f172a', borderRadius: '8px' }}>
+                <Truck size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4, display: 'block' }} />
+                No active field technicians dispatched or rostered. Roster field technicians via the Workforce Management module.
               </div>
-            ))}
+            ) : (
+              technicians.map((tech, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    padding: '1rem',
+                    background: '#0f172a',
+                    border: '1px solid #334155',
+                    borderRadius: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{tech.name}</div>
+                      <div style={{ fontSize: '0.725rem', color: '#94a3b8' }}>{tech.territory}</div>
+                    </div>
+                    <span
+                      style={{
+                        padding: '0.15rem 0.5rem',
+                        borderRadius: '4px',
+                        fontSize: '0.65rem',
+                        fontWeight: 700,
+                        background: tech.status === 'AVAILABLE' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.2)',
+                        color: tech.status === 'AVAILABLE' ? '#10b981' : '#3b82f6',
+                      }}
+                    >
+                      {tech.status}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                    <div style={{ color: '#94a3b8' }}>Current Assignment:</div>
+                    <div style={{ fontWeight: 600 }}>{tech.activeJob}</div>
+                  </div>
+
+                  <div style={{ fontSize: '0.725rem', marginTop: '0.5rem', color: '#64748b' }}>
+                    Van Inventory: {tech.vehicleStock}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -894,46 +817,26 @@ export const ServiceOperationsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 700, fontFamily: 'monospace' }}>PNL-55-UHD</td>
-                  <td style={{ padding: '0.6rem' }}>55" UHD Replacement Open-Cell Panel</td>
-                  <td style={{ padding: '0.6rem', color: 'var(--brand-primary)' }}>TCK-202610-00101</td>
-                  <td style={{ padding: '0.6rem' }}>Central Finished Goods Hub</td>
-                  <td style={{ padding: '0.6rem', color: '#10b981' }}>100% Warranty (₹0 charge)</td>
-                  <td style={{ padding: '0.6rem', color: '#f59e0b' }}>Pending Return (Quarantine)</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        setActionMessage('Part PNL-55-UHD issued from Central Hub to Tech van inventory.');
-                        setTimeout(() => setActionMessage(null), 3000);
-                      }}
-                      style={{ fontSize: '0.7rem' }}
-                    >
-                      Issue Part
-                    </button>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 700, fontFamily: 'monospace' }}>PSU-43-ZUVO</td>
-                  <td style={{ padding: '0.6rem' }}>43" Integrated Power Supply Board</td>
-                  <td style={{ padding: '0.6rem', color: 'var(--brand-primary)' }}>TCK-202610-00102</td>
-                  <td style={{ padding: '0.6rem' }}>North Regional Depot (Delhi)</td>
-                  <td style={{ padding: '0.6rem', color: '#10b981' }}>100% Warranty (₹0 charge)</td>
-                  <td style={{ padding: '0.6rem', color: '#10b981' }}>Returned to Scrap/Refurb</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => {
-                        setActionMessage('Stock dispatched from North Depot.');
-                        setTimeout(() => setActionMessage(null), 3000);
-                      }}
-                      style={{ fontSize: '0.7rem' }}
-                    >
-                      Dispatch
-                    </button>
-                  </td>
-                </tr>
+                {partsRequisitions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                      <Boxes size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4, display: 'block' }} />
+                      No spare parts requisitions awaiting fulfillment.
+                    </td>
+                  </tr>
+                ) : (
+                  partsRequisitions.map((part, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '0.6rem', fontWeight: 700, fontFamily: 'monospace' }}>{part.sku}</td>
+                      <td style={{ padding: '0.6rem' }}>{part.description}</td>
+                      <td style={{ padding: '0.6rem', color: 'var(--brand-primary)' }}>{part.linkedTicket}</td>
+                      <td style={{ padding: '0.6rem' }}>{part.warehouse}</td>
+                      <td style={{ padding: '0.6rem', color: '#10b981' }}>{part.coverage}</td>
+                      <td style={{ padding: '0.6rem', color: '#f59e0b' }}>{part.defectiveCore}</td>
+                      <td style={{ padding: '0.6rem' }}>-</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -963,63 +866,70 @@ export const ServiceOperationsPage: React.FC = () => {
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {replacements.map(rep => (
-              <div
-                key={rep.id}
-                style={{
-                  padding: '1rem',
-                  background: '#0f172a',
-                  border: '1px solid #334155',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '1rem',
-                }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: 800, color: 'var(--brand-primary)' }}>{rep.id}</span>
-                    <span
-                      style={{
-                        fontSize: '0.65rem',
-                        fontWeight: 700,
-                        padding: '0.1rem 0.4rem',
-                        borderRadius: '4px',
-                        background: rep.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                        color: rep.status === 'APPROVED' ? '#10b981' : '#f59e0b',
-                      }}
-                    >
-                      {rep.status}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600, marginTop: '0.25rem' }}>
-                    Customer: {rep.customer} (Ticket: {rep.ticketId})
-                  </div>
-                  <div style={{ fontSize: '0.725rem', color: '#94a3b8', marginTop: '0.25rem' }}>
-                    Defective Serial: <span style={{ fontFamily: 'monospace' }}>{rep.defectSerial}</span> → Replacement Serial: <span style={{ fontFamily: 'monospace' }}>{rep.replacementSerial}</span>
-                  </div>
-                  <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '0.2rem' }}>
-                    Reason: {rep.reason}
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Authorized by:</div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{rep.approvedBy}</div>
-                  {rep.status === 'PENDING_APPROVAL' && (
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => handleApproveReplacement(rep.id)}
-                      style={{ marginTop: '0.5rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                    >
-                      <Check size={14} /> Authorize Unit Swap
-                    </button>
-                  )}
-                </div>
+            {replacements.length === 0 ? (
+              <div style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8', background: '#0f172a', borderRadius: '8px' }}>
+                <Tv size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4, display: 'block' }} />
+                No pending TV chassis swaps or replacements. Authorized swap requests will appear here.
               </div>
-            ))}
+            ) : (
+              replacements.map(rep => (
+                <div
+                  key={rep.id}
+                  style={{
+                    padding: '1rem',
+                    background: '#0f172a',
+                    border: '1px solid #334155',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 800, color: 'var(--brand-primary)' }}>{rep.id}</span>
+                      <span
+                        style={{
+                          fontSize: '0.65rem',
+                          fontWeight: 700,
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '4px',
+                          background: rep.status === 'APPROVED' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                          color: rep.status === 'APPROVED' ? '#10b981' : '#f59e0b',
+                        }}
+                      >
+                        {rep.status}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600, marginTop: '0.25rem' }}>
+                      Customer: {rep.customer} (Ticket: {rep.ticketId})
+                    </div>
+                    <div style={{ fontSize: '0.725rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                      Defective Serial: <span style={{ fontFamily: 'monospace' }}>{rep.defectSerial}</span> → Replacement Serial: <span style={{ fontFamily: 'monospace' }}>{rep.replacementSerial}</span>
+                    </div>
+                    <div style={{ fontSize: '0.725rem', color: '#64748b', marginTop: '0.2rem' }}>
+                      Reason: {rep.reason}
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Authorized by:</div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{rep.approvedBy}</div>
+                    {rep.status === 'PENDING_APPROVAL' && (
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleApproveReplacement(rep.id)}
+                        style={{ marginTop: '0.5rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        <Check size={14} /> Authorize Unit Swap
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -1058,40 +968,49 @@ export const ServiceOperationsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {rootCauseAnalysis.map((rc, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
-                    <td style={{ padding: '0.6rem', fontWeight: 700 }}>{rc.category}</td>
-                    <td style={{ padding: '0.6rem' }}>{rc.occurrences}</td>
-                    <td style={{ padding: '0.6rem' }}>{rc.percentage}</td>
-                    <td style={{ padding: '0.6rem', color: '#94a3b8' }}>{rc.primarySupplier}</td>
-                    <td style={{ padding: '0.6rem', fontWeight: 600 }}>{rc.avgCost}</td>
-                    <td style={{ padding: '0.6rem' }}>
-                      <span
-                        style={{
-                          padding: '0.15rem 0.5rem',
-                          borderRadius: '4px',
-                          fontSize: '0.65rem',
-                          fontWeight: 700,
-                          background:
-                            rc.alertLevel === 'HIGH_FAILURE'
-                              ? 'rgba(239, 68, 68, 0.2)'
-                              : rc.alertLevel === 'WATCH'
-                              ? 'rgba(245, 158, 11, 0.2)'
-                              : 'rgba(16, 185, 129, 0.2)',
-                          color:
-                            rc.alertLevel === 'HIGH_FAILURE'
-                              ? '#ef4444'
-                              : rc.alertLevel === 'WATCH'
-                              ? '#f59e0b'
-                              : '#10b981',
-                        }}
-                      >
-                        {rc.alertLevel}
-                      </span>
+                {rootCauseAnalysis.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: '2.5rem', textAlign: 'center', color: '#94a3b8' }}>
+                      <Sparkles size={32} style={{ margin: '0 auto 0.75rem auto', opacity: 0.4, display: 'block' }} />
+                      No failure mode telemetry logged yet. As service tickets are closed with RCA, analytics will appear here.
                     </td>
-                    <td style={{ padding: '0.6rem', color: 'var(--text-secondary)' }}>{rc.action}</td>
                   </tr>
-                ))}
+                ) : (
+                  rootCauseAnalysis.map((rc, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #1e293b' }}>
+                      <td style={{ padding: '0.6rem', fontWeight: 700 }}>{rc.category}</td>
+                      <td style={{ padding: '0.6rem' }}>{rc.occurrences}</td>
+                      <td style={{ padding: '0.6rem' }}>{rc.percentage}</td>
+                      <td style={{ padding: '0.6rem', color: '#94a3b8' }}>{rc.primarySupplier}</td>
+                      <td style={{ padding: '0.6rem', fontWeight: 600 }}>{rc.avgCost}</td>
+                      <td style={{ padding: '0.6rem' }}>
+                        <span
+                          style={{
+                            padding: '0.15rem 0.5rem',
+                            borderRadius: '4px',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            background:
+                              rc.alertLevel === 'HIGH_FAILURE'
+                                ? 'rgba(239, 68, 68, 0.2)'
+                                : rc.alertLevel === 'WATCH'
+                                ? 'rgba(245, 158, 11, 0.2)'
+                                : 'rgba(16, 185, 129, 0.2)',
+                            color:
+                              rc.alertLevel === 'HIGH_FAILURE'
+                                ? '#ef4444'
+                                : rc.alertLevel === 'WATCH'
+                                ? '#f59e0b'
+                                : '#10b981',
+                          }}
+                        >
+                          {rc.alertLevel}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.6rem', color: 'var(--text-secondary)' }}>{rc.action}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

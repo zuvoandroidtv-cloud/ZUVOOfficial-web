@@ -27,144 +27,63 @@ export const SupplyChainControlPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // SCM KPI summary metrics
-  const kpis = [
-    { label: 'Total In-Stock TVs', value: '1,420 units', sub: '₹3.48 Cr Valuation', color: '#10b981', icon: Boxes },
-    { label: 'Allocated / Reserved', value: '312 units', sub: '7 Active Sales Orders', color: '#3b82f6', icon: Lock },
-    { label: 'In-Transit Transfers', value: '85 units', sub: '3 Manifest Convoys', color: '#8b5cf6', icon: Truck },
-    { label: 'QC Quarantine / Refurb', value: '28 units', sub: 'Awaiting Testing', color: '#f59e0b', icon: ShieldAlert },
-    { label: 'Scrap Write-offs (MTD)', value: '6 units', sub: '₹1.12L Total Loss', color: '#ef4444', icon: Trash2 },
-  ];
-
   // Serialized TV units
-  const [serializedUnits] = useState([
-    {
-      id: '1',
-      serial: 'ZUV-202610-43-00912',
-      barcode: 'ZUV-000000000912',
-      model: 'ZUVO 43" 4K Google TV',
-      warehouse: 'Central Finished Goods Hub',
-      bin: 'A-02-B-04',
-      status: 'in_stock',
-      qc_status: 'PASSED',
-      cost: '₹18,500',
-      landed: '₹19,250',
-    },
-    {
-      id: '2',
-      serial: 'ZUV-202610-55-00451',
-      barcode: 'ZUV-000000000451',
-      model: 'ZUVO 55" 4K Smart Voice',
-      warehouse: 'North Regional Depot (Delhi)',
-      bin: 'D-01-A-01',
-      status: 'allocated',
-      qc_status: 'PASSED',
-      cost: '₹28,000',
-      landed: '₹29,100',
-    },
-    {
-      id: '3',
-      serial: 'ZUV-202610-32-01824',
-      barcode: 'ZUV-000000001824',
-      model: 'ZUVO 32" HD Smart Linux',
-      warehouse: 'Central Finished Goods Hub',
-      bin: 'Q-01-QC-02',
-      status: 'quarantine',
-      qc_status: 'QUARANTINED',
-      cost: '₹10,500',
-      landed: '₹11,100',
-    },
-    {
-      id: '4',
-      serial: 'ZUV-202610-43-00877',
-      barcode: 'ZUV-000000000877',
-      model: 'ZUVO 43" 4K Google TV',
-      warehouse: 'South Distribution Hub (Chennai)',
-      bin: 'T-TRANSIT-01',
-      status: 'in_transit',
-      qc_status: 'PASSED',
-      cost: '₹18,500',
-      landed: '₹19,250',
-    },
-  ]);
+  const [serializedUnits] = useState<Array<{
+    id: string;
+    serial: string;
+    barcode: string;
+    model: string;
+    warehouse: string;
+    bin: string;
+    status: string;
+    qc_status: string;
+    cost: string;
+    landed: string;
+  }>>([]);
 
   // Warehouses & Locations
-  const [warehouses] = useState([
-    {
-      code: 'WH-CENTRAL-01',
-      name: 'Central Finished Goods Hub',
-      type: 'Central Warehouse',
-      city: 'Bangalore, KA',
-      capacity: '3,000 TVs',
-      current: '1,840 TVs',
-      utilization: '61.3%',
-    },
-    {
-      code: 'WH-NORTH-02',
-      name: 'North Regional Depot',
-      type: 'Regional Warehouse',
-      city: 'Gurugram, HR',
-      capacity: '1,500 TVs',
-      current: '920 TVs',
-      utilization: '61.3%',
-    },
-    {
-      code: 'WH-SOUTH-03',
-      name: 'South Distribution Hub',
-      type: 'Regional Warehouse',
-      city: 'Chennai, TN',
-      capacity: '1,200 TVs',
-      current: '850 TVs',
-      utilization: '70.8%',
-    },
-  ]);
+  const [warehouses] = useState<Array<{
+    code: string;
+    name: string;
+    type: string;
+    city: string;
+    capacity: string;
+    current: string;
+    utilization: string;
+  }>>([]);
 
   // QC Inspections
-  const [qcInspections] = useState([
-    {
-      number: 'QC-20261020-1001',
-      serial: 'ZUV-202610-32-01824',
-      model: 'ZUVO 32" HD Smart Linux',
-      source: 'INBOUND_GRN',
-      defect: 'Panel Backlight Flickering',
-      verdict: 'QUARANTINED',
-      inspector: 'K. Rajan (Lead QA)',
-      date: '2026-10-20',
-    },
-    {
-      number: 'QC-20261019-0994',
-      serial: 'ZUV-202610-50-00122',
-      model: 'ZUVO 50" 4K Smart Voice',
-      source: 'CUSTOMER_RETURN',
-      defect: 'Transit Box Crushed / Panel Safe',
-      verdict: 'PASSED',
-      inspector: 'S. Mehta (Depot QC)',
-      date: '2026-10-19',
-    },
-  ]);
+  const [qcInspections] = useState<Array<{
+    number: string;
+    serial: string;
+    model: string;
+    source: string;
+    defect: string;
+    verdict: string;
+    inspector: string;
+    date: string;
+  }>>([]);
 
   // Cycle Counts
-  const [cycleCounts] = useState([
-    {
-      countNumber: 'CC-202610-001',
-      warehouse: 'Central Finished Goods Hub',
-      date: '2026-10-18',
-      expected: 450,
-      counted: 450,
-      variance: 0,
-      status: 'RECONCILED',
-      auditor: 'P. Nair (Inventory Mgr)',
-    },
-    {
-      countNumber: 'CC-202610-002',
-      warehouse: 'North Regional Depot',
-      date: '2026-10-20',
-      expected: 220,
-      counted: 219,
-      variance: -1,
-      status: 'IN_PROGRESS',
-      auditor: 'V. Sharma (Depot Lead)',
-    },
-  ]);
+  const [cycleCounts] = useState<Array<{
+    countNumber: string;
+    warehouse: string;
+    date: string;
+    expected: number;
+    counted: number;
+    variance: number;
+    status: string;
+    auditor: string;
+  }>>([]);
+
+  // SCM KPI summary metrics dynamically computed
+  const kpis = [
+    { label: 'Total In-Stock TVs', value: `${serializedUnits.filter(u => u.status === 'in_stock').length} units`, sub: '₹0.00 Valuation', color: '#10b981', icon: Boxes },
+    { label: 'Allocated / Reserved', value: `${serializedUnits.filter(u => u.status === 'allocated').length} units`, sub: '0 Active Sales Orders', color: '#3b82f6', icon: Lock },
+    { label: 'In-Transit Transfers', value: `${serializedUnits.filter(u => u.status === 'in_transit').length} units`, sub: '0 Manifest Convoys', color: '#8b5cf6', icon: Truck },
+    { label: 'QC Quarantine / Refurb', value: `${serializedUnits.filter(u => u.status === 'quarantine').length} units`, sub: '0 Awaiting Testing', color: '#f59e0b', icon: ShieldAlert },
+    { label: 'Scrap Write-offs (MTD)', value: '0 units', sub: '₹0.00 Total Loss', color: '#ef4444', icon: Trash2 },
+  ];
 
   // Filtered serials
   const filteredSerials = serializedUnits.filter(
@@ -318,24 +237,22 @@ export const SupplyChainControlPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={{ padding: '8px 0', fontWeight: 600 }}>Central Finished Goods Hub</td>
-                    <td style={{ color: '#10b981' }}>1,520</td>
-                    <td style={{ color: '#3b82f6' }}>240</td>
-                    <td style={{ color: '#f59e0b' }}>18</td>
-                  </tr>
-                  <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={{ padding: '8px 0', fontWeight: 600 }}>North Regional Depot (Delhi)</td>
-                    <td style={{ color: '#10b981' }}>750</td>
-                    <td style={{ color: '#3b82f6' }}>45</td>
-                    <td style={{ color: '#f59e0b' }}>6</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 0', fontWeight: 600 }}>South Distribution Hub (Chennai)</td>
-                    <td style={{ color: '#10b981' }}>680</td>
-                    <td style={{ color: '#3b82f6' }}>27</td>
-                    <td style={{ color: '#f59e0b' }}>4</td>
-                  </tr>
+                  {warehouses.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} style={{ textAlign: 'center', padding: '16px 0', color: 'var(--text-secondary)' }}>
+                        No inventory allocated. Stock balances will show once units are GRN-received.
+                      </td>
+                    </tr>
+                  ) : (
+                    warehouses.map((wh) => (
+                      <tr key={wh.code} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                        <td style={{ padding: '8px 0', fontWeight: 600 }}>{wh.name}</td>
+                        <td style={{ color: '#10b981' }}>{wh.current}</td>
+                        <td style={{ color: '#3b82f6' }}>0</td>
+                        <td style={{ color: '#f59e0b' }}>0</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -396,50 +313,58 @@ export const SupplyChainControlPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredSerials.map((unit) => (
-                  <tr key={unit.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={{ padding: '10px 8px', fontWeight: 700, color: 'var(--text-primary)' }}>{unit.serial}</td>
-                    <td style={{ padding: '10px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{unit.barcode}</td>
-                    <td style={{ padding: '10px 8px' }}>{unit.model}</td>
-                    <td style={{ padding: '10px 8px' }}>{unit.warehouse}</td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span className="badge badge-secondary" style={{ fontSize: '11px', fontFamily: 'monospace' }}>
-                        {unit.bin}
-                      </span>
+                {filteredSerials.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)' }}>
+                      No serialized TV units found in warehouse register. Units will register upon inbound receipt.
                     </td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span
-                        className="badge"
-                        style={{
-                          fontSize: '11px',
-                          background:
-                            unit.status === 'in_stock'
-                              ? 'rgba(16, 185, 129, 0.15)'
-                              : unit.status === 'allocated'
-                              ? 'rgba(59, 130, 246, 0.15)'
-                              : unit.status === 'quarantine'
-                              ? 'rgba(245, 158, 11, 0.15)'
-                              : 'rgba(139, 92, 246, 0.15)',
-                          color:
-                            unit.status === 'in_stock'
-                              ? '#10b981'
-                              : unit.status === 'allocated'
-                              ? '#3b82f6'
-                              : unit.status === 'quarantine'
-                              ? '#f59e0b'
-                              : '#8b5cf6',
-                        }}
-                      >
-                        {unit.status.toUpperCase()}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 8px', color: unit.qc_status === 'PASSED' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
-                      {unit.qc_status}
-                    </td>
-                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{unit.cost}</td>
-                    <td style={{ padding: '10px 8px', color: '#10b981', fontWeight: 600 }}>{unit.landed}</td>
                   </tr>
-                ))}
+                ) : (
+                  filteredSerials.map((unit) => (
+                    <tr key={unit.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 700, color: 'var(--text-primary)' }}>{unit.serial}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{unit.barcode}</td>
+                      <td style={{ padding: '10px 8px' }}>{unit.model}</td>
+                      <td style={{ padding: '10px 8px' }}>{unit.warehouse}</td>
+                      <td style={{ padding: '10px 8px' }}>
+                        <span className="badge badge-secondary" style={{ fontSize: '11px', fontFamily: 'monospace' }}>
+                          {unit.bin}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 8px' }}>
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '11px',
+                            background:
+                              unit.status === 'in_stock'
+                                ? 'rgba(16, 185, 129, 0.15)'
+                                : unit.status === 'allocated'
+                                ? 'rgba(59, 130, 246, 0.15)'
+                                : unit.status === 'quarantine'
+                                ? 'rgba(245, 158, 11, 0.15)'
+                                : 'rgba(139, 92, 246, 0.15)',
+                            color:
+                              unit.status === 'in_stock'
+                                ? '#10b981'
+                                : unit.status === 'allocated'
+                                ? '#3b82f6'
+                                : unit.status === 'quarantine'
+                                ? '#f59e0b'
+                                : '#8b5cf6',
+                          }}
+                        >
+                          {unit.status.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 8px', color: unit.qc_status === 'PASSED' ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                        {unit.qc_status}
+                      </td>
+                      <td style={{ padding: '10px 8px', fontWeight: 600 }}>{unit.cost}</td>
+                      <td style={{ padding: '10px 8px', color: '#10b981', fontWeight: 600 }}>{unit.landed}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -455,24 +380,30 @@ export const SupplyChainControlPage: React.FC = () => {
               Enterprise Warehouse & Depot Network
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-              {warehouses.map((wh) => (
-                <div key={wh.code} style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{wh.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{wh.code} • {wh.type}</div>
-                    </div>
-                    <span className="badge badge-primary" style={{ fontSize: '10px' }}>ACTIVE</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '12px 0 8px 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <MapPin size={14} /> {wh.city}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <span>Capacity: <strong>{wh.capacity}</strong></span>
-                    <span>Utilized: <strong style={{ color: '#10b981' }}>{wh.current} ({wh.utilization})</strong></span>
-                  </div>
+              {warehouses.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)', gridColumn: '1 / -1' }}>
+                  No regional warehouses registered in master depot topology.
                 </div>
-              ))}
+              ) : (
+                warehouses.map((wh) => (
+                  <div key={wh.code} style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)' }}>{wh.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{wh.code} • {wh.type}</div>
+                      </div>
+                      <span className="badge badge-primary" style={{ fontSize: '10px' }}>ACTIVE</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '12px 0 8px 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <MapPin size={14} /> {wh.city}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <span>Capacity: <strong>{wh.capacity}</strong></span>
+                      <span>Utilized: <strong style={{ color: '#10b981' }}>{wh.current} ({wh.utilization})</strong></span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
@@ -500,31 +431,39 @@ export const SupplyChainControlPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {qcInspections.map((qc) => (
-                  <tr key={qc.number} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{qc.number}</td>
-                    <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>{qc.serial}</td>
-                    <td style={{ padding: '10px 8px' }}>{qc.model}</td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span className="badge badge-secondary" style={{ fontSize: '11px' }}>{qc.source}</span>
+                {qcInspections.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)' }}>
+                      No quality inspections or quarantined units recorded.
                     </td>
-                    <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{qc.defect}</td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span
-                        className="badge"
-                        style={{
-                          fontSize: '11px',
-                          background: qc.verdict === 'PASSED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                          color: qc.verdict === 'PASSED' ? '#10b981' : '#f59e0b',
-                        }}
-                      >
-                        {qc.verdict}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 8px' }}>{qc.inspector}</td>
-                    <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{qc.date}</td>
                   </tr>
-                ))}
+                ) : (
+                  qcInspections.map((qc) => (
+                    <tr key={qc.number} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 700 }}>{qc.number}</td>
+                      <td style={{ padding: '10px 8px', fontFamily: 'monospace' }}>{qc.serial}</td>
+                      <td style={{ padding: '10px 8px' }}>{qc.model}</td>
+                      <td style={{ padding: '10px 8px' }}>
+                        <span className="badge badge-secondary" style={{ fontSize: '11px' }}>{qc.source}</span>
+                      </td>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{qc.defect}</td>
+                      <td style={{ padding: '10px 8px' }}>
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '11px',
+                            background: qc.verdict === 'PASSED' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                            color: qc.verdict === 'PASSED' ? '#10b981' : '#f59e0b',
+                          }}
+                        >
+                          {qc.verdict}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 8px' }}>{qc.inspector}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{qc.date}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -541,17 +480,8 @@ export const SupplyChainControlPage: React.FC = () => {
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Integrated with Phase 7.1 stock transfer manifests. Enforces maker-checker dispatch authorization and destination receiving discrepancy logging.
           </p>
-          <div style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>STM-202610-0082 (In-Transit)</span>
-              <span className="badge badge-primary" style={{ background: '#8b5cf6', color: '#fff', fontSize: '11px' }}>IN_TRANSIT</span>
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              From: <strong>Central Finished Goods Hub</strong> → To: <strong>North Regional Depot (Delhi)</strong>
-            </div>
-            <div style={{ fontSize: '0.8rem', marginTop: '6px', color: 'var(--text-secondary)' }}>
-              Carrier: V-Trans Logistics • Vehicle: KA-01-AB-7741 • Manifest Units: 50 TVs
-            </div>
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            No inter-depot transfers in transit.
           </div>
         </div>
       )}
@@ -578,22 +508,30 @@ export const SupplyChainControlPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {cycleCounts.map((cc) => (
-                  <tr key={cc.countNumber} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <td style={{ padding: '10px 8px', fontWeight: 700 }}>{cc.countNumber}</td>
-                    <td style={{ padding: '10px 8px' }}>{cc.warehouse}</td>
-                    <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{cc.date}</td>
-                    <td style={{ padding: '10px 8px' }}>{cc.expected}</td>
-                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cc.counted}</td>
-                    <td style={{ padding: '10px 8px', color: cc.variance === 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
-                      {cc.variance === 0 ? '0 (Clean)' : `${cc.variance} TV`}
+                {cycleCounts.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-secondary)' }}>
+                      No active cycle count audits in progress.
                     </td>
-                    <td style={{ padding: '10px 8px' }}>
-                      <span className="badge badge-primary" style={{ fontSize: '11px' }}>{cc.status}</span>
-                    </td>
-                    <td style={{ padding: '10px 8px' }}>{cc.auditor}</td>
                   </tr>
-                ))}
+                ) : (
+                  cycleCounts.map((cc) => (
+                    <tr key={cc.countNumber} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <td style={{ padding: '10px 8px', fontWeight: 700 }}>{cc.countNumber}</td>
+                      <td style={{ padding: '10px 8px' }}>{cc.warehouse}</td>
+                      <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{cc.date}</td>
+                      <td style={{ padding: '10px 8px' }}>{cc.expected}</td>
+                      <td style={{ padding: '10px 8px', fontWeight: 600 }}>{cc.counted}</td>
+                      <td style={{ padding: '10px 8px', color: cc.variance === 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                        {cc.variance === 0 ? '0 (Clean)' : `${cc.variance} TV`}
+                      </td>
+                      <td style={{ padding: '10px 8px' }}>
+                        <span className="badge badge-primary" style={{ fontSize: '11px' }}>{cc.status}</span>
+                      </td>
+                      <td style={{ padding: '10px 8px' }}>{cc.auditor}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -610,17 +548,8 @@ export const SupplyChainControlPage: React.FC = () => {
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Authoritative disposal of total-loss televisions and unrepairable core boards. Requires finance/super_admin approval with dual-control maker-checker.
           </p>
-          <div style={{ background: 'rgba(239, 68, 68, 0.05)', padding: '16px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>WO-SCRAP-2026-0041 (ZUV-202609-55-00109)</span>
-              <span className="badge" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', fontSize: '11px' }}>APPROVED</span>
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Reason: <strong>PANEL_CRACKED (Physical Forklift Impact)</strong> • Book Value: <strong>₹28,000.00</strong> • Net Write-Off: <strong>₹26,500.00</strong>
-            </div>
-            <div style={{ fontSize: '0.8rem', marginTop: '6px', color: 'var(--text-secondary)' }}>
-              Approved by: <strong>Finance Controller (A. Krishnan)</strong> • Linked JV: <strong>JV-SCRAP-202610-09</strong>
-            </div>
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            No scrap write-off authorizations recorded.
           </div>
         </div>
       )}
