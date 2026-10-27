@@ -1,37 +1,69 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
 import { useAuth } from '../context/AuthContext';
-import { Tv, Plus, Search, QrCode, Filter, MapPin, CheckCircle, AlertCircle, Download, FileSpreadsheet, Printer, Clock, Wand2 } from 'lucide-react';
+import {
+  Tv, Plus, Search, QrCode, Filter, MapPin, CheckCircle, AlertCircle,
+  Download, FileSpreadsheet, Printer, Clock, Wand2, ArrowRight, Check,
+  Store, ShieldCheck, RotateCcw, Box, CheckCircle2
+} from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
 import { BarcodeLabelModal } from '../components/common/BarcodeLabelModal';
 import { ProductUnitHistoryModal } from '../components/common/ProductUnitHistoryModal';
+import { FilterDrawer, FilterField } from '../components/common/FilterDrawer';
 
 export const ProductsPage: React.FC = () => {
   const { role } = useAuth();
   const [variants, setVariants] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [warehouses, setWarehouses] = useState<any[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState<string>('all');
-  const [searchFilter, setSearchFilter] = useState('');
+  const [dealers, setDealers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Filter Drawer State
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [filterValues, setFilterValues] = useState<Record<string, string>>({
+    variant: '',
+    status: '',
+    warehouse: '',
+    search: '',
+  });
+  const [activeFilters, setActiveFilters] = useState<Record<string, string>>({
+    variant: '',
+    status: '',
+    warehouse: '',
+    search: '',
+  });
 
   // Pagination state
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [exporting, setExporting] = useState(false);
 
-  // Receive Unit Modal State
+  // Multi-step Structured Intake Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [intakeStep, setIntakeStep] = useState<1 | 2 | 3 | 4>(1);
   const [newUnitVariantId, setNewUnitVariantId] = useState('');
   const [newUnitWarehouseId, setNewUnitWarehouseId] = useState('');
-  const [newUnitSerial, setNewUnitSerial] = useState('');
-  const [newUnitBarcode, setNewUnitBarcode] = useState('');
+  const [newUnitSource, setNewUnitSource] = useState('ZUVO Factory Direct Assembly');
   const [newUnitCost, setNewUnitCost] = useState('12500');
+  const [newUnitPurchaseDate, setNewUnitPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [newUnitNotes, setNewUnitNotes] = useState('');
+  const [customSerialInput, setCustomSerialInput] = useState('');
+  const [customBarcodeInput, setCustomBarcodeInput] = useState('');
+
+  // Post-Creation Result State (Section 12 requirement)
+  const [creationResult, setCreationResult] = useState<{
+    unit: any;
+    serialNumber: string;
+    barcode: string;
+    variantName: string;
+    source: string;
+    cost: number;
+  } | null>(null);
+
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGeneratingBarcode, setIsGeneratingBarcode] = useState(false);
 
   // Selected Unit for Label / History Modals
   const [selectedLabelUnit, setSelectedLabelUnit] = useState<any | null>(null);
@@ -60,7 +92,6 @@ export const ProductsPage: React.FC = () => {
         `)
         .order('screen_size', { ascending: true });
 
-      // Fallback catalog variants if network returns empty
       const catalogVariantsFallback = [
         { id: 'a2d3ce35-612b-4049-bec5-6d20783cd687', product_code: 'ZUVO-24-NORMAL', product_name: 'ZUVO 24" Normal LED TV', screen_size: 24, tv_type: 'normal', bluetooth: false, voice_remote: false, product_models: { model_name: 'Standard Series' } },
         { id: '076c8cb5-8d74-4d9c-b6bd-8bd2b19480d7', product_code: 'ZUVO-32-SMART', product_name: 'ZUVO 32" Smart LED TV', screen_size: 32, tv_type: 'smart', bluetooth: false, voice_remote: false, product_models: { model_name: 'Smart Series' } },
@@ -106,6 +137,7 @@ export const ProductsPage: React.FC = () => {
           warehouse_id,
           warehouses:warehouse_id (warehouse_name),
           product_variants:variant_id (
+            id,
             product_code,
             product_name,
             screen_size,
@@ -123,22 +155,154 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleAutoGenerateBarcode = async () => {
-    setIsGeneratingBarcode(true);
+  const handleOpenIntakeModal = (preselectedVariantId?: string) => {
     setFormError(null);
+    setCreationResult(null);
+    setIntakeStep(1);
+    if (preselectedVariantId) {
+      setNewUnitVariantId(preselectedVariantId);
+    } else if (variants.length > 0 && !newUnitVariantId) {
+      setNewUnitVariantId(variants[0].id);
+    }
+    setCustomSerialInput('');
+    setCustomBarcodeInput('');
+    setNewUnitNotes('');
+    setIsModalOpen(true);
+  };
+
+  const generateSafeSerialNumber = (variant: any): string => {
+    const code = variant?.product_code?.replace(/[^A-Z0-9]/g, '') || 'ZUV';
+    const year = new Date().getFullYear();
+    const randomHex = Math.floor(Math.random() * 0xFFFFFF).toString(16).toUpperCase().padStart(6, '0');
+    return `${code}-${year}-${randomHex}`;
+  };
+
+  const handleCreateUnitFinal = async () => {
+    if (!newUnitVariantId || !newUnitWarehouseId) {
+      setFormError('Product variant and destination warehouse are required.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormError(null);
+
+    const selectedVar = variants.find(v => v.id === newUnitVariantId);
+    const assignedSerial = customSerialInput.trim() || generateSafeSerialNumber(selectedVar);
+
     try {
-      const { data, error } = await (supabase.rpc as any)('generate_product_unit_barcode');
-      if (error) throw error;
-      if (data) {
-        setNewUnitBarcode(data);
+      // 1. If barcode not explicitly entered, generate using server sequence RPC
+      let assignedBarcode = customBarcodeInput.trim();
+      if (!assignedBarcode) {
+        try {
+          const { data: bCode } = await (supabase.rpc as any)('generate_product_unit_barcode');
+          if (bCode) assignedBarcode = bCode;
+        } catch (bErr) {
+          console.warn('Barcode RPC fallback:', bErr);
+        }
       }
+
+      // 2. Call create_product_unit RPC with validated parameters
+      const notePayload = [
+        newUnitSource ? `Source: ${newUnitSource}` : null,
+        newUnitPurchaseDate ? `Date: ${newUnitPurchaseDate}` : null,
+        newUnitNotes.trim() ? newUnitNotes.trim() : null
+      ].filter(Boolean).join(' | ');
+
+      const { data, error } = await (supabase.rpc as any)('create_product_unit', {
+        p_variant_id: newUnitVariantId,
+        p_warehouse_id: newUnitWarehouseId,
+        p_serial_number: assignedSerial,
+        p_barcode: assignedBarcode || null,
+        p_purchase_cost: parseFloat(newUnitCost) || 0,
+        p_status: 'in_stock',
+        p_notes: notePayload || null
+      });
+
+      if (error) throw error;
+      if (!data?.success) {
+        throw new Error(data?.error || 'Failed to create product unit.');
+      }
+
+      // 3. Immediately show the verified creation result screen
+      setCreationResult({
+        unit: data.unit,
+        serialNumber: data.serial_number || assignedSerial,
+        barcode: data.barcode || assignedBarcode,
+        variantName: selectedVar?.product_name || 'ZUVO TV',
+        source: newUnitSource,
+        cost: parseFloat(newUnitCost) || 0
+      });
+
+      setIntakeStep(4);
+      loadData();
     } catch (err: any) {
-      console.error('Error generating barcode:', err);
-      setFormError(err.message || 'Failed to auto-generate unique barcode.');
+      console.error('Error creating product unit:', err);
+      setFormError(err.message || 'Failed to create physical unit. Please check input parameters and retry.');
     } finally {
-      setIsGeneratingBarcode(false);
+      setIsSubmitting(false);
     }
   };
+
+  // Filter Drawer Definition
+  const filterFields: FilterField[] = [
+    {
+      id: 'variant',
+      label: 'Product Variant',
+      type: 'select',
+      options: variants.map(v => ({ value: v.id, label: `${v.product_name} (${v.screen_size}")` }))
+    },
+    {
+      id: 'status',
+      label: 'Stock Status',
+      type: 'select',
+      options: [
+        { value: 'in_stock', label: 'In Stock' },
+        { value: 'sold', label: 'Sold & Activated' },
+        { value: 'in_service', label: 'In Service / Repair' },
+        { value: 'defective', label: 'Defective Core' },
+      ]
+    },
+    {
+      id: 'warehouse',
+      label: 'Logistics Facility',
+      type: 'select',
+      options: warehouses.map(wh => ({ value: wh.id, label: wh.warehouse_name }))
+    },
+    {
+      id: 'search',
+      label: 'Serial or Barcode',
+      type: 'text',
+      placeholder: 'Search serial or barcode...'
+    }
+  ];
+
+  const handleApplyFilters = () => {
+    setActiveFilters({ ...filterValues });
+    setPage(1);
+  };
+
+  const handleClearFilters = () => {
+    const empty = { variant: '', status: '', warehouse: '', search: '' };
+    setFilterValues(empty);
+    setActiveFilters(empty);
+    setPage(1);
+  };
+
+  const activeFilterCount = Object.values(activeFilters).filter(Boolean).length;
+
+  // Filter Units
+  const filteredUnits = units.filter((u) => {
+    const matchesVariant = !activeFilters.variant || u.variant_id === activeFilters.variant;
+    const matchesStatus = !activeFilters.status || u.status === activeFilters.status;
+    const matchesWarehouse = !activeFilters.warehouse || u.warehouse_id === activeFilters.warehouse;
+    const query = activeFilters.search.toLowerCase().trim();
+    const matchesSearch = !query ||
+      u.serial_number?.toLowerCase().includes(query) ||
+      u.barcode?.toLowerCase().includes(query) ||
+      u.product_variants?.product_name?.toLowerCase().includes(query);
+
+    return matchesVariant && matchesStatus && matchesWarehouse && matchesSearch;
+  });
 
   const handleExport = async (format: 'csv' | 'xlsx') => {
     setExporting(true);
@@ -175,61 +339,11 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleReceiveUnit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUnitVariantId || !newUnitWarehouseId || !newUnitSerial) {
-      setFormError('Please select variant, warehouse, and enter serial number.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-
-    try {
-      // Call create_product_unit RPC
-      const { data, error } = await (supabase.rpc as any)('create_product_unit', {
-        p_variant_id: newUnitVariantId,
-        p_warehouse_id: newUnitWarehouseId,
-        p_serial_number: newUnitSerial.trim(),
-        p_barcode: newUnitBarcode.trim() || null,
-        p_purchase_cost: parseFloat(newUnitCost) || 0,
-        p_status: 'in_stock',
-        p_notes: newUnitNotes.trim() || null
-      });
-
-      if (error) throw error;
-      if (!data?.success) {
-        throw new Error(data?.error || 'Failed to create product unit.');
-      }
-
-      setIsModalOpen(false);
-      setNewUnitSerial('');
-      setNewUnitBarcode('');
-      setNewUnitNotes('');
-      loadData();
-    } catch (err: any) {
-      console.error('Error creating product unit:', err);
-      setFormError(err.message || 'Failed to receive TV unit.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const filteredUnits = units.filter((u) => {
-    const matchesVariant = selectedVariant === 'all' || u.variant_id === selectedVariant;
-    const matchesSearch =
-      !searchFilter ||
-      u.serial_number?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      u.barcode?.toLowerCase().includes(searchFilter.toLowerCase()) ||
-      u.product_variants?.product_name?.toLowerCase().includes(searchFilter.toLowerCase());
-    return matchesVariant && matchesSearch;
-  });
-
   const canManageInventory = ['super_admin', 'admin', 'inventory'].includes(role || '');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
+      {/* Header Banner */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.6rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -241,54 +355,92 @@ export const ProductsPage: React.FC = () => {
         </div>
         {canManageInventory && (
           <button
-            onClick={() => {
-              setIsModalOpen(true);
-              setFormError(null);
-            }}
+            onClick={() => handleOpenIntakeModal()}
             className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
             <Plus size={16} />
-            Receive Physical TV Unit
+            + Add Unit
           </button>
         )}
       </div>
 
-      {/* Model Specifications Grid (7 Variants) */}
+      {/* Model Specifications Grid (Selectable Variants as per Section 10) */}
       <div>
-        <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Standard ZUVO TV Catalog (7 Product Variants)
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
-          {variants.map((v) => (
-            <div
-              key={v.id}
-              onClick={() => setSelectedVariant(selectedVariant === v.id ? 'all' : v.id)}
-              style={{
-                background: selectedVariant === v.id ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-card)',
-                border: selectedVariant === v.id ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '14px',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                {v.product_code}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Standard ZUVO TV Catalog ({variants.length} Variants Available)
+          </h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Click a variant card to filter units or receive stock
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '14px' }}>
+          {variants.map((v) => {
+            const isSelected = activeFilters.variant === v.id;
+            return (
+              <div
+                key={v.id}
+                style={{
+                  background: isSelected ? 'rgba(6, 182, 212, 0.15)' : 'var(--bg-card)',
+                  border: isSelected ? '1px solid var(--accent-cyan)' : '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isSelected ? '0 0 15px rgba(6, 182, 212, 0.2)' : 'none'
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.725rem', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    {v.product_code}
+                  </div>
+                  <div style={{ fontSize: '1rem', fontWeight: 700, margin: '4px 0', color: '#FFFFFF' }}>
+                    {v.product_name}
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
+                    <span className="badge badge-slate">{v.screen_size}" Panel</span>
+                    <span className="badge badge-cyan">{v.tv_type?.toUpperCase()}</span>
+                    {v.voice_remote && <span className="badge badge-purple">Voice Remote</span>}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = isSelected ? '' : v.id;
+                      setFilterValues(prev => ({ ...prev, variant: next }));
+                      setActiveFilters(prev => ({ ...prev, variant: next }));
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ flex: 1, padding: '4px 8px', fontSize: '0.75rem', justifyContent: 'center' }}
+                  >
+                    {isSelected ? 'Deselect' : 'Select Variant'}
+                  </button>
+                  {canManageInventory && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenIntakeModal(v.id)}
+                      className="btn btn-primary btn-sm"
+                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                      title="Intake unit for this variant"
+                    >
+                      + Intake
+                    </button>
+                  )}
+                </div>
               </div>
-              <div style={{ fontSize: '0.95rem', fontWeight: 700, margin: '4px 0' }}>
-                {v.product_name}
-              </div>
-              <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
-                <span className="badge badge-slate">{v.screen_size}"</span>
-                <span className="badge badge-cyan">{v.tv_type}</span>
-                {v.voice_remote && <span className="badge badge-purple">Voice</span>}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      {/* Units Inventory Table */}
+      {/* Units Inventory Table & Filter Drawer Launcher */}
       <div className="glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -296,7 +448,41 @@ export const ProductsPage: React.FC = () => {
             <span className="badge badge-cyan">{filteredUnits.length} Units</span>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Filter Drawer Trigger Button with Active Count Badge */}
+            <button
+              type="button"
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                borderColor: activeFilterCount > 0 ? 'var(--accent-cyan)' : 'var(--border-subtle)',
+                background: activeFilterCount > 0 ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                color: activeFilterCount > 0 ? 'var(--accent-cyan)' : 'var(--text-primary)'
+              }}
+            >
+              <Filter size={14} />
+              <span>FILTER</span>
+              {activeFilterCount > 0 && (
+                <span style={{
+                  background: 'var(--accent-cyan)',
+                  color: '#000000',
+                  borderRadius: '50%',
+                  width: '16px',
+                  height: '16px',
+                  fontSize: '0.65rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800
+                }}>
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+
             <button
               className="btn btn-secondary btn-sm"
               onClick={() => handleExport('csv')}
@@ -311,28 +497,20 @@ export const ProductsPage: React.FC = () => {
             >
               <FileSpreadsheet size={14} /> Export Excel
             </button>
-            <div style={{ position: 'relative' }}>
-              <input
-                type="text"
-                placeholder="Search barcode or serial..."
-                className="form-input"
-                style={{ paddingLeft: '34px', width: '220px' }}
-                value={searchFilter}
-                onChange={(e) => {
-                  setSearchFilter(e.target.value);
-                  setPage(1);
-                }}
-              />
-              <Search size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-            </div>
-            {selectedVariant !== 'all' && (
-              <button onClick={() => { setSelectedVariant('all'); setPage(1); }} className="btn btn-secondary btn-sm">
-                Clear Filter
+
+            {activeFilterCount > 0 && (
+              <button
+                onClick={handleClearFilters}
+                className="btn btn-secondary btn-sm"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Clear All
               </button>
             )}
           </div>
         </div>
 
+        {/* Table View */}
         <div className="table-responsive">
           <table className="data-table">
             <thead>
@@ -401,8 +579,10 @@ export const ProductsPage: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    No serialized units found. Use "Receive Physical TV Unit" to stock inventory.
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+                    <Box size={36} style={{ color: 'var(--text-muted)', opacity: 0.5, marginBottom: '10px' }} />
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>No inventory units yet</div>
+                    <div style={{ fontSize: '0.85rem' }}>Add your first TV unit to begin tracking serialized inventory.</div>
                   </td>
                 </tr>
               )}
@@ -421,11 +601,30 @@ export const ProductsPage: React.FC = () => {
         />
       </div>
 
-      {/* Receive Unit Modal */}
+      {/* Filter Drawer Component (Slides Left to Right) */}
+      <FilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        title="Filter TV Units"
+        fields={filterFields}
+        values={filterValues}
+        onChange={(fieldId, val) => setFilterValues(prev => ({ ...prev, [fieldId]: val }))}
+        onApply={handleApplyFilters}
+        onClear={handleClearFilters}
+        activeFilterCount={activeFilterCount}
+      />
+
+      {/* Multi-Step Product/Unit Lifecycle Modal (Sections 11, 12, 13, 14, 15) */}
       {isModalOpen && (
         <div className="modal-backdrop" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px' }}>
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '16px' }}>Receive New Physical TV Unit</h2>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '620px' }}>
+            {/* Header */}
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', marginBottom: '18px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Physical TV Unit Registration Lifecycle</h2>
+              <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Follows strict enterprise sequence: Product → Variant → Source → Purchase Info → Create Unit → Generate Serial & Barcode
+              </div>
+            </div>
 
             {formError && (
               <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: '#FDA4AF', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px', fontSize: '0.85rem' }}>
@@ -433,104 +632,219 @@ export const ProductsPage: React.FC = () => {
               </div>
             )}
 
-            <form onSubmit={handleReceiveUnit}>
-              <div className="input-group">
-                <label className="input-label">Product Variant *</label>
-                <select
-                  className="form-input"
-                  value={newUnitVariantId}
-                  onChange={(e) => setNewUnitVariantId(e.target.value)}
-                  required
-                >
-                  {variants.map((v) => (
-                    <option key={v.id} value={v.id} style={{ background: '#111827' }}>
-                      {v.product_name} ({v.screen_size}" - {v.product_code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+            {/* STEP 4: Success Result Screen (Section 12) */}
+            {intakeStep === 4 && creationResult ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', padding: '10px 0' }}>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '12px', padding: '18px', textAlign: 'center' }}>
+                  <CheckCircle2 size={40} style={{ color: 'var(--accent-emerald)', margin: '0 auto 8px auto' }} />
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF' }}>UNIT CREATED SUCCESSFULLY</h3>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    Physical unit record and opening inventory movement transaction logged to database.
+                  </p>
+                </div>
 
-              <div className="input-group">
-                <label className="input-label">Destination Warehouse / Hub *</label>
-                <select
-                  className="form-input"
-                  value={newUnitWarehouseId}
-                  onChange={(e) => setNewUnitWarehouseId(e.target.value)}
-                  required
-                >
-                  {warehouses.map((wh) => (
-                    <option key={wh.id} value={wh.id} style={{ background: '#111827' }}>
-                      {wh.warehouse_name} ({wh.warehouse_code})
-                    </option>
-                  ))}
-                </select>
-              </div>
+                {/* Verified Metadata Summary */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '10px', padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Product & Variant</span>
+                    <strong style={{ color: '#FFFFFF' }}>{creationResult.variantName}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Source / Supplier</span>
+                    <strong style={{ color: '#FFFFFF' }}>{creationResult.source}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Purchase Rate</span>
+                    <strong style={{ color: 'var(--accent-emerald)' }}>₹ {creationResult.cost.toLocaleString('en-IN')}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', display: 'block' }}>Initial Status</span>
+                    <span className="badge badge-cyan">IN STOCK</span>
+                  </div>
+                </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                {/* Generated Serial & Barcode Highlight (Section 12) */}
+                <div style={{ background: 'rgba(6, 182, 212, 0.06)', border: '1.5px solid var(--accent-cyan)', borderRadius: '10px', padding: '16px' }}>
+                  <div style={{ marginBottom: '10px' }}>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block' }}>
+                      GENERATED SERIAL NUMBER
+                    </span>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: '#FFFFFF' }}>
+                      {creationResult.serialNumber}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: '0.725rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block' }}>
+                      GENERATED BARCODE
+                    </span>
+                    <span style={{ fontSize: '1.15rem', fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)' }}>
+                      {creationResult.barcode}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', marginTop: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedLabelUnit({
+                        barcode: creationResult.barcode,
+                        serial_number: creationResult.serialNumber,
+                        product_name: creationResult.variantName,
+                      });
+                    }}
+                    className="btn btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <Printer size={15} /> Print Barcode Label
+                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenIntakeModal()}
+                      className="btn btn-secondary"
+                    >
+                      + Add Another Unit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="btn btn-primary"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Steps 1 to 3 Intake Form */
+              <form onSubmit={(e) => { e.preventDefault(); handleCreateUnitFinal(); }}>
+                {/* Step 1 & 2: Product & Variant Selection */}
                 <div className="input-group">
-                  <label className="input-label">Serial Number *</label>
+                  <label className="input-label">Step 1 & 2 — Select Product Variant *</label>
+                  <select
+                    className="form-input"
+                    value={newUnitVariantId}
+                    onChange={(e) => setNewUnitVariantId(e.target.value)}
+                    required
+                  >
+                    {variants.map((v) => (
+                      <option key={v.id} value={v.id} style={{ background: '#111827' }}>
+                        {v.product_name} ({v.screen_size}" - {v.product_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Destination Facility */}
+                <div className="input-group">
+                  <label className="input-label">Destination Warehouse / Hub *</label>
+                  <select
+                    className="form-input"
+                    value={newUnitWarehouseId}
+                    onChange={(e) => setNewUnitWarehouseId(e.target.value)}
+                    required
+                  >
+                    {warehouses.map((wh) => (
+                      <option key={wh.id} value={wh.id} style={{ background: '#111827' }}>
+                        {wh.warehouse_name} ({wh.warehouse_code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Step 3: Source / Supplier */}
+                <div className="input-group">
+                  <label className="input-label">Step 3 — Unit Source / Supplier *</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="e.g. ZUVO-SN-2026-0001"
-                    value={newUnitSerial}
-                    onChange={(e) => setNewUnitSerial(e.target.value)}
+                    placeholder="e.g. ZUVO Direct Plant 1, Inward Shipment Batch A"
+                    value={newUnitSource}
+                    onChange={(e) => setNewUnitSource(e.target.value)}
                     required
                   />
                 </div>
 
-                <div className="input-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label className="input-label">Primary Barcode</label>
-                    <button
-                      type="button"
-                      onClick={handleAutoGenerateBarcode}
-                      disabled={isGeneratingBarcode}
-                      style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '3px' }}
-                    >
-                      <Wand2 size={12} /> {isGeneratingBarcode ? 'Generating...' : 'Auto-Generate'}
-                    </button>
+                {/* Step 4: Purchase Information */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div className="input-group">
+                    <label className="input-label">Purchase Rate (₹) *</label>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={newUnitCost}
+                      onChange={(e) => setNewUnitCost(e.target.value)}
+                      required
+                    />
                   </div>
+
+                  <div className="input-group">
+                    <label className="input-label">Purchase Date *</label>
+                    <input
+                      type="date"
+                      className="form-input"
+                      value={newUnitPurchaseDate}
+                      onChange={(e) => setNewUnitPurchaseDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Optional Serial / Barcode overrides */}
+                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '12px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>
+                    Serial & Barcode Generation Options
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label className="input-label" style={{ fontSize: '0.725rem' }}>Serial Number (Optional Override)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Leave blank to auto-generate"
+                        value={customSerialInput}
+                        onChange={(e) => setCustomSerialInput(e.target.value)}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                    </div>
+                    <div>
+                      <label className="input-label" style={{ fontSize: '0.725rem' }}>Barcode (Optional Override)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Leave blank to auto-generate"
+                        value={customBarcodeInput}
+                        onChange={(e) => setCustomBarcodeInput(e.target.value)}
+                        style={{ fontSize: '0.8rem' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="input-group">
+                  <label className="input-label">Intake Remarks</label>
                   <input
                     type="text"
                     className="form-input"
-                    placeholder="Leave blank to auto-generate (ZUV-XXXXXXXXXXXX)"
-                    value={newUnitBarcode}
-                    onChange={(e) => setNewUnitBarcode(e.target.value)}
+                    placeholder="Optional quality remarks or batch identifier..."
+                    value={newUnitNotes}
+                    onChange={(e) => setNewUnitNotes(e.target.value)}
                   />
                 </div>
-              </div>
 
-              <div className="input-group">
-                <label className="input-label">Purchase Cost (₹)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={newUnitCost}
-                  onChange={(e) => setNewUnitCost(e.target.value)}
-                />
-              </div>
-
-              <div className="input-group">
-                <label className="input-label">Notes / Batch Remarks</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Optional intake notes..."
-                  value={newUnitNotes}
-                  onChange={(e) => setNewUnitNotes(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                  {isSubmitting ? 'Recording Unit...' : 'Record to Inventory'}
-                </button>
-              </div>
-            </form>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                  <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                    {isSubmitting ? 'Creating Unit & Generating Barcode...' : 'Confirm & Create Unit'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

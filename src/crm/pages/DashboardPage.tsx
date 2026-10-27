@@ -158,6 +158,49 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
         </div>
       </div>
 
+      {/* Zero-State Operational Callout Banner (Section 8) */}
+      {(overview?.total_product_units ?? 0) === 0 && (
+        <div style={{
+          background: 'rgba(6, 182, 212, 0.05)',
+          border: '1px dashed var(--accent-cyan)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '24px',
+          textAlign: 'center',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FFFFFF' }}>No operational data yet</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', maxWidth: '520px' }}>
+            Start by adding your first product or serialized inventory unit. When new TV units are received, your real stock, warranty, and sales metrics will populate automatically.
+          </p>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center', marginTop: '6px' }}>
+            <button
+              onClick={() => onNavigate('products')}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Tv size={15} style={{ color: 'var(--brand-primary)' }} /> + Add Product
+            </button>
+            <button
+              onClick={() => onNavigate('products')}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <PackageCheck size={15} style={{ color: 'var(--accent-emerald)' }} /> + Add Unit
+            </button>
+            <button
+              onClick={onOpenBarcodeModal}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <QrCode size={15} /> Scan Barcode
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* KPI Cards Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
         <div className="stat-card">
