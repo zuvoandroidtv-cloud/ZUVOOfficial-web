@@ -256,34 +256,60 @@ export const ProductsPage: React.FC = () => {
   };
 
   const handleDeleteUnit = async (unitId: string, serial: string) => {
-    if (!window.confirm(`Are you sure you want to delete unit "${serial}"? This action will permanently remove it from inventory.`)) {
+    if (!window.confirm(`Are you sure you want to delete unit "${serial}"? This will permanently remove it from Supabase database and inventory.`)) {
       return;
     }
     try {
-      // Clean up linked inventory transactions first if present
+      // 1. Delete or uncouple all child records that reference this product_unit_id to satisfy foreign key constraints
       await supabase.from('inventory_transactions').delete().eq('product_unit_id', unitId);
+      await supabase.from('warranty_claims').delete().eq('product_unit_id', unitId);
+      await supabase.from('warranties').delete().eq('product_unit_id', unitId);
+      await supabase.from('service_tickets').delete().eq('product_unit_id', unitId);
+      await supabase.from('sales_returns').delete().eq('product_unit_id', unitId);
+      await supabase.from('sale_items').delete().eq('product_unit_id', unitId);
+      await supabase.from('media_attachments').delete().eq('product_unit_id', unitId);
+
+      // 2. Delete the unit itself from Supabase
       const { error } = await supabase.from('product_units').delete().eq('id', unitId);
       if (error) throw error;
-      alert(`Unit ${serial} successfully deleted.`);
-      loadData();
+
+      // 3. Immediately reflect in UI state
+      setUnits(prev => prev.filter(u => u.id !== unitId));
+      alert(`Unit ${serial} successfully deleted from both CRM web and Supabase database.`);
+      await loadData();
     } catch (err: any) {
       console.error('Failed to delete unit:', err);
-      alert(`Delete failed: ${err.message}`);
+      alert(`Delete failed: ${err.message || 'Error deleting unit from database'}`);
     }
   };
 
   const handleDeleteVariant = async (variantId: string, modelName: string) => {
-    if (!window.confirm(`Are you sure you want to delete TV variant "${modelName}"?\nThis will remove the catalog model definition. This cannot be undone.`)) {
+    if (!window.confirm(`Are you sure you want to delete TV variant "${modelName}"?\nThis will remove the catalog model definition and any associated units from Supabase.`)) {
       return;
     }
     try {
+      // Find all units belonging to this variant to clean them up properly
+      const { data: linkedUnits } = await supabase.from('product_units').select('id').eq('variant_id', variantId);
+      if (linkedUnits && linkedUnits.length > 0) {
+        const unitIds = linkedUnits.map(u => u.id);
+        await supabase.from('inventory_transactions').delete().in('product_unit_id', unitIds);
+        await supabase.from('warranty_claims').delete().in('product_unit_id', unitIds);
+        await supabase.from('warranties').delete().in('product_unit_id', unitIds);
+        await supabase.from('service_tickets').delete().in('product_unit_id', unitIds);
+        await supabase.from('sales_returns').delete().in('product_unit_id', unitIds);
+        await supabase.from('sale_items').delete().in('product_unit_id', unitIds);
+        await supabase.from('media_attachments').delete().in('product_unit_id', unitIds);
+        await supabase.from('product_units').delete().eq('variant_id', variantId);
+      }
+
       const { error } = await supabase.from('product_variants').delete().eq('id', variantId);
       if (error) throw error;
-      alert(`Product variant "${modelName}" deleted successfully.`);
-      loadData();
+      setVariants(prev => prev.filter(v => v.id !== variantId));
+      alert(`Product variant "${modelName}" deleted successfully from both CRM web and Supabase.`);
+      await loadData();
     } catch (err: any) {
       console.error('Failed to delete variant:', err);
-      alert(`Delete failed: ${err.message || 'Check if there are linked units first'}`);
+      alert(`Delete failed: ${err.message || 'Check if there are linked records'}`);
     }
   };
 
