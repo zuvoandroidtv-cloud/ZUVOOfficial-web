@@ -38,29 +38,73 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', maxWidth: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '0.25rem 0.625rem', flexWrap: 'wrap', maxWidth: '100%' }}>
-        <Calendar size={15} style={{ color: 'var(--brand-primary)', flexShrink: 0 }} />
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        background: 'var(--bg-card, #151824)',
+        border: '1px solid var(--border-card, #1f2438)',
+        borderRadius: '10px',
+        padding: '6px 12px',
+        height: '40px',
+        boxSizing: 'border-box'
+      }}>
+        <Calendar size={15} style={{ color: 'var(--accent-cyan, #06b6d4)', flexShrink: 0 }} />
         <input
           type="date"
           value={startDate}
           onChange={(e) => onStartDateChange(e.target.value)}
-          style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '0.8125rem', fontFamily: 'inherit', minWidth: '110px', flex: 1 }}
+          aria-label="Start date"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: '#ffffff',
+            fontSize: '0.85rem',
+            fontFamily: 'inherit',
+            width: '125px',
+            colorScheme: 'dark',
+            cursor: 'pointer'
+          }}
         />
-        <span className="text-muted" style={{ fontSize: '0.75rem' }}>to</span>
+        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted, #64748b)', padding: '0 2px' }}>to</span>
         <input
           type="date"
           value={endDate}
           onChange={(e) => onEndDateChange(e.target.value)}
-          style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', fontSize: '0.8125rem', fontFamily: 'inherit', minWidth: '110px', flex: 1 }}
+          aria-label="End date"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: '#ffffff',
+            fontSize: '0.85rem',
+            fontFamily: 'inherit',
+            width: '125px',
+            colorScheme: 'dark',
+            cursor: 'pointer'
+          }}
         />
         {hasFilter && (
           <button
             type="button"
             onClick={onClearDateRange}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', marginLeft: '0.25rem' }}
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: 'none',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              color: 'var(--text-muted, #94a3b8)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginLeft: '0.25rem'
+            }}
             title="Clear date range"
           >
-            <X size={14} />
+            <X size={12} />
           </button>
         )}
       </div>

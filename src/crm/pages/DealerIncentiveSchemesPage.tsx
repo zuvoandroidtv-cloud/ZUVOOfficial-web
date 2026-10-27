@@ -351,7 +351,7 @@ export const DealerIncentiveSchemesPage: React.FC = () => {
             <div style={{ position: 'relative', flex: 1 }}>
               <Search
                 size={16}
-                style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}
+                style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted, #64748b)', pointerEvents: 'none' }}
               />
               <input
                 type="text"
@@ -359,11 +359,36 @@ export const DealerIncentiveSchemesPage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="input"
-                style={{ width: '100%', paddingLeft: '32px' }}
+                style={{
+                  width: '100%',
+                  paddingLeft: '40px',
+                  paddingRight: '14px',
+                  height: '42px',
+                  background: 'var(--bg-input, #0e111a)',
+                  border: '1px solid var(--border-card, #1f2438)',
+                  borderRadius: '10px',
+                  color: '#fff',
+                  fontSize: '0.875rem'
+                }}
               />
             </div>
-            <button className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <Filter size={14} /> Filter
+            <button
+              className="btn btn-secondary"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                height: '42px',
+                padding: '0 16px',
+                background: 'var(--bg-card, #151824)',
+                border: '1px solid var(--border-card, #1f2438)',
+                borderRadius: '10px',
+                color: 'var(--text-secondary, #94a3b8)',
+                fontWeight: 600,
+                fontSize: '0.85rem'
+              }}
+            >
+              <Filter size={15} /> Filter
             </button>
           </div>
 
