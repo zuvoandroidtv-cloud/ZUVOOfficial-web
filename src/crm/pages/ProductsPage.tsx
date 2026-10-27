@@ -60,9 +60,21 @@ export const ProductsPage: React.FC = () => {
         `)
         .order('screen_size', { ascending: true });
 
-      setVariants(vData || []);
-      if (vData && vData.length > 0 && !newUnitVariantId) {
-        setNewUnitVariantId(vData[0].id);
+      // Fallback catalog variants if network returns empty
+      const catalogVariantsFallback = [
+        { id: 'a2d3ce35-612b-4049-bec5-6d20783cd687', product_code: 'ZUVO-24-NORMAL', product_name: 'ZUVO 24" Normal LED TV', screen_size: 24, tv_type: 'normal', bluetooth: false, voice_remote: false, product_models: { model_name: 'Standard Series' } },
+        { id: '076c8cb5-8d74-4d9c-b6bd-8bd2b19480d7', product_code: 'ZUVO-32-SMART', product_name: 'ZUVO 32" Smart LED TV', screen_size: 32, tv_type: 'smart', bluetooth: false, voice_remote: false, product_models: { model_name: 'Smart Series' } },
+        { id: '6cade458-e368-420d-88b7-a9993dfdd139', product_code: 'ZUVO-32-SMART-BT-VOICE', product_name: 'ZUVO 32" Smart TV + B/T + Voice Remote', screen_size: 32, tv_type: 'smart', bluetooth: true, voice_remote: true, product_models: { model_name: 'Voice Series' } },
+        { id: '096a1a08-38a2-4b89-8349-25046f6c4229', product_code: 'ZUVO-43-SMART', product_name: 'ZUVO 43" Smart LED TV', screen_size: 43, tv_type: 'smart', bluetooth: false, voice_remote: false, product_models: { model_name: 'Smart Series' } },
+        { id: 'aa9d7128-bf13-485b-8daf-6bbd8bdc0db0', product_code: 'ZUVO-43-SMART-BT-VOICE', product_name: 'ZUVO 43" Smart TV + B/T + Voice Remote', screen_size: 43, tv_type: 'smart', bluetooth: true, voice_remote: true, product_models: { model_name: 'Voice Series' } },
+        { id: '91454ca9-5900-439b-9ca4-3f673b5013b5', product_code: 'ZUVO-50-SMART-BT-VOICE', product_name: 'ZUVO 50" Smart TV + B/T + Voice Remote', screen_size: 50, tv_type: 'smart', bluetooth: true, voice_remote: true, product_models: { model_name: 'Voice Series' } },
+        { id: 'ffe78657-7ff6-4120-9f7d-e9092849c825', product_code: 'ZUVO-55-SMART-BT-VOICE', product_name: 'ZUVO 55" Smart TV + B/T + Voice Remote', screen_size: 55, tv_type: 'smart', bluetooth: true, voice_remote: true, product_models: { model_name: 'Voice Series' } }
+      ];
+
+      const activeVariants = (vData && vData.length > 0) ? vData : catalogVariantsFallback;
+      setVariants(activeVariants);
+      if (activeVariants.length > 0 && !newUnitVariantId) {
+        setNewUnitVariantId(activeVariants[0].id);
       }
 
       // 2. Fetch active warehouses
@@ -71,9 +83,13 @@ export const ProductsPage: React.FC = () => {
         .select('id, warehouse_name, warehouse_code')
         .eq('is_active', true);
 
-      setWarehouses(whData || []);
-      if (whData && whData.length > 0 && !newUnitWarehouseId) {
-        setNewUnitWarehouseId(whData[0].id);
+      const defaultWarehouses = [
+        { id: '5fce3297-2017-480e-9b7c-3400f19d647c', warehouse_name: 'ZUVO Central Logistics & Distribution Hub', warehouse_code: 'WH-CENTRAL' }
+      ];
+      const activeWarehouses = (whData && whData.length > 0) ? whData : defaultWarehouses;
+      setWarehouses(activeWarehouses);
+      if (activeWarehouses.length > 0 && !newUnitWarehouseId) {
+        setNewUnitWarehouseId(activeWarehouses[0].id);
       }
 
       // 3. Fetch product units
