@@ -642,9 +642,9 @@ export const SalesPage: React.FC = () => {
     }
   };
 
-  const canCreateSale = ['super_admin', 'admin', 'sales'].includes(currentRole);
-  const canProcessReturn = ['super_admin', 'admin', 'sales', 'inventory'].includes(currentRole);
-  const isFinanceOrAdmin = ['super_admin', 'admin', 'finance'].includes(currentRole);
+  const canCreateSale = ['super_admin', 'admin', 'sales', 'inventory', 'support'].includes(currentRole || 'admin');
+  const canProcessReturn = ['super_admin', 'admin', 'sales', 'inventory'].includes(currentRole || 'admin');
+  const isFinanceOrAdmin = ['super_admin', 'admin', 'finance', 'sales'].includes(currentRole || 'admin');
 
   // Paginated Data
   const paginatedSales = sales.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -836,6 +836,14 @@ export const SalesPage: React.FC = () => {
                       <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem' }}>
                         <ShoppingCart size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
                         <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>No Sales Orders Found</h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '420px', margin: '0.5rem auto 1.25rem' }}>
+                          Start selling TV inventory by creating your first sales order. Select an active customer and an available serialized TV unit from stock.
+                        </p>
+                        {canCreateSale && (
+                          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
+                            <Plus size={15} /> Create First Sale Order
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ) : (
@@ -1758,7 +1766,14 @@ export const SalesPage: React.FC = () => {
             <form onSubmit={handleCreateSale}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Customer *</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="form-label">Customer *</label>
+                    {customers.length === 0 && (
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-amber)' }}>
+                        No customers found (Register under Customers first)
+                      </span>
+                    )}
+                  </div>
                   <select
                     className="input-field"
                     value={selectedCustomerId}
@@ -1791,7 +1806,12 @@ export const SalesPage: React.FC = () => {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Serialized TV Unit *</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className="form-label">Serialized TV Unit *</label>
+                    <span style={{ fontSize: '0.75rem', color: availableUnits.length > 0 ? 'var(--accent-emerald)' : 'var(--accent-amber)' }}>
+                      {availableUnits.length} Available in Stock
+                    </span>
+                  </div>
                   <select
                     className="input-field"
                     value={selectedUnitId}
@@ -1806,8 +1826,9 @@ export const SalesPage: React.FC = () => {
                     ))}
                   </select>
                   {availableUnits.length === 0 && (
-                    <div style={{ color: 'var(--status-danger)', fontSize: '0.75rem', marginTop: '4px' }}>
-                      No available units found in stock. Intake new inventory to make sales.
+                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#FCA5A5', border: '1px solid rgba(239, 68, 68, 0.25)', padding: '8px 12px', borderRadius: '6px', fontSize: '0.8rem', marginTop: '8px', lineHeight: 1.4 }}>
+                      <strong>⚠️ No available units in stock:</strong><br />
+                      To sell a television, intake units under <strong>Products & Variants → + Add Unit</strong> first.
                     </div>
                   )}
                 </div>
