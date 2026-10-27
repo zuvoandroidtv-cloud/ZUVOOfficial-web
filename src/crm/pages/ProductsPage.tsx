@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Tv, Plus, Search, QrCode, Filter, MapPin, CheckCircle, AlertCircle,
   Download, FileSpreadsheet, Printer, Clock, Wand2, ArrowRight, Check,
-  Store, ShieldCheck, RotateCcw, Box, CheckCircle2
+  Store, ShieldCheck, RotateCcw, Box, CheckCircle2, Trash2
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
@@ -240,6 +240,23 @@ export const ProductsPage: React.FC = () => {
       setFormError(err.message || 'Failed to create physical unit. Please check input parameters and retry.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteUnit = async (unitId: string, serial: string) => {
+    if (!window.confirm(`Are you sure you want to delete unit "${serial}"? This action will permanently remove it from inventory.`)) {
+      return;
+    }
+    try {
+      // Clean up linked inventory transactions first if present
+      await supabase.from('inventory_transactions').delete().eq('product_unit_id', unitId);
+      const { error } = await supabase.from('product_units').delete().eq('id', unitId);
+      if (error) throw error;
+      alert(`Unit ${serial} successfully deleted.`);
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to delete unit:', err);
+      alert(`Delete failed: ${err.message}`);
     }
   };
 
@@ -572,6 +589,14 @@ export const ProductsPage: React.FC = () => {
                           })}
                         >
                           <Printer size={13} /> Label
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '4px 8px', fontSize: '0.75rem', color: 'var(--accent-rose)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                          title="Delete TV Unit"
+                          onClick={() => handleDeleteUnit(u.id, u.serial_number)}
+                        >
+                          <Trash2 size={13} /> Delete
                         </button>
                       </div>
                     </td>
