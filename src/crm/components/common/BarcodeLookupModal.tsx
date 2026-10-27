@@ -117,15 +117,18 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
     setIsScanning(true);
 
     try {
-      // 4. Request camera access using MediaDevices API explicitly
+      // 4. Request camera access using MediaDevices API explicitly to trigger browser permission modal
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' }
       });
       mediaStreamRef.current = stream;
 
-      // Clean up raw test stream before Html5Qrcode takes control of the device element
+      // Clean up pre-flight stream before Html5Qrcode binds the camera track to the video element
       stream.getTracks().forEach((track) => track.stop());
       mediaStreamRef.current = null;
+
+      // Yield a microtask tick so React renders the #barcode-camera-view div in the DOM
+      await new Promise((resolve) => setTimeout(resolve, 80));
 
       if (!html5QrcodeRef.current) {
         html5QrcodeRef.current = new Html5Qrcode('barcode-camera-view');
