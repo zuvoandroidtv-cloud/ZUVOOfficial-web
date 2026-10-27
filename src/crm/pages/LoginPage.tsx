@@ -89,7 +89,7 @@ export const LoginPage: React.FC = () => {
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <img
-            src="/zuvo-official-logo.png"
+            src="/zuvo-logo-transparent.png"
             alt="ZUVO Android TV"
             style={{
               height: '52px',

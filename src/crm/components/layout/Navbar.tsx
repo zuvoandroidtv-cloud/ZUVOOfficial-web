@@ -212,7 +212,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <img
-            src="/zuvo-official-logo.png"
+            src="/zuvo-logo-transparent.png"
             alt="ZUVO Android TV"
             style={{
               height: '34px',

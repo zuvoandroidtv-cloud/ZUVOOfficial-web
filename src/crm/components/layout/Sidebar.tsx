@@ -273,7 +273,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isSidebarCollapsed ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <img
-                src="/zuvo-official-logo.png"
+                src="/zuvo-logo-transparent.png"
                 alt="ZUVO Android TV"
                 style={{
                   height: '32px',
@@ -285,7 +285,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           ) : (
             <img
-              src="/zuvo-official-logo.png"
+              src="/zuvo-logo-transparent.png"
               alt="ZUVO"
               style={{
                 height: '24px',

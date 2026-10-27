@@ -197,7 +197,7 @@ export const App: React.FC = () => {
         <header style={{ minHeight: '64px', borderBottom: '1px solid var(--border-card)', background: 'rgba(16, 19, 28, 0.95)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <img
-              src="/zuvo-official-logo.png"
+              src="/zuvo-logo-transparent.png"
               alt="ZUVO Android TV"
               style={{ height: '36px', objectFit: 'contain', filter: 'drop-shadow(0 2px 10px rgba(20, 241, 196, 0.25))' }}
             />
