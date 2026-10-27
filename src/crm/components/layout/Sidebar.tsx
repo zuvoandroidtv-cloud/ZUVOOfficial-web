@@ -158,9 +158,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
+      title: 'CRM / CUSTOMERS',
+      items: [
+        { id: 'customers', label: 'Customers', icon: Users, allowedRoles: ['super_admin', 'admin', 'sales', 'support'] },
+        { id: 'dealers', label: 'Dealers & Partners', icon: Store, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'] },
+        { id: 'growth_engine', label: 'Leads & Growth', icon: Users, allowedRoles: ['super_admin', 'admin', 'sales', 'support'], badge: 'LEADS' },
+      ]
+    },
+    {
       title: 'PRODUCTS & INVENTORY',
       items: [
-        { id: 'products', label: 'Products & Units', icon: Tv, allowedRoles: ['super_admin', 'admin', 'inventory', 'sales', 'service', 'support'] },
+        { id: 'products', label: 'Products & Variants', icon: Tv, allowedRoles: ['super_admin', 'admin', 'inventory', 'sales', 'service', 'support'] },
         { id: 'inventory', label: 'Warehouses & Stock', icon: Warehouse, allowedRoles: ['super_admin', 'admin', 'inventory'] },
         { id: 'supply_chain', label: 'Supply Chain Matrix', icon: Boxes, allowedRoles: ['super_admin', 'admin', 'inventory', 'sales', 'service'], badge: 'SCM' },
         { id: 'inventory_valuation', label: 'Valuation & Margin', icon: DollarSign, allowedRoles: ['super_admin', 'admin', 'inventory', 'sales'], badge: 'COGS' },
@@ -168,16 +176,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      title: 'SALES & COMMERCIAL',
+      title: 'SALES',
       items: [
         { id: 'sales', label: 'Sales Orders', icon: ShoppingCart, allowedRoles: ['super_admin', 'admin', 'sales'] },
         { id: 'sales_order_fulfillment', label: 'B2B Fulfillment', icon: PackageCheck, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'], badge: 'B2B' },
         { id: 'order_to_cash', label: 'Order to Cash (O2C)', icon: TrendingUp, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'], badge: 'O2C' },
-        { id: 'customers', label: 'Customers', icon: Users, allowedRoles: ['super_admin', 'admin', 'sales', 'support'] },
-        { id: 'dealers', label: 'Dealers & Partners', icon: Store, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'] },
-        { id: 'dealer_incentives', label: 'Incentives & Slabs', icon: Award, allowedRoles: ['super_admin', 'admin', 'sales'], badge: 'REBATE' },
+        { id: 'dealer_incentives', label: 'Incentives & Schemes', icon: Award, allowedRoles: ['super_admin', 'admin', 'sales'], badge: 'REBATE' },
         { id: 'commercial_returns', label: 'Returns & Credit Notes', icon: RotateCcw, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory'], badge: 'RMA' },
-        { id: 'growth_engine', label: 'Growth Engine', icon: Users, allowedRoles: ['super_admin', 'admin', 'sales', 'support'], badge: 'GROWTH' },
       ]
     },
     {
@@ -192,15 +197,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      title: 'OPERATIONS & SCM',
+      title: 'PROCUREMENT',
       items: [
         { id: 'procurement', label: 'Procurement (P2P)', icon: Truck, allowedRoles: ['super_admin', 'admin', 'inventory', 'sales'], badge: 'P2P' },
-        { id: 'workforce', label: 'Workforce & HR', icon: Users, allowedRoles: ['super_admin', 'admin', 'sales', 'service', 'support'], badge: 'HR' },
+      ]
+    },
+    {
+      title: 'OPERATIONS',
+      items: [
         { id: 'enterprise_execution', label: 'Task Execution', icon: CheckSquare, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'], badge: 'EXEC' },
       ]
     },
     {
-      title: 'FINANCE & CONTROL',
+      title: 'FINANCE',
       items: [
         { id: 'finance', label: 'General Ledger', icon: Scale, allowedRoles: ['super_admin', 'admin', 'sales'] },
         { id: 'controls', label: 'Financial Controls', icon: ShieldAlert, allowedRoles: ['super_admin', 'admin', 'sales'] },
@@ -213,19 +222,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      title: 'COMMUNICATIONS & ALERTS',
+      title: 'PEOPLE',
       items: [
-        { id: 'notifications', label: 'Notification Center', icon: Bell, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'] },
-        { id: 'communications', label: 'SMS & Comms Gateway', icon: MessageSquare, allowedRoles: ['super_admin', 'admin', 'sales', 'service', 'support'] },
-        { id: 'integration_command', label: 'Integration Queue', icon: Network, allowedRoles: ['super_admin', 'admin'], badge: 'SYNC' },
+        { id: 'workforce', label: 'Workforce & HR', icon: Users, allowedRoles: ['super_admin', 'admin', 'sales', 'service', 'support'], badge: 'HR' },
       ]
     },
     {
-      title: 'ANALYTICS & GOVERNANCE',
+      title: 'REPORTING & GOVERNANCE',
       items: [
         { id: 'reports', label: 'Executive Analytics', icon: BarChart3, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'] },
         { id: 'security_compliance', label: 'Security & RLS Audit', icon: ShieldAlert, allowedRoles: ['super_admin', 'admin'], badge: 'AUDIT' },
         { id: 'enterprise_governance', label: 'Governance & Rules', icon: Settings, allowedRoles: ['super_admin', 'admin'], badge: 'GOV' },
+        { id: 'notifications', label: 'Notification Center', icon: Bell, allowedRoles: ['super_admin', 'admin', 'sales', 'inventory', 'service', 'support'] },
+        { id: 'communications', label: 'SMS & Comms Gateway', icon: MessageSquare, allowedRoles: ['super_admin', 'admin', 'sales', 'service', 'support'] },
+        { id: 'integration_command', label: 'Integration Queue', icon: Network, allowedRoles: ['super_admin', 'admin'], badge: 'SYNC' },
         { id: 'settings', label: 'System Settings', icon: Settings, allowedRoles: ['super_admin', 'admin'] },
       ]
     }

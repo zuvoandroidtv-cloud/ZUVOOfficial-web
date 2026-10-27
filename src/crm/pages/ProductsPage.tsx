@@ -65,6 +65,18 @@ export const ProductsPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Add Product Variant Modal State
+  const [isAddVariantModalOpen, setIsAddVariantModalOpen] = useState(false);
+  const [newVarCode, setNewVarCode] = useState('');
+  const [newVarName, setNewVarName] = useState('');
+  const [newVarSize, setNewVarSize] = useState('32');
+  const [newVarType, setNewVarType] = useState('smart');
+  const [newVarBt, setNewVarBt] = useState(true);
+  const [newVarVoice, setNewVarVoice] = useState(true);
+  const [newVarCost, setNewVarCost] = useState('12500');
+  const [isSubmittingVariant, setIsSubmittingVariant] = useState(false);
+  const [variantFormError, setVariantFormError] = useState<string | null>(null);
+
   // Selected Unit for Label / History Modals
   const [selectedLabelUnit, setSelectedLabelUnit] = useState<any | null>(null);
   const [selectedHistoryIdentifier, setSelectedHistoryIdentifier] = useState<string | null>(null);
@@ -275,6 +287,46 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const handleCreateVariant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newVarCode.trim() || !newVarName.trim()) {
+      setVariantFormError('Product Code and Product Name are required.');
+      return;
+    }
+
+    setIsSubmittingVariant(true);
+    setVariantFormError(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .insert([{
+          product_code: newVarCode.trim().toUpperCase(),
+          product_name: newVarName.trim(),
+          model_id: newVarCode.trim().toUpperCase(),
+          screen_size: parseInt(newVarSize) || 32,
+          tv_type: newVarType,
+          bluetooth: newVarBt,
+          voice_remote: newVarVoice
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      alert(`TV Variant "${newVarName}" created successfully!`);
+      setIsAddVariantModalOpen(false);
+      setNewVarCode('');
+      setNewVarName('');
+      loadData();
+    } catch (err: any) {
+      console.error('Error creating variant:', err);
+      setVariantFormError(err.message || 'Failed to create variant. Code may already exist.');
+    } finally {
+      setIsSubmittingVariant(false);
+    }
+  };
+
   // Filter Drawer Definition
   const filterFields: FilterField[] = [
     {
@@ -386,14 +438,27 @@ export const ProductsPage: React.FC = () => {
           </p>
         </div>
         {canManageInventory && (
-          <button
-            onClick={() => handleOpenIntakeModal()}
-            className="btn btn-primary"
-            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <Plus size={16} />
-            + Add Unit
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              onClick={() => {
+                setVariantFormError(null);
+                setIsAddVariantModalOpen(true);
+              }}
+              className="btn btn-secondary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={16} style={{ color: 'var(--accent-mint)' }} />
+              + Add Product / Variant
+            </button>
+            <button
+              onClick={() => handleOpenIntakeModal()}
+              className="btn btn-primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Plus size={16} />
+              + Add Unit
+            </button>
+          </div>
         )}
       </div>
 
@@ -916,6 +981,126 @@ export const ProductsPage: React.FC = () => {
           onClose={() => setSelectedHistoryIdentifier(null)}
           unitIdentifier={selectedHistoryIdentifier}
         />
+      )}
+
+      {/* Add Product Variant Modal (Section 10) */}
+      {isAddVariantModalOpen && (
+        <div className="modal-backdrop" onClick={() => setIsAddVariantModalOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '14px', marginBottom: '18px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Create New TV Product / Variant</h2>
+              <div style={{ fontSize: '0.775rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Add a new ZUVO television model definition to the official enterprise catalog.
+              </div>
+            </div>
+
+            {variantFormError && (
+              <div style={{ background: 'rgba(244, 63, 94, 0.1)', color: '#FDA4AF', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '10px 14px', borderRadius: '8px', marginBottom: '14px', fontSize: '0.85rem' }}>
+                {variantFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateVariant}>
+              <div className="input-group">
+                <label className="input-label">Product Code *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. ZUVO-65-QLED-4K"
+                  value={newVarCode}
+                  onChange={(e) => setNewVarCode(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Product / Model Name *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. ZUVO 65-inch 4K Ultra HD Smart QLED TV"
+                  value={newVarName}
+                  onChange={(e) => setNewVarName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="input-group">
+                  <label className="input-label">Screen Size (Inches) *</label>
+                  <select
+                    className="form-input"
+                    value={newVarSize}
+                    onChange={(e) => setNewVarSize(e.target.value)}
+                  >
+                    <option value="24">24 Inch</option>
+                    <option value="32">32 Inch</option>
+                    <option value="40">40 Inch</option>
+                    <option value="43">43 Inch</option>
+                    <option value="50">50 Inch</option>
+                    <option value="55">55 Inch</option>
+                    <option value="65">65 Inch</option>
+                    <option value="75">75 Inch</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">TV Type *</label>
+                  <select
+                    className="form-input"
+                    value={newVarType}
+                    onChange={(e) => setNewVarType(e.target.value)}
+                  >
+                    <option value="smart">Smart LED TV</option>
+                    <option value="normal">Normal / Non-Smart</option>
+                    <option value="qled">QLED 4K</option>
+                    <option value="oled">OLED Premium</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="input-group">
+                  <label className="input-label">Standard Manufacturing Cost (₹)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    value={newVarCost}
+                    onChange={(e) => setNewVarCost(e.target.value)}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px', paddingTop: '8px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={newVarBt}
+                      onChange={(e) => setNewVarBt(e.target.checked)}
+                    />
+                    Bluetooth Support
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={newVarVoice}
+                      onChange={(e) => setNewVarVoice(e.target.checked)}
+                    />
+                    Voice Remote Control
+                  </label>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+                <button type="button" onClick={() => setIsAddVariantModalOpen(false)} className="btn btn-secondary">
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={isSubmittingVariant}>
+                  {isSubmittingVariant ? 'Saving Variant...' : 'Save Product Variant'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

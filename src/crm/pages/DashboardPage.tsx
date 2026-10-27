@@ -445,56 +445,74 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
             </div>
           </div>
 
-          {/* SVG Glowing Line Graph */}
-          <div style={{ position: 'relative', width: '100%', height: '200px' }}>
-            <svg width="100%" height="100%" viewBox="0 0 700 200" preserveAspectRatio="none">
-              <defs>
-                <linearGradient id="waveGlowGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#14F1C4" stopOpacity="0.25" />
-                  <stop offset="100%" stopColor="#14F1C4" stopOpacity="0.0" />
-                </linearGradient>
-                <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#14F1C4" />
-                  <stop offset="50%" stopColor="#06B6D4" />
-                  <stop offset="100%" stopColor="#3B82F6" />
-                </linearGradient>
-              </defs>
-
-              {/* Horizontal Grid lines */}
-              <line x1="0" y1="40" x2="700" y2="40" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-              <line x1="0" y1="90" x2="700" y2="90" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-              <line x1="0" y1="140" x2="700" y2="140" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-
-              {/* Area Fill */}
-              <path
-                d="M 10 140 Q 70 80, 130 160 T 250 110 T 370 140 T 490 90 T 610 130 T 690 40 L 690 190 L 10 190 Z"
-                fill="url(#waveGlowGrad)"
-              />
-
-              {/* Glowing Wave Stroke */}
-              <path
-                d="M 10 140 Q 70 80, 130 160 T 250 110 T 370 140 T 490 90 T 610 130 T 690 40"
-                stroke="url(#lineGrad)"
-                strokeWidth="3.5"
-                strokeLinecap="round"
-                fill="none"
-                style={{ filter: 'drop-shadow(0 0 8px rgba(20, 241, 196, 0.7))' }}
-              />
-
-              {/* Dynamic Data Point Node */}
-              <circle cx="690" cy="40" r="5" fill="#14F1C4" style={{ filter: 'drop-shadow(0 0 8px #14F1C4)' }} />
-            </svg>
-
-            {/* Months Axis */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => (
-                <span key={m}>{m}</span>
-              ))}
+          {/* Dynamic / Zero-State Sales Analytics Display */}
+          {(overview?.total_product_units ?? 0) === 0 ? (
+            <div style={{
+              height: '200px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(255, 255, 255, 0.01)',
+              border: '1px dashed var(--border-card)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '20px',
+              textAlign: 'center'
+            }}>
+              <TrendingUp size={36} style={{ color: 'var(--accent-mint)', opacity: 0.6, marginBottom: '8px' }} />
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#FFFFFF' }}>No sales data yet</div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', maxWidth: '380px', marginTop: '4px' }}>
+                Add and fulfill sales orders to begin tracking television distribution trends & monthly dispatch volume.
+              </p>
+              <button
+                onClick={() => onNavigate('sales')}
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: '10px', fontSize: '0.75rem' }}
+              >
+                + Create First Sale
+              </button>
             </div>
-          </div>
+          ) : (
+            <div style={{ position: 'relative', width: '100%', height: '200px' }}>
+              <svg width="100%" height="100%" viewBox="0 0 700 200" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="waveGlowGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#14F1C4" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#14F1C4" stopOpacity="0.0" />
+                  </linearGradient>
+                  <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#14F1C4" />
+                    <stop offset="50%" stopColor="#06B6D4" />
+                    <stop offset="100%" stopColor="#3B82F6" />
+                  </linearGradient>
+                </defs>
+                <line x1="0" y1="40" x2="700" y2="40" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                <line x1="0" y1="90" x2="700" y2="90" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                <line x1="0" y1="140" x2="700" y2="140" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                <path
+                  d="M 10 140 Q 70 80, 130 160 T 250 110 T 370 140 T 490 90 T 610 130 T 690 40 L 690 190 L 10 190 Z"
+                  fill="url(#waveGlowGrad)"
+                />
+                <path
+                  d="M 10 140 Q 70 80, 130 160 T 250 110 T 370 140 T 490 90 T 610 130 T 690 40"
+                  stroke="url(#lineGrad)"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  fill="none"
+                  style={{ filter: 'drop-shadow(0 0 8px rgba(20, 241, 196, 0.7))' }}
+                />
+                <circle cx="690" cy="40" r="5" fill="#14F1C4" style={{ filter: 'drop-shadow(0 0 8px #14F1C4)' }} />
+              </svg>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => (
+                  <span key={m}>{m}</span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Returns / RMA Bar Chart Card (Reference NickelFox Right Card) */}
+        {/* Returns / RMA Bar Chart Card */}
         <div className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -510,44 +528,51 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border-card)'
               }}>
-                Jan - Jun '26
+                Current Period
               </span>
             </div>
 
-            {/* Bar Chart Visualization */}
-            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', paddingTop: '20px' }}>
-              {[
-                { month: 'Jan', val: 55, color: '#14F1C4' },
-                { month: 'Feb', val: 35, color: '#06B6D4' },
-                { month: 'Mar', val: 45, color: '#3B82F6' },
-                { month: 'Apr', val: 85, color: '#14F1C4', highlight: '43%' },
-              ].map((b) => (
-                <div key={b.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                  {b.highlight && (
-                    <span style={{
-                      fontSize: '0.65rem',
-                      fontWeight: 800,
-                      background: 'var(--grad-mint-cyan)',
-                      color: '#0c0e14',
-                      padding: '2px 6px',
-                      borderRadius: '9999px',
-                      boxShadow: '0 2px 8px rgba(20, 241, 196, 0.4)'
-                    }}>
-                      {b.highlight}
-                    </span>
-                  )}
-                  <div style={{
-                    width: '18px',
-                    height: `${b.val}px`,
-                    borderRadius: '8px 8px 3px 3px',
-                    background: b.color,
-                    boxShadow: `0 0 10px ${b.color}55`,
-                    transition: 'height 0.3s ease'
-                  }} />
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{b.month}</span>
+            {(overview?.open_service_tickets ?? 0) === 0 ? (
+              <div style={{
+                height: '140px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(255, 255, 255, 0.01)',
+                border: '1px dashed var(--border-card)',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                textAlign: 'center'
+              }}>
+                <ShieldCheck size={32} style={{ color: 'var(--accent-emerald)', opacity: 0.8, marginBottom: '6px' }} />
+                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>0 Returns & Claims</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  No warranty claims or RMA requests recorded.
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', paddingTop: '20px' }}>
+                {[
+                  { month: 'Jan', val: 0, color: '#14F1C4' },
+                  { month: 'Feb', val: 0, color: '#06B6D4' },
+                  { month: 'Mar', val: 0, color: '#3B82F6' },
+                  { month: 'Apr', val: overview?.open_service_tickets || 0, color: '#14F1C4' },
+                ].map((b) => (
+                  <div key={b.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <div style={{
+                      width: '18px',
+                      height: `${Math.max(4, Math.min(100, b.val * 10))}px`,
+                      borderRadius: '8px 8px 3px 3px',
+                      background: b.color,
+                      boxShadow: `0 0 10px ${b.color}55`,
+                      transition: 'height 0.3s ease'
+                    }} />
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{b.month}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div style={{
@@ -561,7 +586,9 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
             marginTop: '14px'
           }}>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Overall Warranty Health</span>
-            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-mint)' }}>99.2% Quality</span>
+            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-mint)' }}>
+              {(overview?.open_service_tickets ?? 0) === 0 ? '100% Quality' : 'Active Cases'}
+            </span>
           </div>
         </div>
       </div>
