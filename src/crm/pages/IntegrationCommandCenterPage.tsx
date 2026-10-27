@@ -115,72 +115,48 @@ const MOCK_INTEGRATIONS: MockIntegration[] = [
   {
     id: 'int-001', integration_code: 'RAZORPAY_PG', integration_name: 'Razorpay Payment Gateway',
     category: 'PAYMENT', provider: 'Razorpay', environment: 'PRODUCTION', status: 'ACTIVE',
-    health_status: 'HEALTHY', last_success_at: '2026-10-24T09:45:00Z', last_failure_at: null,
-    failure_count: 0, inbox_pending: 2, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
+    health_status: 'HEALTHY', last_success_at: null, last_failure_at: null,
+    failure_count: 0, inbox_pending: 0, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
   },
   {
     id: 'int-002', integration_code: 'TALLY_ERP', integration_name: 'Tally ERP Accounting',
     category: 'ACCOUNTING', provider: 'Tally Solutions', environment: 'PRODUCTION', status: 'ACTIVE',
-    health_status: 'DEGRADED', last_success_at: '2026-10-24T06:00:00Z', last_failure_at: '2026-10-24T08:30:00Z',
-    failure_count: 7, inbox_pending: 0, outbox_pending: 14, dlq_open: 3, credential_alerts: 1,
+    health_status: 'HEALTHY', last_success_at: null, last_failure_at: null,
+    failure_count: 0, inbox_pending: 0, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
   },
   {
     id: 'int-003', integration_code: 'MSG91_SMS', integration_name: 'MSG91 SMS Gateway',
     category: 'SMS', provider: 'MSG91', environment: 'PRODUCTION', status: 'ACTIVE',
-    health_status: 'HEALTHY', last_success_at: '2026-10-24T10:15:00Z', last_failure_at: null,
-    failure_count: 1, inbox_pending: 0, outbox_pending: 3, dlq_open: 0, credential_alerts: 0,
+    health_status: 'HEALTHY', last_success_at: null, last_failure_at: null,
+    failure_count: 0, inbox_pending: 0, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
   },
   {
     id: 'int-004', integration_code: 'SENDGRID_EMAIL', integration_name: 'SendGrid Email Delivery',
     category: 'EMAIL', provider: 'Twilio SendGrid', environment: 'PRODUCTION', status: 'ACTIVE',
-    health_status: 'HEALTHY', last_success_at: '2026-10-24T10:30:00Z', last_failure_at: null,
-    failure_count: 0, inbox_pending: 0, outbox_pending: 5, dlq_open: 0, credential_alerts: 0,
+    health_status: 'HEALTHY', last_success_at: null, last_failure_at: null,
+    failure_count: 0, inbox_pending: 0, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
   },
   {
     id: 'int-005', integration_code: 'DELHIVERY_SHIP', integration_name: 'Delhivery Logistics',
     category: 'SHIPPING', provider: 'Delhivery', environment: 'PRODUCTION', status: 'ACTIVE',
-    health_status: 'AT_RISK', last_success_at: '2026-10-23T22:00:00Z', last_failure_at: '2026-10-24T07:00:00Z',
-    failure_count: 23, inbox_pending: 5, outbox_pending: 8, dlq_open: 6, credential_alerts: 1,
+    health_status: 'HEALTHY', last_success_at: null, last_failure_at: null,
+    failure_count: 0, inbox_pending: 0, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
   },
   {
     id: 'int-006', integration_code: 'GSTN_API', integration_name: 'GSTN GST Compliance API',
     category: 'GST', provider: 'GSTN / NIC', environment: 'PRODUCTION', status: 'ACTIVE',
-    health_status: 'HEALTHY', last_success_at: '2026-10-24T10:00:00Z', last_failure_at: null,
-    failure_count: 0, inbox_pending: 0, outbox_pending: 2, dlq_open: 0, credential_alerts: 0,
+    health_status: 'HEALTHY', last_success_at: null, last_failure_at: null,
+    failure_count: 0, inbox_pending: 0, outbox_pending: 0, dlq_open: 0, credential_alerts: 0,
   },
 ];
 
-const MOCK_EVENTS: MockEvent[] = [
-  { id: 'ev-001', direction: 'INBOUND', integration: 'Razorpay', event_type: 'payment.captured', status: 'PROCESSED', received_at: '2026-10-24T09:45:00Z', attempt_count: 1, correlation_id: 'corr-a1b2' },
-  { id: 'ev-002', direction: 'OUTBOUND', integration: 'Tally ERP', event_type: 'invoice.sync', status: 'RETRYING', received_at: '2026-10-24T08:30:00Z', attempt_count: 3, correlation_id: 'corr-c3d4' },
-  { id: 'ev-003', direction: 'INBOUND', integration: 'Delhivery', event_type: 'shipment.delivered', status: 'FAILED', received_at: '2026-10-24T07:00:00Z', attempt_count: 5, correlation_id: 'corr-e5f6' },
-  { id: 'ev-004', direction: 'OUTBOUND', integration: 'MSG91', event_type: 'sms.send', status: 'SENT', received_at: '2026-10-24T10:15:00Z', attempt_count: 1, correlation_id: 'corr-g7h8' },
-  { id: 'ev-005', direction: 'INBOUND', integration: 'Razorpay', event_type: 'refund.processed', status: 'VALIDATED', received_at: '2026-10-24T10:20:00Z', attempt_count: 0, correlation_id: 'corr-i9j0' },
-  { id: 'ev-006', direction: 'OUTBOUND', integration: 'SendGrid', event_type: 'email.invoice', status: 'PENDING', received_at: '2026-10-24T10:28:00Z', attempt_count: 0, correlation_id: 'corr-k1l2' },
-];
+const MOCK_EVENTS: MockEvent[] = [];
 
-const MOCK_COMMS: MockComm[] = [
-  { id: 'cm-001', channel: 'EMAIL', message_type: 'INVOICE_GENERATED', recipient: 'dealer@acmestores.in', status: 'DELIVERED', queued_at: '2026-10-24T09:00:00Z', sent_at: '2026-10-24T09:01:00Z' },
-  { id: 'cm-002', channel: 'SMS', message_type: 'TECHNICIAN_ASSIGNED', recipient: '+919876543210', status: 'SENT', queued_at: '2026-10-24T10:00:00Z', sent_at: '2026-10-24T10:01:00Z' },
-  { id: 'cm-003', channel: 'WHATSAPP', message_type: 'WARRANTY_APPROVED', recipient: '+918765432109', status: 'DELIVERED', queued_at: '2026-10-24T08:30:00Z', sent_at: '2026-10-24T08:31:00Z' },
-  { id: 'cm-004', channel: 'EMAIL', message_type: 'PAYMENT_RECEIVED', recipient: 'customer@example.com', status: 'FAILED', queued_at: '2026-10-24T07:00:00Z', sent_at: null },
-  { id: 'cm-005', channel: 'SMS', message_type: 'SHIPMENT_DISPATCHED', recipient: '+917654321098', status: 'QUEUED', queued_at: '2026-10-24T10:30:00Z', sent_at: null },
-];
+const MOCK_COMMS: MockComm[] = [];
 
-const MOCK_DOCUMENTS: MockDocument[] = [
-  { id: 'doc-001', document_type: 'INVOICE', entity_type: 'sale', document_number: 'INV-2026-10-09821', version: 1, status: 'ISSUED', generated_at: '2026-10-24T09:00:00Z', deliveries: 2 },
-  { id: 'doc-002', document_type: 'WARRANTY_CERTIFICATE', entity_type: 'warranty', document_number: 'WC-2026-04412', version: 1, status: 'ISSUED', generated_at: '2026-10-24T08:00:00Z', deliveries: 1 },
-  { id: 'doc-003', document_type: 'DELIVERY_DOCUMENT', entity_type: 'fulfillment', document_number: 'DC-2026-01187', version: 2, status: 'ISSUED', generated_at: '2026-10-24T10:00:00Z', deliveries: 3 },
-  { id: 'doc-004', document_type: 'CREDIT_NOTE', entity_type: 'return', document_number: 'CN-2026-00341', version: 1, status: 'GENERATED', generated_at: '2026-10-24T10:25:00Z', deliveries: 0 },
-  { id: 'doc-005', document_type: 'SERVICE_REPORT', entity_type: 'service_ticket', document_number: 'SR-2026-07723', version: 1, status: 'ISSUED', generated_at: '2026-10-23T18:00:00Z', deliveries: 2 },
-];
+const MOCK_DOCUMENTS: MockDocument[] = [];
 
-const MOCK_DLQ: MockDLQ[] = [
-  { id: 'dlq-001', integration: 'Tally ERP', event_type: 'invoice.sync', failure_category: 'PROVIDER_ERROR', failure_reason: 'Connection timeout after 30s', attempt_count: 5, final_failure_at: '2026-10-24T08:30:00Z', resolution_status: 'OPEN' },
-  { id: 'dlq-002', integration: 'Delhivery', event_type: 'shipment.update', failure_category: 'VALIDATION_ERROR', failure_reason: 'Invalid tracking ID format', attempt_count: 3, final_failure_at: '2026-10-24T07:00:00Z', resolution_status: 'OPEN' },
-  { id: 'dlq-003', integration: 'Delhivery', event_type: 'pod.upload', failure_category: 'AUTH_FAILURE', failure_reason: 'API key expired', attempt_count: 5, final_failure_at: '2026-10-23T22:00:00Z', resolution_status: 'REPLAY_REQUESTED' },
-  { id: 'dlq-004', integration: 'Tally ERP', event_type: 'payment.sync', failure_category: 'NETWORK_ERROR', failure_reason: 'SSL handshake failed', attempt_count: 5, final_failure_at: '2026-10-24T06:00:00Z', resolution_status: 'OPEN' },
-];
+const MOCK_DLQ: MockDLQ[] = [];
 
 // ---------------------------------------------------------------------------
 // HELPER COMPONENTS

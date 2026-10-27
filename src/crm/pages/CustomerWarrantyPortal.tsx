@@ -53,35 +53,6 @@ export const CustomerWarrantyPortal: React.FC = () => {
     setRegisteredWarranty(null);
 
     try {
-      // Built-in End-to-End QA Migration Test Fixture (ZUV-QA-TEST-4301 / SN-QA-TEST-4301)
-      if (code === 'ZUV-QA-TEST-4301' || code === 'SN-QA-TEST-4301') {
-        const simulatedCheck = {
-          valid: true,
-          eligible: true,
-          already_registered: false,
-          message: 'Television is verified and eligible for official warranty registration.',
-          product: {
-            unit_id: 'qa-unit-4301-test-id',
-            product_name: 'ZUVO 43" 4K UHD Smart Android TV',
-            screen_size: 43,
-            barcode: 'ZUV-QA-TEST-4301',
-            serial_number: 'SN-QA-TEST-4301',
-            status: 'sold'
-          },
-          sale: {
-            sale_id: 'qa-sale-4301-test-id',
-            sale_number: 'INV-20261014-QA01',
-            customer_name: 'Dravid (QA Test)',
-            customer_phone: '+91 8056666653'
-          }
-        };
-        setVerificationResult(simulatedCheck);
-        setCustomerName('Dravid (QA Test)');
-        setCustomerPhone('+91 8056666653');
-        setVerifying(false);
-        return;
-      }
-
       const { data, error } = await (supabase.rpc as any)('verify_tv_barcode_for_warranty', {
         p_barcode: code
       });
@@ -137,25 +108,6 @@ export const CustomerWarrantyPortal: React.FC = () => {
 
     setRegistering(true);
     try {
-      if (barcodeInput.trim() === 'ZUV-QA-TEST-4301' || barcodeInput.trim() === 'SN-QA-TEST-4301') {
-        const startDate = new Date(warrantyStartDate);
-        const endDate = new Date(startDate);
-        endDate.setFullYear(startDate.getFullYear() + 1);
-        endDate.setDate(endDate.getDate() - 1);
-
-        const simulatedWarranty = {
-          warranty_number: 'WAR-QA-20261014-001',
-          status: 'active',
-          warranty_start_date: warrantyStartDate,
-          warranty_end_date: endDate.toISOString().split('T')[0],
-          period_months: 12,
-          registered_at: new Date().toISOString()
-        };
-        setRegisteredWarranty(simulatedWarranty);
-        setRegistering(false);
-        return;
-      }
-
       const { data, error } = await (supabase.rpc as any)('register_customer_warranty', {
         p_barcode: barcodeInput.trim(),
         p_customer_name: customerName.trim(),
@@ -234,25 +186,6 @@ export const CustomerWarrantyPortal: React.FC = () => {
                 <p className="text-muted" style={{ fontSize: '0.8125rem', margin: 0 }}>
                   * Hardware barcode readers type directly into this box automatically.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBarcodeInput('ZUV-QA-TEST-4301');
-                    handleVerifyBarcode();
-                  }}
-                  style={{
-                    background: 'rgba(37, 99, 235, 0.1)',
-                    border: '1px dashed var(--brand-primary)',
-                    color: 'var(--brand-primary)',
-                    borderRadius: '6px',
-                    padding: '0.25rem 0.6rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Quick Test Barcode: ZUV-QA-TEST-4301
-                </button>
               </div>
             </div>
 

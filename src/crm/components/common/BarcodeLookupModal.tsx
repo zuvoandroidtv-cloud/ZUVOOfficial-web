@@ -28,6 +28,8 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
   const [result, setResult] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraState, setCameraState] = useState<'idle' | 'requesting' | 'streaming' | 'denied' | 'unsupported'>('idle');
+  const [cameraInstructions, setCameraInstructions] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
   // Sub-modals
@@ -36,6 +38,7 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -43,6 +46,8 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
       setResult(null);
       setError(null);
       setCameraError(null);
+      setCameraInstructions(null);
+      setCameraState('idle');
       setIsScanning(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
@@ -75,9 +80,53 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
 
   const startCamera = async () => {
     setCameraError(null);
+    setCameraInstructions(null);
+    setCameraState('requesting');
+
+    // 1. Check if running in a secure context (HTTPS or localhost)
+    if (window.isSecureContext === false && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      setCameraState('unsupported');
+      setCameraError('Camera access requires a secure connection (HTTPS). Please access this portal over HTTPS.');
+      return;
+    }
+
+    // 2. Check if mediaDevices API is supported
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraState('unsupported');
+      setCameraError('Camera API is not supported on this browser or device. Please use manual entry or upload an optical test file.');
+      return;
+    }
+
+    // 3. Query camera permission status if Permissions API is available
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const permissionStatus = await navigator.permissions.query({ name: 'camera' as any });
+        if (permissionStatus.state === 'denied') {
+          setCameraState('denied');
+          setCameraError('Camera permission is blocked in your browser settings.');
+          setCameraInstructions(
+            'To allow camera access: Click the camera/lock icon in your browser URL bar, change Camera to "Allow", and click "Retry Camera Access".'
+          );
+          return;
+        }
+      } catch (pErr) {
+        // Some browsers do not support querying { name: 'camera' }; continue to getUserMedia
+      }
+    }
+
     setIsScanning(true);
 
     try {
+      // 4. Request camera access using MediaDevices API explicitly
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      mediaStreamRef.current = stream;
+
+      // Clean up raw test stream before Html5Qrcode takes control of the device element
+      stream.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+
       if (!html5QrcodeRef.current) {
         html5QrcodeRef.current = new Html5Qrcode('barcode-camera-view');
       }
@@ -98,16 +147,36 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
           // Frame error callback - ignore routine scan non-matches
         }
       );
+
+      setCameraState('streaming');
     } catch (err: any) {
       console.warn('Camera start error:', err);
       setIsScanning(false);
-      setCameraError(
-        'Camera access was denied or no active camera was found on this device. You can enter the barcode or serial number manually below.'
-      );
+
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setCameraState('denied');
+        setCameraError('Camera access was denied by the user or blocked by the browser.');
+        setCameraInstructions(
+          'Please allow camera access by clicking the lock/camera icon in your address bar, setting Camera to "Allow", and clicking "Retry Camera Access".'
+        );
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        setCameraState('unsupported');
+        setCameraError('No camera device was detected on your system. You can enter the barcode or serial number manually.');
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        setCameraState('unsupported');
+        setCameraError('Camera is already in use by another application or tab. Please close other camera apps and retry.');
+      } else {
+        setCameraState('unsupported');
+        setCameraError(err.message || 'Unable to initialize camera preview. Please check browser settings or use manual entry.');
+      }
     }
   };
 
   const stopCamera = async () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current = null;
+    }
     if (html5QrcodeRef.current && html5QrcodeRef.current.isScanning) {
       try {
         await html5QrcodeRef.current.stop();
@@ -116,6 +185,7 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
       }
     }
     setIsScanning(false);
+    setCameraState('idle');
   };
 
   const executeLookup = async (searchStr: string) => {
@@ -127,52 +197,6 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
     setResult(null);
 
     try {
-      if (cleanQuery.toUpperCase() === 'ZUV-QA-TEST-4301' || cleanQuery.toUpperCase() === 'SN-QA-TEST-4301') {
-        setResult({
-          success: true,
-          unit: {
-            id: 'qa-unit-4301-test-id',
-            serial_number: 'SN-QA-TEST-4301',
-            barcode: 'ZUV-QA-TEST-4301',
-            status: 'sold',
-            brand_name: 'ZUVO',
-            model_name: 'ZUVO Android TV 4K Series',
-            model_code: 'ZUV-43-4K',
-            screen_size: 43,
-            tv_type: '4k_uhd',
-            received_at: '2026-10-01T10:00:00Z',
-            sold_at: '2026-10-14T09:00:00Z',
-            warehouse_name: 'Central Bangalore Hub'
-          },
-          sale: {
-            sale_id: 'qa-sale-4301-test-id',
-            sale_number: 'INV-20261014-QA01',
-            sale_date: '2026-10-14',
-            total_amount: 24999.00,
-            payment_status: 'paid',
-            customer: {
-              id: 'qa-cust-4301-id',
-              customer_code: 'CUST-QA-01',
-              full_name: 'Dravid (QA Test)',
-              phone: '+91 8056666653',
-              email: 'dravidd580@gmail.com'
-            }
-          },
-          warranty: {
-            warranty_number: 'WAR-QA-20261014-001',
-            warranty_card_number: 'WAR-QA-20261014-001',
-            status: 'active',
-            start_date: '2026-10-14',
-            end_date: '2027-10-13',
-            coverage_type: 'comprehensive',
-            provider: 'ZUVO Official'
-          },
-          service_tickets: []
-        });
-        setIsLoading(false);
-        return;
-      }
-
       const { data: res, error: rpcErr } = await (supabase.rpc as any)('get_product_unit_detail', {
         p_identifier: cleanQuery,
       });
@@ -231,24 +255,29 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
           {/* Camera Scan Container */}
           <div style={{ marginBottom: '16px' }}>
             {isScanning ? (
-              <div style={{ background: '#000000', borderRadius: '12px', overflow: 'hidden', position: 'relative', minHeight: '240px', border: '2px solid var(--accent-cyan)' }}>
-                <div id="barcode-camera-view" style={{ width: '100%', height: '240px' }} />
+              <div style={{ background: '#000000', borderRadius: '12px', overflow: 'hidden', position: 'relative', minHeight: '260px', border: '2px solid var(--accent-cyan)' }}>
+                <div id="barcode-camera-view" style={{ width: '100%', minHeight: '260px' }} />
+                <div style={{ position: 'absolute', top: '10px', left: '12px', background: 'rgba(0,0,0,0.7)', padding: '4px 10px', borderRadius: '6px', fontSize: '0.75rem', color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                  Live Camera Active
+                </div>
                 <div style={{ position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
-                  <button onClick={stopCamera} className="btn btn-danger btn-sm">
+                  <button onClick={stopCamera} className="btn btn-danger btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <CameraOff size={14} /> Stop Camera
                   </button>
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                 <button
                   type="button"
                   onClick={startCamera}
+                  disabled={cameraState === 'requesting'}
                   className="btn btn-secondary"
                   style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(6, 182, 212, 0.1)', borderColor: 'rgba(6, 182, 212, 0.3)', color: 'var(--accent-cyan)' }}
                 >
                   <Camera size={18} />
-                  Scan via Camera
+                  {cameraState === 'requesting' ? 'Requesting Permission...' : 'Scan via Camera'}
                 </button>
                 <label
                   className="btn btn-secondary"
@@ -264,6 +293,7 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
                       const file = e.target.files?.[0];
                       if (!file) return;
                       setCameraError(null);
+                      setCameraInstructions(null);
                       try {
                         const html5Qr = new Html5Qrcode('barcode-camera-view');
                         const decodedText = await html5Qr.scanFile(file, true);
@@ -281,9 +311,31 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
           </div>
 
           {cameraError && (
-            <div style={{ background: 'rgba(251, 146, 60, 0.1)', border: '1px solid rgba(251, 146, 60, 0.3)', color: '#FDBA74', padding: '10px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.8rem', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <AlertTriangle size={16} />
-              <span>{cameraError}</span>
+            <div style={{ background: 'rgba(251, 146, 60, 0.08)', border: '1px solid rgba(251, 146, 60, 0.3)', color: '#FDBA74', padding: '12px 14px', borderRadius: 'var(--radius-md)', fontSize: '0.825rem', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#FB923C' }} />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{cameraError}</div>
+                    {cameraInstructions && (
+                      <div style={{ marginTop: '4px', color: 'var(--text-muted)', fontSize: '0.75rem', lineHeight: 1.4 }}>
+                        {cameraInstructions}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {(cameraState === 'denied' || cameraState === 'unsupported') && (
+                  <button
+                    type="button"
+                    onClick={startCamera}
+                    className="btn btn-secondary btn-sm"
+                    style={{ flexShrink: 0, padding: '4px 10px', fontSize: '0.75rem', color: '#FDBA74', borderColor: 'rgba(251, 146, 60, 0.4)' }}
+                  >
+                    <RotateCcw size={12} style={{ marginRight: '4px' }} />
+                    Retry Camera
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
