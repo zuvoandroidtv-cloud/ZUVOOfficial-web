@@ -19,7 +19,8 @@ import {
   Download,
   FileSpreadsheet,
   Send,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
@@ -101,6 +102,31 @@ export const CustomersPage: React.FC = () => {
       setErrorMsg(err.message || 'Failed to fetch customers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCustomer = async (customer: Customer) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete customer "${customer.full_name}" (${customer.customer_code})?\nThis action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('customers')
+        .delete()
+        .eq('id', customer.id);
+
+      if (error) throw error;
+
+      alert(`Customer ${customer.full_name} deleted successfully.`);
+      if (selectedCustomer?.id === customer.id) {
+        setSelectedCustomer(null);
+      }
+      fetchCustomers();
+    } catch (err: any) {
+      console.error('Error deleting customer:', err);
+      alert(`Failed to delete customer: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -414,6 +440,14 @@ export const CustomersPage: React.FC = () => {
                             <Send size={13} /> Message
                           </button>
                         )}
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: 'var(--accent-rose, #f43f5e)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                          onClick={() => handleDeleteCustomer(c)}
+                          title="Delete Customer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     </td>
                   </tr>

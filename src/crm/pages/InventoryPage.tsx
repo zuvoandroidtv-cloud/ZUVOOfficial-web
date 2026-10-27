@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   Warehouse, ArrowRightLeft, Plus, MapPin, Box, ArrowRight, CheckCircle, Clock,
   Search, RefreshCw, Download, FileSpreadsheet, Truck, FileText, Barcode as BarcodeIcon,
-  AlertTriangle, ShieldCheck, CheckCircle2, X
+  AlertTriangle, ShieldCheck, CheckCircle2, X, Trash2
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
@@ -248,6 +248,21 @@ export const InventoryPage: React.FC = () => {
       console.error('Error loading inventory data:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteWarehouse = async (warehouseId: string, warehouseName: string) => {
+    if (!window.confirm(`Are you sure you want to delete facility "${warehouseName}"?\nThis action cannot be undone.`)) {
+      return;
+    }
+    try {
+      const { error } = await supabase.from('warehouses').delete().eq('id', warehouseId);
+      if (error) throw error;
+      alert(`Facility "${warehouseName}" deleted successfully.`);
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to delete facility:', err);
+      alert(`Delete failed: ${err.message || 'Check if there are linked inventory units or active transactions first'}`);
     }
   };
 
@@ -838,6 +853,7 @@ export const InventoryPage: React.FC = () => {
                   <th>Reserved</th>
                   <th>Damaged</th>
                   <th>Total Units</th>
+                  {canManageInventory && <th>Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -852,6 +868,18 @@ export const InventoryPage: React.FC = () => {
                     <td>{wh.reserved_units}</td>
                     <td style={{ color: 'var(--accent-rose)' }}>{wh.damaged_units}</td>
                     <td style={{ fontWeight: 700 }}>{wh.total_units}</td>
+                    {canManageInventory && (
+                      <td>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ color: 'var(--accent-rose, #f43f5e)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                          onClick={() => handleDeleteWarehouse(wh.warehouse_id, wh.warehouse_name)}
+                          title="Delete Facility"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

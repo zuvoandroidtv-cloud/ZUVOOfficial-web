@@ -75,120 +75,9 @@ export const EnterpriseExecutionPage: React.FC = () => {
   const [selectedPriorityFilter, setSelectedPriorityFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Synthetic enterprise work queue items grounded in CRM operations
-  const [workItems, setWorkItems] = useState<WorkItem[]>([
-    {
-      id: '1',
-      number: 'WRK-20261021-1001',
-      title: 'Collect Overdue AR from Apex Electronics (62 Days Overdue)',
-      department: 'FINANCE',
-      priority: 'CRITICAL',
-      status: 'IN_PROGRESS',
-      assignedTo: 'Vikram Mehta (Finance Controller)',
-      dueDate: '2026-10-22',
-      slaStatus: 'AT_RISK',
-      escalationTier: 1,
-      sourceEntity: 'INV-20261001-0981'
-    },
-    {
-      id: '2',
-      number: 'WRK-20261021-1002',
-      title: 'Verify Panel Delamination Epidemic on ZUV-55-4K Lot B09',
-      department: 'QUALITY',
-      priority: 'CRITICAL',
-      status: 'ASSIGNED',
-      assignedTo: 'Dr. R. Sharma (QA Lead)',
-      dueDate: '2026-10-21',
-      slaStatus: 'BREACHED',
-      escalationTier: 2,
-      sourceEntity: 'NCR-2026-009'
-    },
-    {
-      id: '3',
-      number: 'WRK-20261021-1003',
-      title: 'Quotation Follow-Up: Metro Retailers (100x 43" UHD)',
-      department: 'SALES',
-      priority: 'HIGH',
-      status: 'OPEN',
-      assignedTo: 'Priya Patel (Enterprise Sales)',
-      dueDate: '2026-10-23',
-      slaStatus: 'WITHIN_SLA',
-      escalationTier: 0,
-      sourceEntity: 'QUO-2026-0812'
-    },
-    {
-      id: '4',
-      number: 'WRK-20261021-1004',
-      title: 'Replenish Finished Goods 43" Smart TV Buffer (< 7 Days Stock)',
-      department: 'SUPPLY_CHAIN',
-      priority: 'HIGH',
-      status: 'IN_PROGRESS',
-      assignedTo: 'Anand Kumar (SCM Manager)',
-      dueDate: '2026-10-24',
-      slaStatus: 'WITHIN_SLA',
-      escalationTier: 0,
-      sourceEntity: 'SKU-ZUV-43-SMART'
-    },
-    {
-      id: '5',
-      number: 'WRK-20261021-1005',
-      title: 'Emergency On-Site Motherboard Swap — Hotel Grand Horizon',
-      department: 'SERVICE',
-      priority: 'HIGH',
-      status: 'IN_PROGRESS',
-      assignedTo: 'Suresh Verma (Sr. Field Tech)',
-      dueDate: '2026-10-21',
-      slaStatus: 'WITHIN_SLA',
-      escalationTier: 0,
-      sourceEntity: 'TCK-20261019-001'
-    },
-    {
-      id: '6',
-      number: 'WRK-20261021-1006',
-      title: 'Clear Factory Line 2 WIP Bottleneck at Burn-In Chamber',
-      department: 'MANUFACTURING',
-      priority: 'MEDIUM',
-      status: 'COMPLETED',
-      assignedTo: 'K. Pillai (Factory Supv)',
-      dueDate: '2026-10-20',
-      slaStatus: 'COMPLETED_ON_TIME',
-      escalationTier: 0,
-      sourceEntity: 'WO-2026-001'
-    }
-  ]);
-
-  const [approvals, setApprovals] = useState<ApprovalItem[]>([
-    {
-      id: 'app-1',
-      code: 'APR-2026-041',
-      type: 'COMMERCIAL_PRICING_FLOOR',
-      sourceRef: 'QUO-2026-0812',
-      amount: 450000.0,
-      requestedBy: 'Priya Patel (Sales)',
-      status: 'PENDING',
-      date: '2026-10-21'
-    },
-    {
-      id: 'app-2',
-      code: 'APR-2026-042',
-      type: 'DEALER_ONBOARDING',
-      sourceRef: 'DLR-APP-2026-091',
-      amount: 1000000.0,
-      requestedBy: 'Rajiv Menon (Channel Lead)',
-      status: 'PENDING',
-      date: '2026-10-20'
-    },
-    {
-      id: 'app-3',
-      code: 'APR-2026-043',
-      type: 'SCRAP_WRITE_OFF',
-      sourceRef: 'NCR-2026-009',
-      amount: 85000.0,
-      requestedBy: 'Dr. R. Sharma (QA Lead)',
-      status: 'PENDING',
-      date: '2026-10-21'
-    }
-  ]);
+  // Enterprise work queue items
+  const [workItems, setWorkItems] = useState<WorkItem[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
 
   const handleCompleteTask = (id: string) => {
     setWorkItems((prev) =>
@@ -306,30 +195,28 @@ export const EnterpriseExecutionPage: React.FC = () => {
                 <span className="text-sm font-semibold text-rose-400 flex items-center gap-2">
                   <AlertCircle className="w-4 h-4" /> TODAY: Critical Attention
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-medium">3 Immediate</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 font-medium">
+                  {workItems.filter(w => w.priority === 'CRITICAL' && w.status !== 'COMPLETED').length} Immediate
+                </span>
               </div>
               <div className="mt-4 space-y-3">
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">Panel Quality Hold: ZUV-55-4K Lot B09</div>
-                    <div className="text-xs text-slate-400 mt-1">Escalated to Tier 2 (Dept Head) • QA Team</div>
+                {workItems.filter(w => w.priority === 'CRITICAL' && w.status !== 'COMPLETED').length === 0 ? (
+                  <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800/80 text-center">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-400 mx-auto mb-1 opacity-70" />
+                    <div className="text-xs font-medium text-slate-300">No Critical Bottlenecks Today</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">All immediate SLA queues are fully cleared.</div>
                   </div>
-                  <span className="text-xs px-2 py-0.5 bg-rose-500/20 text-rose-300 font-bold rounded">P1</span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">Overdue Collections: Apex Electronics (₹3.5L)</div>
-                    <div className="text-xs text-slate-400 mt-1">SLA At Risk • Finance Work Queue</div>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 bg-rose-500/20 text-rose-300 font-bold rounded">P1</span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">Urgent Motherboard Swap: Hotel Horizon</div>
-                    <div className="text-xs text-slate-400 mt-1">Due Today 17:00 • Field Service Lead</div>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 font-bold rounded">P2</span>
-                </div>
+                ) : (
+                  workItems.filter(w => w.priority === 'CRITICAL' && w.status !== 'COMPLETED').map(item => (
+                    <div key={item.id} className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-white">{item.title}</div>
+                        <div className="text-xs text-slate-400 mt-1">Owner: {item.assignedTo} • Ref: {item.sourceEntity}</div>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 bg-rose-500/20 text-rose-300 font-bold rounded">P1</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -338,30 +225,28 @@ export const EnterpriseExecutionPage: React.FC = () => {
                 <span className="text-sm font-semibold text-amber-400 flex items-center gap-2">
                   <Calendar className="w-4 h-4" /> THIS WEEK: Milestones & Approvals
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-medium">3 Pending</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 font-medium">
+                  {approvals.filter(a => a.status === 'PENDING').length} Pending
+                </span>
               </div>
               <div className="mt-4 space-y-3">
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">Commercial Pricing Floor Approval (₹4.5L)</div>
-                    <div className="text-xs text-slate-400 mt-1">Quotation QUO-2026-0812 • Sales Ops</div>
+                {approvals.filter(a => a.status === 'PENDING').length === 0 ? (
+                  <div className="p-4 rounded-lg bg-slate-950/60 border border-slate-800/80 text-center">
+                    <Calendar className="w-6 h-6 text-indigo-400 mx-auto mb-1 opacity-70" />
+                    <div className="text-xs font-medium text-slate-300">No Pending Approvals</div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">Commercial thresholds and credit overrides are up to date.</div>
                   </div>
-                  <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 font-bold rounded">Review</span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">Dealer Credit Onboarding: Metro Corp (₹10L)</div>
-                    <div className="text-xs text-slate-400 mt-1">KYC Verified • Commercial Committee</div>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 font-bold rounded">Review</span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-white">Manufacturing WIP Replenishment Batch #14</div>
-                    <div className="text-xs text-slate-400 mt-1">50x 43" Units • Planned Oct 24</div>
-                  </div>
-                  <span className="text-xs px-2 py-0.5 bg-emerald-500/20 text-emerald-300 font-bold rounded">Planned</span>
-                </div>
+                ) : (
+                  approvals.filter(a => a.status === 'PENDING').map(app => (
+                    <div key={app.id} className="p-3 rounded-lg bg-slate-950 border border-slate-800/80 flex items-start justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-white">{app.type.replace(/_/g, ' ')} (₹{app.amount.toLocaleString('en-IN')})</div>
+                        <div className="text-xs text-slate-400 mt-1">Ref: {app.sourceRef} • By: {app.requestedBy}</div>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 bg-amber-500/20 text-amber-300 font-bold rounded">Review</span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -370,27 +255,27 @@ export const EnterpriseExecutionPage: React.FC = () => {
                 <span className="text-sm font-semibold text-emerald-400 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4" /> EXECUTION VELOCITY & SLA
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">Healthy</span>
+                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-medium">Nominal</span>
               </div>
               <div className="mt-4 space-y-3">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-400">Resolution SLA Compliance</span>
-                  <span className="font-semibold text-white">94.2%</span>
+                  <span className="font-semibold text-white">100%</span>
                 </div>
                 <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: '94.2%' }} />
+                  <div className="bg-emerald-500 h-full rounded-full" style={{ width: '100%' }} />
                 </div>
                 <div className="flex justify-between items-center text-sm pt-2">
-                  <span className="text-slate-400">Weekly Task Closure Velocity</span>
-                  <span className="font-semibold text-white">48 Tasks / Week</span>
+                  <span className="text-slate-400">Active Task Queue</span>
+                  <span className="font-semibold text-white">{workItems.length} Tasks</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-400">Overloaded Department Ratio</span>
-                  <span className="font-semibold text-emerald-400">0% (All Optimal)</span>
+                  <span className="font-semibold text-emerald-400">0% (Optimal)</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <span className="text-slate-400">First-Visit Resolution (FVR)</span>
-                  <span className="font-semibold text-white">88.5%</span>
+                  <span className="text-slate-400">Escalation Count</span>
+                  <span className="font-semibold text-white">0 Active</span>
                 </div>
               </div>
             </div>
@@ -420,63 +305,73 @@ export const EnterpriseExecutionPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
-                  {workItems.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-xs text-indigo-400">{item.number}</td>
-                      <td className="py-3.5 px-4">
-                        <div className="font-medium text-white">{item.title}</div>
-                        <div className="text-xs text-slate-400">Ref: {item.sourceEntity}</div>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
-                          {item.department}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded font-bold ${
-                            item.priority === 'CRITICAL'
-                              ? 'bg-rose-500/20 text-rose-300'
-                              : item.priority === 'HIGH'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : 'bg-slate-800 text-slate-300'
-                          }`}
-                        >
-                          {item.priority}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-xs text-slate-300">{item.assignedTo}</td>
-                      <td className="py-3.5 px-4">
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded font-medium ${
-                            item.slaStatus === 'BREACHED'
-                              ? 'bg-rose-500/20 text-rose-300'
-                              : item.slaStatus === 'AT_RISK'
-                              ? 'bg-amber-500/20 text-amber-300'
-                              : item.slaStatus.includes('COMPLETED')
-                              ? 'bg-emerald-500/20 text-emerald-300'
-                              : 'bg-blue-500/20 text-blue-300'
-                          }`}
-                        >
-                          {item.slaStatus.replace(/_/g, ' ')}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
-                        {item.status !== 'COMPLETED' ? (
-                          <button
-                            onClick={() => handleCompleteTask(item.id)}
-                            className="text-xs px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
-                          >
-                            Complete
-                          </button>
-                        ) : (
-                          <span className="text-xs text-emerald-400 font-semibold flex items-center justify-end gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Done
-                          </span>
-                        )}
+                  {workItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 px-4 text-center text-slate-400">
+                        <CheckCircle2 className="w-8 h-8 text-emerald-400/80 mx-auto mb-2" />
+                        <div className="text-sm font-semibold text-slate-300">Action Queue is Empty</div>
+                        <div className="text-xs text-slate-500 mt-1">No pending operational escalations or urgent work orders.</div>
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    workItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                        <td className="py-3.5 px-4 font-mono text-xs text-indigo-400">{item.number}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="font-medium text-white">{item.title}</div>
+                          <div className="text-xs text-slate-400">Ref: {item.sourceEntity}</div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
+                            {item.department}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded font-bold ${
+                              item.priority === 'CRITICAL'
+                                ? 'bg-rose-500/20 text-rose-300'
+                                : item.priority === 'HIGH'
+                                ? 'bg-amber-500/20 text-amber-300'
+                                : 'bg-slate-800 text-slate-300'
+                            }`}
+                          >
+                            {item.priority}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-xs text-slate-300">{item.assignedTo}</td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`text-xs px-2 py-0.5 rounded font-medium ${
+                              item.slaStatus === 'BREACHED'
+                                ? 'bg-rose-500/20 text-rose-300'
+                                : item.slaStatus === 'AT_RISK'
+                                ? 'bg-amber-500/20 text-amber-300'
+                                : item.slaStatus.includes('COMPLETED')
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : 'bg-blue-500/20 text-blue-300'
+                            }`}
+                          >
+                            {item.slaStatus.replace(/_/g, ' ')}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right">
+                          {item.status !== 'COMPLETED' ? (
+                            <button
+                              onClick={() => handleCompleteTask(item.id)}
+                              className="text-xs px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors"
+                            >
+                              Complete
+                            </button>
+                          ) : (
+                            <span className="text-xs text-emerald-400 font-semibold flex items-center justify-end gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Done
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -680,13 +575,13 @@ export const EnterpriseExecutionPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <div className="text-xs text-slate-400 uppercase font-semibold">Tier 1 Escalations (Team Lead)</div>
-              <div className="text-2xl font-bold text-amber-400 mt-2">1 Active Case</div>
-              <div className="text-xs text-slate-400 mt-1">Overdue AR Collection (Apex Electronics)</div>
+              <div className="text-2xl font-bold text-emerald-400 mt-2">0 Active Cases</div>
+              <div className="text-xs text-slate-400 mt-1">No active team-lead escalations</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <div className="text-xs text-slate-400 uppercase font-semibold">Tier 2 Escalations (Dept Head)</div>
-              <div className="text-2xl font-bold text-rose-400 mt-2">1 Active Case</div>
-              <div className="text-xs text-slate-400 mt-1">Panel Delamination Quality Hold (QA Lead)</div>
+              <div className="text-2xl font-bold text-emerald-400 mt-2">0 Active Cases</div>
+              <div className="text-xs text-slate-400 mt-1">All quality holds and variances resolved</div>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
               <div className="text-xs text-slate-400 uppercase font-semibold">Tier 3 Escalations (Executive)</div>

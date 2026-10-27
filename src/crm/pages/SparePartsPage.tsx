@@ -21,7 +21,8 @@ import {
   Check,
   Wrench,
   Cpu,
-  Recycle
+  Recycle,
+  Trash2
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
@@ -273,6 +274,28 @@ export const SparePartsPage: React.FC = () => {
       setErrorMsg(err.message || 'Failed to fetch spare parts data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeletePart = async (part: any) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete spare part "${part.part_name}" (${part.part_code})?\nThis action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('spare_parts')
+        .delete()
+        .eq('id', part.id);
+
+      if (error) throw error;
+
+      setSuccessMsg(`Spare part "${part.part_name}" deleted successfully.`);
+      fetchPartsData();
+    } catch (err: any) {
+      console.error('Error deleting spare part:', err);
+      setErrorMsg(`Failed to delete spare part: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -714,19 +737,20 @@ export const SparePartsPage: React.FC = () => {
                   <th>Available Stock</th>
                   <th>Health Status</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '3rem' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '3rem' }}>
                       <div className="animate-spin" style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--brand-primary)', borderRadius: '50%', margin: '0 auto 1rem' }} />
                       <p className="text-muted">Loading spare parts catalog...</p>
                     </td>
                   </tr>
                 ) : parts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '3.5rem' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '3.5rem' }}>
                       <Package size={48} style={{ color: 'var(--text-muted)', margin: '0 auto 1rem', opacity: 0.5 }} />
                       <p className="text-muted">No spare parts in catalog.</p>
                     </td>
@@ -766,6 +790,16 @@ export const SparePartsPage: React.FC = () => {
                           <span className={`badge ${p.is_active ? 'badge-success' : 'badge-danger'}`}>
                             {p.is_active ? 'Active' : 'Inactive'}
                           </span>
+                        </td>
+                        <td>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: 'var(--accent-rose, #f43f5e)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                            onClick={() => handleDeletePart(p)}
+                            title="Delete Spare Part"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </td>
                       </tr>
                     );

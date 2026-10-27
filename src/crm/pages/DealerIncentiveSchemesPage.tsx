@@ -690,28 +690,14 @@ export const DealerIncentiveSchemesPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="card" style={{ padding: '1.5rem' }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem', fontWeight: 600 }}>Dealer Self-Service Portal Preview (dlr-apex-01)</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Eligible Scheme</div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, marginTop: '0.25rem' }}>Diwali 2026 Mega Volume Rebate</div>
-              </div>
-              <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Target Progress</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '0.25rem', color: '#10b981' }}>165 / 150 Units (110%)</div>
-              </div>
-              <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Current Attained Slab</div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, marginTop: '0.25rem' }}>Tier Silver (3.5% Rebate)</div>
-              </div>
-              <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Total Earned Incentive</div>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, marginTop: '0.25rem', color: '#f97316' }}>₹1,73,250</div>
-              </div>
-            </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Settlement Status: <span className="badge badge-warning">ACCRUAL POSTED — SETTLEMENT AT PERIOD CLOSE</span>
+          <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+            <Award size={36} style={{ color: 'var(--accent-orange, #f97316)', margin: '0 auto 0.75rem auto', opacity: 0.7 }} />
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 600 }}>Dealer Self-Service Portal</h3>
+            <p style={{ margin: '0 auto 1.25rem auto', fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '480px' }}>
+              Active incentive progress, attained slabs, and accrued rebates will be shown here when a dealer is selected or logged in.
+            </p>
+            <div style={{ display: 'inline-block', fontSize: '0.8rem', color: 'var(--text-secondary)', padding: '6px 14px', background: 'var(--bg-secondary)', borderRadius: '6px' }}>
+              Select an enrolled dealer from the Target Tracker tab to view their dedicated performance dashboard.
             </div>
           </div>
         </div>
@@ -722,36 +708,12 @@ export const DealerIncentiveSchemesPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="card" style={{ padding: '1rem' }}>
             <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', fontWeight: 600 }}>Immutable Scheme Audit Log</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>SCHEME_ACCRUAL_POSTED</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>2026-10-15 18:00 UTC</span>
-                </div>
-                <div style={{ color: 'var(--text-secondary)' }}>
-                  Posted incremental accrual of ₹1,73,250 for dealer <code>dlr-apex-01</code> under scheme <code>SCH-2026-DIWALI-VOL</code>. GL journal <code>gl-jn-881101</code> created.
-                </div>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>SETTLEMENT_AR_OFFSET_APPLIED</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>2026-10-16 11:00 UTC</span>
-                </div>
-                <div style={{ color: 'var(--text-secondary)' }}>
-                  Approved payout of ₹1,20,000 for dealer <code>dlr-metro-02</code>. Customer AR ledger offset applied via credit memo <code>cm-202610-101</code>.
-                </div>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '0.85rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>COMMERCIAL_RETURN_ADJUSTMENT</span>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>2026-10-18 10:15 UTC</span>
-                </div>
-                <div style={{ color: 'var(--text-secondary)' }}>
-                  Phase 8.10 accepted return RMA <code>RET-202610-1001</code> (2 units) deducted from dealer <code>dlr-apex-01</code> qualifying attainment.
-                </div>
-              </div>
+            <div style={{ padding: '2.5rem 1rem', textAlign: 'center', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
+              <CheckCircle2 size={32} style={{ color: '#10b981', margin: '0 auto 0.75rem auto', opacity: 0.8 }} />
+              <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.95rem' }}>No Audit Records Found</div>
+              <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Immutable audit events will automatically appear here when incentive schemes, accruals, or settlements are modified.
+              </p>
             </div>
           </div>
         </div>

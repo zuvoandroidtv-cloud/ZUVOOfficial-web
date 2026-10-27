@@ -260,6 +260,21 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  const handleDeleteVariant = async (variantId: string, modelName: string) => {
+    if (!window.confirm(`Are you sure you want to delete TV variant "${modelName}"?\nThis will remove the catalog model definition. This cannot be undone.`)) {
+      return;
+    }
+    try {
+      const { error } = await supabase.from('product_variants').delete().eq('id', variantId);
+      if (error) throw error;
+      alert(`Product variant "${modelName}" deleted successfully.`);
+      loadData();
+    } catch (err: any) {
+      console.error('Failed to delete variant:', err);
+      alert(`Delete failed: ${err.message || 'Check if there are linked units first'}`);
+    }
+  };
+
   // Filter Drawer Definition
   const filterFields: FilterField[] = [
     {
@@ -440,15 +455,26 @@ export const ProductsPage: React.FC = () => {
                     {isSelected ? 'Deselect' : 'Select Variant'}
                   </button>
                   {canManageInventory && (
-                    <button
-                      type="button"
-                      onClick={() => handleOpenIntakeModal(v.id)}
-                      className="btn btn-primary btn-sm"
-                      style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                      title="Intake unit for this variant"
-                    >
-                      + Intake
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenIntakeModal(v.id)}
+                        className="btn btn-primary btn-sm"
+                        style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                        title="Intake unit for this variant"
+                      >
+                        + Intake
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteVariant(v.id, v.product_name)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '4px 6px', fontSize: '0.75rem', color: 'var(--accent-rose, #f43f5e)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                        title="Delete TV Model Variant"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

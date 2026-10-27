@@ -23,7 +23,8 @@ import {
   CheckSquare,
   DollarSign,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  Trash2
 } from 'lucide-react';
 import { exportToCSV, exportToExcel } from '../utils/exportUtils';
 import { Pagination } from '../components/common/Pagination';
@@ -138,6 +139,31 @@ export const DealersPage: React.FC = () => {
       setErrorMsg(err.message || 'Failed to fetch dealers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteDealer = async (dealer: any) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete dealer "${dealer.dealer_name}" (${dealer.dealer_code})?\nThis action cannot be undone.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('dealers')
+        .delete()
+        .eq('id', dealer.id);
+
+      if (error) throw error;
+
+      alert(`Dealer "${dealer.dealer_name}" deleted successfully.`);
+      if (selectedDealer?.id === dealer.id) {
+        setSelectedDealer(null);
+      }
+      fetchDealers();
+    } catch (err: any) {
+      console.error('Error deleting dealer:', err);
+      alert(`Failed to delete dealer: ${err.message || 'Unknown error'}`);
     }
   };
 
@@ -727,12 +753,22 @@ export const DealersPage: React.FC = () => {
                         </span>
                       </td>
                       <td>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => loadDealerDetails(d)}
-                        >
-                          View Consignment
-                        </button>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => loadDealerDetails(d)}
+                          >
+                            View Consignment
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ color: 'var(--accent-rose, #f43f5e)', borderColor: 'rgba(244, 63, 94, 0.3)' }}
+                            onClick={() => handleDeleteDealer(d)}
+                            title="Delete Dealer"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
