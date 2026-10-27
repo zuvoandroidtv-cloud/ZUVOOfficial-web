@@ -260,7 +260,7 @@ export const App: React.FC = () => {
       case 'inventory_valuation':
         return <InventoryValuationPage />;
       case 'procurement':
-        return <ProcurementManagementPage />;
+        return <ProcurementPage />;
       case 'customers':
         return <CustomersPage />;
       case 'sales':

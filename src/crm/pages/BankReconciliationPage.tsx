@@ -134,8 +134,8 @@ export const BankReconciliationPage: React.FC = () => {
       total_book_balance: totBook,
       total_statement_balance: totStmt,
       total_variance: Math.abs(totBook - totStmt),
-      unmatched_inflows_amount: 145000.00,
-      unmatched_outflows_amount: 85200.00,
+      unmatched_inflows_amount: 0.00,
+      unmatched_outflows_amount: 0.00,
       accounts_requiring_attention: reqAttn,
       active_accounts_count: accounts.length,
     });

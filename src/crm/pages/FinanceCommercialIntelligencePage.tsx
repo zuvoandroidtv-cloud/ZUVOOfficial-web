@@ -138,228 +138,87 @@ export const FinanceCommercialIntelligencePage: React.FC = () => {
 
   const [selectedPeriod, setSelectedPeriod] = useState('2026-10 (October 2026)');
 
-  // Authoritative Period Snapshot
+  // Authoritative Period Snapshot (Derived from real business state: 0 in Fresh CRM)
   const [snapshot] = useState<FinancialSnapshot>({
     period_name: '2026-10',
     fiscal_year: 'FY 2026-27',
-    revenue_gross: 14850000.0,
-    revenue_discounts: 450000.0,
-    revenue_returns: 280000.0,
-    revenue_net: 14120000.0,
-    cogs_amount: 10166400.0,
-    gross_margin: 3953600.0,
-    gross_margin_pct: 28.0,
-    operating_expenses: 1980000.0,
-    ebitda: 1973600.0,
-    ebitda_pct: 13.98,
-    total_ar: 3250000.0,
-    total_ap: 2180000.0,
-    cash_and_bank: 4890000.0,
-    working_capital: 5960000.0,
-    inventory_valuation: 15249600.0,
-    payroll_total: 1150000.0,
-    warranty_costs: 185000.0,
-    dealer_rebates: 240000.0,
-    customer_refunds: 95000.0,
-    net_gst_payable: 412000.0,
+    revenue_gross: 0.0,
+    revenue_discounts: 0.0,
+    revenue_returns: 0.0,
+    revenue_net: 0.0,
+    cogs_amount: 0.0,
+    gross_margin: 0.0,
+    gross_margin_pct: 0.0,
+    operating_expenses: 0.0,
+    ebitda: 0.0,
+    ebitda_pct: 0.0,
+    total_ar: 0.0,
+    total_ap: 0.0,
+    cash_and_bank: 0.0,
+    working_capital: 0.0,
+    inventory_valuation: 0.0,
+    payroll_total: 0.0,
+    warranty_costs: 0.0,
+    dealer_rebates: 0.0,
+    customer_refunds: 0.0,
+    net_gst_payable: 0.0,
     is_locked: false
   });
 
-  // Budget vs Actual Variances
-  const [variances] = useState<BudgetVariance[]>([
-    {
-      id: 'var-01',
-      dimension_key: 'REV_55_4K',
-      dimension_name: 'ZUVO 55" 4K Google TV Commercial Sales',
-      dimension_type: 'PRODUCT',
-      budget_amount: 6000000.0,
-      actual_amount: 6450000.0,
-      variance_amount: 450000.0,
-      variance_pct: 7.5,
-      exception_state: 'ON_TRACK',
-      is_favourable: true
-    },
-    {
-      id: 'var-02',
-      dimension_key: 'DEPT_FACTORY',
-      dimension_name: 'Factory SMT & Assembly Floor OPEX',
-      dimension_type: 'DEPARTMENT',
-      budget_amount: 1200000.0,
-      actual_amount: 1380000.0,
-      variance_amount: 180000.0,
-      variance_pct: 15.0,
-      exception_state: 'WATCH',
-      is_favourable: false
-    },
-    {
-      id: 'var-03',
-      dimension_key: 'TERR_NORTH',
-      dimension_name: 'North Region Dealer Network Revenue',
-      dimension_type: 'TERRITORY',
-      budget_amount: 4500000.0,
-      actual_amount: 3820000.0,
-      variance_amount: -680000.0,
-      variance_pct: -15.11,
-      exception_state: 'UNDER_TARGET',
-      is_favourable: false
-    },
-    {
-      id: 'var-04',
-      dimension_key: 'WARRANTY_EXP',
-      dimension_name: 'Factory Warranty & Field Repair Expense',
-      dimension_type: 'EXPENSE',
-      budget_amount: 150000.0,
-      actual_amount: 185000.0,
-      variance_amount: 35000.0,
-      variance_pct: 23.33,
-      exception_state: 'WATCH',
-      is_favourable: false
-    }
-  ]);
+  // Budget vs Actual Variances (Empty state in fresh CRM)
+  const [variances] = useState<BudgetVariance[]>([]);
 
   // Cashflow Horizons
   const [cashflow] = useState<Record<string, CashflowHorizon>>({
     '7_days': {
       horizon: '7_days',
-      opening_cash: 4890000.0,
-      confirmed_inflows: 850000.0,
-      expected_inflows: 1200000.0,
-      approved_payments: 650000.0,
-      expected_supplier_outflows: 400000.0,
+      opening_cash: 0.0,
+      confirmed_inflows: 0.0,
+      expected_inflows: 0.0,
+      approved_payments: 0.0,
+      expected_supplier_outflows: 0.0,
       payroll_obligations: 0.0,
       tax_obligations: 0.0,
-      dealer_rebate_obligations: 50000.0,
-      net_movement: 950000.0,
-      projected_closing: 5840000.0,
+      dealer_rebate_obligations: 0.0,
+      net_movement: 0.0,
+      projected_closing: 0.0,
       liquidity_status: 'HEALTHY'
     },
     '30_days': {
       horizon: '30_days',
-      opening_cash: 4890000.0,
-      confirmed_inflows: 2450000.0,
-      expected_inflows: 4800000.0,
-      approved_payments: 1850000.0,
-      expected_supplier_outflows: 2200000.0,
-      payroll_obligations: 1150000.0,
-      tax_obligations: 412000.0,
-      dealer_rebate_obligations: 240000.0,
-      net_movement: 1398000.0,
-      projected_closing: 6288000.0,
-      liquidity_status: 'SURPLUS'
+      opening_cash: 0.0,
+      confirmed_inflows: 0.0,
+      expected_inflows: 0.0,
+      approved_payments: 0.0,
+      expected_supplier_outflows: 0.0,
+      payroll_obligations: 0.0,
+      tax_obligations: 0.0,
+      dealer_rebate_obligations: 0.0,
+      net_movement: 0.0,
+      projected_closing: 0.0,
+      liquidity_status: 'HEALTHY'
     },
     '90_days': {
       horizon: '90_days',
-      opening_cash: 4890000.0,
-      confirmed_inflows: 5100000.0,
-      expected_inflows: 12500000.0,
-      approved_payments: 4200000.0,
-      expected_supplier_outflows: 6800000.0,
-      payroll_obligations: 3450000.0,
-      tax_obligations: 1236000.0,
-      dealer_rebate_obligations: 720000.0,
-      net_movement: 1194000.0,
-      projected_closing: 6084000.0,
+      opening_cash: 0.0,
+      confirmed_inflows: 0.0,
+      expected_inflows: 0.0,
+      approved_payments: 0.0,
+      expected_supplier_outflows: 0.0,
+      payroll_obligations: 0.0,
+      tax_obligations: 0.0,
+      dealer_rebate_obligations: 0.0,
+      net_movement: 0.0,
+      projected_closing: 0.0,
       liquidity_status: 'HEALTHY'
     }
   });
 
-  // AR Aging Register
-  const [arEntities] = useState<ARAgingEntity[]>([
-    {
-      id: 'ar-01',
-      entity_type: 'DEALER',
-      entity_name: 'Metro Electronics Bangalore (DLR-BLR-01)',
-      current_bucket: 850000.0,
-      bucket_1_30: 450000.0,
-      bucket_31_60: 0.0,
-      bucket_61_90: 0.0,
-      bucket_91_180: 0.0,
-      bucket_180_plus: 0.0,
-      total_outstanding: 1300000.0,
-      overdue_amount: 450000.0,
-      overdue_pct: 34.62,
-      avg_delay_days: 14,
-      risk_tier: 'LOW',
-      recommended_action: 'Automated statement dispatched with payment discount reminder'
-    },
-    {
-      id: 'ar-02',
-      entity_type: 'DEALER',
-      entity_name: 'Apex Retailers Chennai (DLR-CHN-04)',
-      current_bucket: 200000.0,
-      bucket_1_30: 300000.0,
-      bucket_31_60: 420000.0,
-      bucket_61_90: 180000.0,
-      bucket_91_180: 0.0,
-      bucket_180_plus: 0.0,
-      total_outstanding: 1100000.0,
-      overdue_amount: 900000.0,
-      overdue_pct: 81.82,
-      avg_delay_days: 48,
-      risk_tier: 'HIGH',
-      recommended_action: 'Hold future B2B dispatches pending payment clearance'
-    },
-    {
-      id: 'ar-03',
-      entity_type: 'CUSTOMER',
-      entity_name: 'Enterprise Corporate Client Accounts (B2B Bulk)',
-      current_bucket: 650000.0,
-      bucket_1_30: 200000.0,
-      bucket_31_60: 0.0,
-      bucket_61_90: 0.0,
-      bucket_91_180: 0.0,
-      bucket_180_plus: 0.0,
-      total_outstanding: 850000.0,
-      overdue_amount: 200000.0,
-      overdue_pct: 23.53,
-      avg_delay_days: 8,
-      risk_tier: 'LOW',
-      recommended_action: 'Standard Net-30 follow-up'
-    }
-  ]);
+  // AR Aging Register (Zero state in fresh CRM)
+  const [arEntities] = useState<ARAgingEntity[]>([]);
 
-  // Margin Exceptions
-  const [exceptions] = useState<MarginException[]>([
-    {
-      id: 'mex-01',
-      exception_code: 'MEX-202610-001',
-      entity_name: 'ZUVO 43" 4K Smart TV',
-      entity_type: 'PRODUCT',
-      category: 'MARGIN_BELOW_FLOOR',
-      severity: 'HIGH',
-      impact_amount: 48500.0,
-      evidence: 'Selling price ₹19,800 vs Standard COGS ₹17,900 yields 9.60% margin (Floor: 12.00%)',
-      status: 'INVESTIGATING',
-      detected_date: '2026-10-20',
-      recommended_action: 'Review promotional bundle discount with Regional Sales Director'
-    },
-    {
-      id: 'mex-02',
-      exception_code: 'MEX-202610-002',
-      entity_name: 'Southern Power Distribution Dealer (DLR-HYD-02)',
-      entity_type: 'DEALER',
-      category: 'REBATE_LEAKAGE',
-      severity: 'MEDIUM',
-      impact_amount: 28000.0,
-      evidence: 'Volume rebate claimed on cancelled return orders',
-      status: 'ACTION_REQUIRED',
-      detected_date: '2026-10-19',
-      recommended_action: 'Offset ₹28,000 from next commercial credit settlement'
-    },
-    {
-      id: 'mex-03',
-      exception_code: 'MEX-202610-003',
-      entity_name: 'Display Panel BOE Cell Lot 901',
-      entity_type: 'MODEL',
-      category: 'WARRANTY_COST_SPIKE',
-      severity: 'CRITICAL',
-      impact_amount: 92000.0,
-      evidence: 'Field replacement rate spiked to 4.8% on serial batch',
-      status: 'OPEN',
-      detected_date: '2026-10-21',
-      recommended_action: 'Trigger supplier defect indemnity claim against vendor AP balance'
-    }
-  ]);
+  // Margin Exceptions (Zero state in fresh CRM)
+  const [exceptions] = useState<MarginException[]>([]);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -456,8 +315,8 @@ export const FinanceCommercialIntelligencePage: React.FC = () => {
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-xl space-y-2">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Net B2B Revenue</span>
               <div className="text-2xl font-bold text-white">₹{(snapshot.revenue_net / 100000).toFixed(2)} Lakhs</div>
-              <p className="text-xs text-emerald-400 flex items-center gap-1">
-                <ArrowUpRight className="w-3.5 h-3.5" /> +14.2% MoM vs Sep 2026
+              <p className="text-xs text-slate-400">
+                Fresh CRM — 0 orders logged
               </p>
             </div>
 
@@ -474,13 +333,13 @@ export const FinanceCommercialIntelligencePage: React.FC = () => {
               <div className="text-2xl font-bold text-indigo-400">
                 ₹{(snapshot.ebitda / 100000).toFixed(2)} L <span className="text-sm font-semibold text-slate-400">({snapshot.ebitda_pct}%)</span>
               </div>
-              <p className="text-xs text-emerald-400">Net accretive cash operating result</p>
+              <p className="text-xs text-slate-400">Net operating result</p>
             </div>
 
             <div className="bg-slate-900/80 border border-slate-800 p-5 rounded-xl space-y-2">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Working Capital</span>
               <div className="text-2xl font-bold text-white">₹{(snapshot.working_capital / 100000).toFixed(2)} Lakhs</div>
-              <p className="text-xs text-indigo-300">AR (₹32.5L) + Cash (₹48.9L) - AP (₹21.8L)</p>
+              <p className="text-xs text-slate-400">AR (₹0.0L) + Cash (₹0.0L) - AP (₹0.0L)</p>
             </div>
           </div>
 

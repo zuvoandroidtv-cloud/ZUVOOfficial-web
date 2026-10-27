@@ -383,21 +383,34 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   color: var(--text-secondary);
 }
 
-.form-input {
-  background: var(--bg-input);
-  border: 1px solid var(--border-subtle);
+.form-input,
+.input-field,
+.crm-app-scope input[type="text"],
+.crm-app-scope input[type="number"],
+.crm-app-scope input[type="date"],
+.crm-app-scope input[type="datetime-local"],
+.crm-app-scope input[type="email"],
+.crm-app-scope input[type="search"],
+.crm-app-scope select,
+.crm-app-scope textarea {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-card) !important;
   border-radius: var(--radius-md);
   padding: 10px 14px;
-  color: var(--text-primary);
   font-size: 0.9rem;
   font-family: inherit;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.form-input:focus {
-  border-color: var(--accent-cyan);
-  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+.form-input:focus,
+.input-field:focus,
+.crm-app-scope input:focus,
+.crm-app-scope select:focus,
+.crm-app-scope textarea:focus {
+  border-color: var(--accent-cyan) !important;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2) !important;
 }
 
 /* Badges & Status Pills */

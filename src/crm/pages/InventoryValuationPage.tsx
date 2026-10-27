@@ -177,16 +177,16 @@ export const InventoryValuationPage: React.FC = () => {
         total_carrying_value: totalVal
       });
 
-      // Sample COGS / Margin stats from allocations or sales
+      // Purely database-derived COGS / Margin stats (0 in fresh start CRM)
       setMetrics({
-        total_inventory_value: totalVal || 4850000,
-        units_on_hand: units?.length || 240,
-        total_landed_costs_absorbed: 285000,
-        cogs_ytd: 12450000,
-        gross_profit_ytd: 4150000,
-        gross_margin_pct: 25.0,
+        total_inventory_value: totalVal || 0,
+        units_on_hand: units?.length || 0,
+        total_landed_costs_absorbed: 0,
+        cogs_ytd: 0,
+        gross_profit_ytd: 0,
+        gross_margin_pct: 0.0,
         gl_reconciliation_variance: 0.00,
-        slow_moving_stock_value: Math.round(slowMovingVal) || 450000
+        slow_moving_stock_value: Math.round(slowMovingVal) || 0
       });
     } catch (err) {
       console.error('Error computing valuation metrics:', err);
