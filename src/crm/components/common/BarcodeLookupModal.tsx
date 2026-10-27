@@ -14,6 +14,7 @@ interface BarcodeLookupModalProps {
   onClose: () => void;
   onRegisterWarranty?: (barcode: string) => void;
   onCreateServiceTicket?: (barcode: string) => void;
+  onReceiveUnit?: (barcode: string) => void;
 }
 
 export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
@@ -21,6 +22,7 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
   onClose,
   onRegisterWarranty,
   onCreateServiceTicket,
+  onReceiveUnit,
 }) => {
   const { role } = useAuth();
   const [query, setQuery] = useState('');
@@ -359,21 +361,40 @@ export const BarcodeLookupModal: React.FC<BarcodeLookupModalProps> = ({
             </button>
           </form>
 
-          {/* Error Message */}
+          {/* Error Message & Unregistered Barcode Action */}
           {error && (
             <div style={{
-              background: 'rgba(244, 63, 94, 0.1)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
+              background: 'rgba(244, 63, 94, 0.08)',
+              border: '1px solid rgba(244, 63, 94, 0.25)',
               borderRadius: 'var(--radius-md)',
-              padding: '12px 16px',
+              padding: '16px',
               color: '#FDA4AF',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              fontSize: '0.875rem'
+              marginBottom: '16px'
             }}>
-              <AlertTriangle size={18} />
-              <span>{error}</span>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: '2px', color: 'var(--accent-rose)' }} />
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Barcode not registered</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                      {error}
+                    </div>
+                  </div>
+                </div>
+                {onReceiveUnit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onReceiveUnit(query.trim());
+                      onClose();
+                    }}
+                    className="btn btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}
+                  >
+                    <Tv size={14} /> Create New Unit
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

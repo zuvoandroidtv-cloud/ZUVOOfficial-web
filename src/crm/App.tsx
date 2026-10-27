@@ -392,6 +392,10 @@ export const App: React.FC = () => {
           setActiveTab('service');
           setBarcodeModalOpen(false);
         }}
+        onReceiveUnit={() => {
+          setActiveTab('products');
+          setBarcodeModalOpen(false);
+        }}
       />
     </div>
   );

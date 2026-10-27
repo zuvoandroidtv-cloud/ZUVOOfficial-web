@@ -11,7 +11,8 @@ import {
   Bell,
   AlertTriangle,
   AlertOctagon,
-  Cpu
+  Cpu,
+  QrCode
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -132,12 +133,27 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
             Integrated serialized television lifecycle, warranty registrations, and national service operations.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={onOpenBarcodeModal} className="btn btn-primary">
-            Scan Unit Barcode
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => onNavigate('products')}
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Tv size={16} style={{ color: 'var(--brand-primary)' }} /> Add / View Products
           </button>
-          <button onClick={() => onNavigate('reports')} className="btn btn-secondary">
-            View Analytics
+          <button
+            onClick={() => onNavigate('products')}
+            className="btn btn-secondary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <PackageCheck size={16} style={{ color: 'var(--accent-emerald)' }} /> Add Unit
+          </button>
+          <button
+            onClick={onOpenBarcodeModal}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <QrCode size={16} /> Scan Unit Barcode
           </button>
         </div>
       </div>
