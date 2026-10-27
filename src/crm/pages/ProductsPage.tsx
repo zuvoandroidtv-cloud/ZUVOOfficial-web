@@ -315,13 +315,27 @@ export const ProductsPage: React.FC = () => {
       const { data: linkedUnits } = await supabase.from('product_units').select('id').eq('variant_id', variantId);
       if (linkedUnits && linkedUnits.length > 0) {
         const unitIds = linkedUnits.map(u => u.id);
-        await supabase.from('inventory_transactions').delete().in('product_unit_id', unitIds);
-        await supabase.from('warranty_claims').delete().in('product_unit_id', unitIds);
-        await supabase.from('warranties').delete().in('product_unit_id', unitIds);
-        await supabase.from('service_tickets').delete().in('product_unit_id', unitIds);
-        await supabase.from('sales_returns').delete().in('product_unit_id', unitIds);
-        await supabase.from('sale_items').delete().in('product_unit_id', unitIds);
-        await supabase.from('media_attachments').delete().in('product_unit_id', unitIds);
+        const childTables = [
+          'inventory_transactions',
+          'stock_transfer_items',
+          'stock_transfer_audit_logs',
+          'dealer_consignment_movements',
+          'dealer_consignment_stock',
+          'landed_cost_unit_allocations',
+          'sales_order_deliveries',
+          'sales_order_items',
+          'warranty_claims',
+          'warranty_extensions',
+          'warranty_transfers',
+          'warranties',
+          'service_tickets',
+          'sales_returns',
+          'sale_items',
+          'media_attachments',
+        ];
+        for (const tbl of childTables) {
+          await (supabase.from as any)(tbl).delete().in('product_unit_id', unitIds);
+        }
         await supabase.from('product_units').delete().eq('variant_id', variantId);
       }
 
