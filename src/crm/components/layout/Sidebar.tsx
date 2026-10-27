@@ -115,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen = false,
   onClose
 }) => {
-  const { role, isAllowed } = useAuth();
+  const { role, profile, user, isAllowed } = useAuth();
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
@@ -235,13 +235,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside
       className={`sidebar-container ${isOpen ? 'open' : ''}`}
       style={{
-        width: isSidebarCollapsed ? '72px' : '260px',
+        width: isSidebarCollapsed ? '76px' : '268px',
         background: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-subtle)',
+        borderRight: '1px solid var(--border-card)',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '16px 10px',
+        padding: '18px 12px',
         flexShrink: 0,
         transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         height: 'calc(100vh - 64px)',
@@ -251,26 +251,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-        {/* Sidebar Header & Collapse Toggle */}
-        <div style={{ padding: '0 6px 12px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', marginBottom: '10px' }}>
-          {!isSidebarCollapsed && (
-            <span style={{ fontSize: '0.675rem', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-              ZUVO Enterprise
-            </span>
+        {/* Brand / Logo Section */}
+        <div style={{
+          padding: '4px 6px 16px 6px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
+          borderBottom: '1px solid var(--border-subtle)',
+          marginBottom: '14px'
+        }}>
+          {!isSidebarCollapsed ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <img
+                src="/zuvo-official-logo.png"
+                alt="ZUVO Android TV"
+                style={{
+                  height: '32px',
+                  maxWidth: '160px',
+                  objectFit: 'contain',
+                  filter: 'drop-shadow(0 2px 8px rgba(20, 241, 196, 0.2))'
+                }}
+              />
+            </div>
+          ) : (
+            <img
+              src="/zuvo-official-logo.png"
+              alt="ZUVO"
+              style={{
+                height: '24px',
+                width: '36px',
+                objectFit: 'cover',
+                objectPosition: 'left center'
+              }}
+            />
           )}
+
           <button
             type="button"
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="btn btn-secondary btn-sm"
-            style={{ padding: '4px', border: 'none', background: 'transparent', color: 'var(--text-muted)', marginLeft: isSidebarCollapsed ? 'auto' : '0' }}
+            style={{
+              padding: '6px',
+              border: 'none',
+              background: 'rgba(255, 255, 255, 0.04)',
+              color: 'var(--text-muted)',
+              borderRadius: '8px',
+              cursor: 'pointer'
+            }}
             title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            {isSidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {isSidebarCollapsed ? <ChevronRight size={15} /> : <ChevronLeft size={15} />}
           </button>
         </div>
 
         {/* Scrollable Categorized Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', paddingRight: '4px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {categories.map((category) => {
             const visibleCategoryItems = category.items.filter(item => isAllowed(item.allowedRoles));
             if (visibleCategoryItems.length === 0) return null;
@@ -290,6 +325,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       border: 'none',
                       cursor: 'pointer',
                       textAlign: 'left',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.07em',
+                      padding: '8px 8px 4px 8px'
                     }}
                   >
                     <span>{category.title}</span>
@@ -298,7 +338,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 )}
 
                 {(!isCollapsed || isSidebarCollapsed) && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '2px' }}>
                     {visibleCategoryItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activeTab === item.id;
@@ -312,22 +352,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             alignItems: 'center',
                             justifyContent: isSidebarCollapsed ? 'center' : 'space-between',
                             width: '100%',
-                            padding: isSidebarCollapsed ? '10px 0' : '8px 12px',
+                            padding: isSidebarCollapsed ? '10px 0' : '10px 14px',
                             borderRadius: 'var(--radius-md)',
                             background: isActive
-                              ? 'linear-gradient(135deg, rgba(6, 182, 212, 0.18), rgba(59, 130, 246, 0.18))'
+                              ? 'linear-gradient(90deg, #14F1C4 0%, #06B6D4 100%)'
                               : 'transparent',
-                            border: isActive ? '1px solid var(--border-accent)' : '1px solid transparent',
-                            color: isActive ? '#FFFFFF' : 'var(--text-secondary)',
-                            fontWeight: isActive ? 700 : 500,
+                            color: isActive ? '#0c0e14' : 'var(--text-secondary)',
+                            fontWeight: isActive ? 800 : 500,
                             fontSize: '0.84rem',
                             cursor: 'pointer',
                             textAlign: 'left',
                             transition: 'all 0.15s ease',
+                            border: 'none',
+                            boxShadow: isActive ? '0 4px 16px rgba(20, 241, 196, 0.35)' : 'none',
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                            <Icon size={17} style={{ color: isActive ? 'var(--accent-cyan)' : 'inherit', flexShrink: 0 }} />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '11px', minWidth: 0 }}>
+                            <Icon size={18} style={{ color: isActive ? '#0c0e14' : 'inherit', flexShrink: 0 }} />
                             {!isSidebarCollapsed && (
                               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {item.label}
@@ -336,11 +377,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           </div>
                           {!isSidebarCollapsed && item.badge && (
                             <span style={{
-                              fontSize: '0.6rem',
-                              padding: '2px 5px',
+                              fontSize: '0.62rem',
+                              padding: '2px 6px',
                               borderRadius: 'var(--radius-full)',
-                              background: isActive ? 'var(--accent-cyan)' : 'rgba(255, 255, 255, 0.08)',
-                              color: isActive ? '#000000' : 'var(--text-secondary)',
+                              background: isActive ? '#0c0e14' : 'rgba(255, 255, 255, 0.08)',
+                              color: isActive ? '#14F1C4' : 'var(--text-secondary)',
                               fontWeight: 700,
                               flexShrink: 0,
                             }}>
@@ -358,24 +399,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </nav>
       </div>
 
-      {/* Quick Action: Barcode Scanner Modal Trigger */}
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.03)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        padding: isSidebarCollapsed ? '8px 4px' : '10px',
-        textAlign: 'center',
-        marginTop: '10px',
-      }}>
-        <button
-          onClick={onOpenBarcodeModal}
-          className="btn btn-primary"
-          style={{ width: '100%', fontSize: '0.78rem', padding: isSidebarCollapsed ? '8px 0' : '8px 10px', justifyContent: 'center' }}
-          title="Open Hardware Scanner"
-        >
-          <QrCode size={16} />
-          {!isSidebarCollapsed && <span style={{ marginLeft: '4px' }}>Scan Barcode</span>}
-        </button>
+      {/* Bottom Profile / Quick Actions Card (Reference Kabir Singh Profile Style) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
+        {/* User Card */}
+        {!isSidebarCollapsed ? (
+          <div style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-card)',
+            borderRadius: 'var(--radius-lg)',
+            padding: '10px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px'
+          }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #14F1C4, #3B82F6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              color: '#0c0e14',
+              fontSize: '0.9rem',
+              flexShrink: 0
+            }}>
+              {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : 'Z'}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: '0.825rem', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {profile?.full_name || 'Staff User'}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--accent-mint)', textTransform: 'capitalize', fontWeight: 600 }}>
+                {role?.replace('_', ' ') || 'Super Admin'}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {/* Quick Action: Barcode Scanner Modal Trigger */}
+        <div style={{
+          background: 'rgba(255, 255, 255, 0.02)',
+          border: '1px solid var(--border-card)',
+          borderRadius: 'var(--radius-md)',
+          padding: isSidebarCollapsed ? '6px 4px' : '8px 10px',
+          textAlign: 'center',
+        }}>
+          <button
+            onClick={onOpenBarcodeModal}
+            className="btn btn-primary"
+            style={{ width: '100%', fontSize: '0.78rem', padding: isSidebarCollapsed ? '8px 0' : '8px 10px', justifyContent: 'center' }}
+            title="Open Hardware Scanner"
+          >
+            <QrCode size={15} />
+            {!isSidebarCollapsed && <span style={{ marginLeft: '4px' }}>Scan Barcode</span>}
+          </button>
+        </div>
       </div>
     </aside>
   );

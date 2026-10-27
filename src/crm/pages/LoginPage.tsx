@@ -88,14 +88,22 @@ export const LoginPage: React.FC = () => {
       <div style={{ width: '100%', maxWidth: '440px' }}>
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ width: 56, height: 56, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', boxShadow: '0 10px 25px -5px rgba(37, 99, 235, 0.4)' }}>
-            <Tv size={30} style={{ color: '#fff' }} />
-          </div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.025em' }}>
-            ZUVO TV CRM
+          <img
+            src="/zuvo-official-logo.png"
+            alt="ZUVO Android TV"
+            style={{
+              height: '52px',
+              maxWidth: '240px',
+              objectFit: 'contain',
+              margin: '0 auto 1rem',
+              filter: 'drop-shadow(0 4px 16px rgba(20, 241, 196, 0.35))'
+            }}
+          />
+          <h1 style={{ fontSize: '1.6rem', fontWeight: 800, letterSpacing: '-0.025em', color: '#FFFFFF' }}>
+            Enterprise Command Center
           </h1>
-          <p className="text-muted" style={{ fontSize: '0.875rem', marginTop: '0.25rem' }}>
-            Enterprise Customer & Television Operations Management
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '0.35rem' }}>
+            Serialized TV Lifecycle, Warranty & Service Network
           </p>
         </div>
 

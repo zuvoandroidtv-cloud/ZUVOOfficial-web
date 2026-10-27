@@ -194,10 +194,13 @@ export const App: React.FC = () => {
   if (!session) {
     return (
       <div className="crm-app-scope" style={{ minHeight: '100vh', background: 'var(--bg-primary)', display: 'flex', flexDirection: 'column' }}>
-        <header style={{ minHeight: '60px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-            <Tv size={20} style={{ color: 'var(--brand-primary)' }} />
-            <span style={{ fontWeight: 800 }}>ZUVO TV CRM</span>
+        <header style={{ minHeight: '64px', borderBottom: '1px solid var(--border-card)', background: 'rgba(16, 19, 28, 0.95)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem 1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <img
+              src="/zuvo-official-logo.png"
+              alt="ZUVO Android TV"
+              style={{ height: '36px', objectFit: 'contain', filter: 'drop-shadow(0 2px 10px rgba(20, 241, 196, 0.25))' }}
+            />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <a

@@ -184,20 +184,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header style={{
       height: '64px',
-      borderBottom: '1px solid var(--border-subtle)',
-      background: 'rgba(11, 15, 25, 0.85)',
-      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid var(--border-card)',
+      background: 'rgba(16, 19, 28, 0.92)',
+      backdropFilter: 'blur(16px)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      padding: '0 16px',
+      padding: '0 20px',
       position: 'sticky',
       top: 0,
       zIndex: 50,
       width: '100%',
       boxSizing: 'border-box'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
         {/* Mobile Hamburger Button */}
         {onToggleMobileMenu && (
           <button
@@ -210,26 +210,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         )}
 
-        <div style={{
-          width: '34px',
-          height: '34px',
-          borderRadius: '10px',
-          background: 'linear-gradient(135deg, var(--accent-cyan), var(--accent-blue))',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          boxShadow: '0 0 15px rgba(6, 182, 212, 0.4)',
-          flexShrink: 0
-        }}>
-          <Tv size={18} />
-        </div>
-        <div>
-          <span style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#fff' }}>
-            ZUVO <span style={{ color: 'var(--accent-cyan)' }}>TV</span>
-          </span>
-          <span className="navbar-version-badge" style={{ fontSize: '0.65rem', marginLeft: '6px', background: 'rgba(255,255,255,0.08)', padding: '2px 6px', borderRadius: '4px', color: '#94A3B8' }}>
-            v4.0
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <img
+            src="/zuvo-official-logo.png"
+            alt="ZUVO Android TV"
+            style={{
+              height: '34px',
+              objectFit: 'contain',
+              filter: 'drop-shadow(0 2px 8px rgba(20, 241, 196, 0.25))'
+            }}
+          />
+          <span className="navbar-version-badge" style={{
+            fontSize: '0.65rem',
+            background: 'rgba(20, 241, 196, 0.1)',
+            border: '1px solid rgba(20, 241, 196, 0.25)',
+            padding: '2px 8px',
+            borderRadius: '9999px',
+            color: 'var(--accent-mint)',
+            fontWeight: 700
+          }}>
+            ENTERPRISE
           </span>
         </div>
       </div>
