@@ -260,45 +260,26 @@ export const ProductsPage: React.FC = () => {
       return;
     }
     try {
-      // 1. Delete or uncouple all child records that reference this product_unit_id to satisfy foreign key constraints
-      // Explicitly check for errors on child table deletions so foreign key violations are prevented
-      const childDeletes = [
-        { table: 'inventory_transactions', col: 'product_unit_id' },
-        { table: 'stock_transfer_items', col: 'product_unit_id' },
-        { table: 'stock_transfer_audit_logs', col: 'product_unit_id' },
-        { table: 'dealer_consignment_movements', col: 'product_unit_id' },
-        { table: 'dealer_consignment_stock', col: 'product_unit_id' },
-        { table: 'landed_cost_unit_allocations', col: 'product_unit_id' },
-        { table: 'sales_order_deliveries', col: 'product_unit_id' },
-        { table: 'sales_order_items', col: 'product_unit_id' },
-        { table: 'warranty_claims', col: 'product_unit_id' },
-        { table: 'warranty_extensions', col: 'product_unit_id' },
-        { table: 'warranty_transfers', col: 'product_unit_id' },
-        { table: 'warranties', col: 'product_unit_id' },
-        { table: 'service_tickets', col: 'product_unit_id' },
-        { table: 'sales_returns', col: 'product_unit_id' },
-        { table: 'sale_items', col: 'product_unit_id' },
-        { table: 'media_attachments', col: 'product_unit_id' },
-      ];
+      // 1. Invoke atomic Security Definer RPC in Supabase (clean cascade in single transaction)
+      const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)('fn_delete_product_unit_cascade', {
+        p_unit_id: unitId
+      });
 
-      for (const item of childDeletes) {
-        const { error: childErr } = await (supabase.from as any)(item.table).delete().eq(item.col, unitId);
-        if (childErr && childErr.code !== 'PGRST116' && childErr.code !== '42P01') {
-          // If table exists and has permission error or foreign key error, log and check
-          console.warn(`Cleaned up ${item.table} for unit ${unitId}:`, childErr);
-        }
+      if (rpcErr) {
+        console.warn('RPC deletion fallback to manual cleanup:', rpcErr);
+        // Fallback cleanup if RPC is somehow unavailable
+        await (supabase.from as any)('inventory_transactions').delete().eq('product_unit_id', unitId);
+        await (supabase.from as any)('sale_items').delete().eq('product_unit_id', unitId);
+        await (supabase.from as any)('warranties').delete().eq('product_unit_id', unitId);
+        const { error: directErr } = await supabase.from('product_units').delete().eq('id', unitId);
+        if (directErr) throw directErr;
+      } else if (rpcRes && rpcRes.success === false) {
+        throw new Error(rpcRes.message || 'Deletion failed in database.');
       }
 
-      // 2. Delete the unit itself from Supabase
-      const { error } = await supabase.from('product_units').delete().eq('id', unitId);
-      if (error) {
-        console.error('Error deleting product unit:', error);
-        throw error;
-      }
-
-      // 3. Immediately reflect in UI state
+      // 2. Immediately reflect in UI state
       setUnits(prev => prev.filter(u => u.id !== unitId));
-      alert(`Unit ${serial} successfully deleted from both CRM web and Supabase database.`);
+      alert(`Unit "${serial}" successfully deleted from both CRM web and Supabase database.`);
       await loadData();
     } catch (err: any) {
       console.error('Failed to delete unit:', err);
@@ -311,36 +292,19 @@ export const ProductsPage: React.FC = () => {
       return;
     }
     try {
-      // Find all units belonging to this variant to clean them up properly
-      const { data: linkedUnits } = await supabase.from('product_units').select('id').eq('variant_id', variantId);
-      if (linkedUnits && linkedUnits.length > 0) {
-        const unitIds = linkedUnits.map(u => u.id);
-        const childTables = [
-          'inventory_transactions',
-          'stock_transfer_items',
-          'stock_transfer_audit_logs',
-          'dealer_consignment_movements',
-          'dealer_consignment_stock',
-          'landed_cost_unit_allocations',
-          'sales_order_deliveries',
-          'sales_order_items',
-          'warranty_claims',
-          'warranty_extensions',
-          'warranty_transfers',
-          'warranties',
-          'service_tickets',
-          'sales_returns',
-          'sale_items',
-          'media_attachments',
-        ];
-        for (const tbl of childTables) {
-          await (supabase.from as any)(tbl).delete().in('product_unit_id', unitIds);
-        }
-        await supabase.from('product_units').delete().eq('variant_id', variantId);
+      // Invoke atomic Security Definer RPC for variant cascade deletion
+      const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)('fn_delete_product_variant_cascade', {
+        p_variant_id: variantId
+      });
+
+      if (rpcErr) {
+        console.warn('RPC variant deletion fallback:', rpcErr);
+        const { error: directErr } = await supabase.from('product_variants').delete().eq('id', variantId);
+        if (directErr) throw directErr;
+      } else if (rpcRes && rpcRes.success === false) {
+        throw new Error(rpcRes.message || 'Variant deletion failed.');
       }
 
-      const { error } = await supabase.from('product_variants').delete().eq('id', variantId);
-      if (error) throw error;
       setVariants(prev => prev.filter(v => v.id !== variantId));
       alert(`Product variant "${modelName}" deleted successfully from both CRM web and Supabase.`);
       await loadData();
