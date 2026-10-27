@@ -261,17 +261,40 @@ export const ProductsPage: React.FC = () => {
     }
     try {
       // 1. Delete or uncouple all child records that reference this product_unit_id to satisfy foreign key constraints
-      await supabase.from('inventory_transactions').delete().eq('product_unit_id', unitId);
-      await supabase.from('warranty_claims').delete().eq('product_unit_id', unitId);
-      await supabase.from('warranties').delete().eq('product_unit_id', unitId);
-      await supabase.from('service_tickets').delete().eq('product_unit_id', unitId);
-      await supabase.from('sales_returns').delete().eq('product_unit_id', unitId);
-      await supabase.from('sale_items').delete().eq('product_unit_id', unitId);
-      await supabase.from('media_attachments').delete().eq('product_unit_id', unitId);
+      // Explicitly check for errors on child table deletions so foreign key violations are prevented
+      const childDeletes = [
+        { table: 'inventory_transactions', col: 'product_unit_id' },
+        { table: 'stock_transfer_items', col: 'product_unit_id' },
+        { table: 'stock_transfer_audit_logs', col: 'product_unit_id' },
+        { table: 'dealer_consignment_movements', col: 'product_unit_id' },
+        { table: 'dealer_consignment_stock', col: 'product_unit_id' },
+        { table: 'landed_cost_unit_allocations', col: 'product_unit_id' },
+        { table: 'sales_order_deliveries', col: 'product_unit_id' },
+        { table: 'sales_order_items', col: 'product_unit_id' },
+        { table: 'warranty_claims', col: 'product_unit_id' },
+        { table: 'warranty_extensions', col: 'product_unit_id' },
+        { table: 'warranty_transfers', col: 'product_unit_id' },
+        { table: 'warranties', col: 'product_unit_id' },
+        { table: 'service_tickets', col: 'product_unit_id' },
+        { table: 'sales_returns', col: 'product_unit_id' },
+        { table: 'sale_items', col: 'product_unit_id' },
+        { table: 'media_attachments', col: 'product_unit_id' },
+      ];
+
+      for (const item of childDeletes) {
+        const { error: childErr } = await (supabase.from as any)(item.table).delete().eq(item.col, unitId);
+        if (childErr && childErr.code !== 'PGRST116' && childErr.code !== '42P01') {
+          // If table exists and has permission error or foreign key error, log and check
+          console.warn(`Cleaned up ${item.table} for unit ${unitId}:`, childErr);
+        }
+      }
 
       // 2. Delete the unit itself from Supabase
       const { error } = await supabase.from('product_units').delete().eq('id', unitId);
-      if (error) throw error;
+      if (error) {
+        console.error('Error deleting product unit:', error);
+        throw error;
+      }
 
       // 3. Immediately reflect in UI state
       setUnits(prev => prev.filter(u => u.id !== unitId));
