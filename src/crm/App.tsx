@@ -348,7 +348,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="crm-app-scope" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <div className="crm-app-scope" style={{ height: '100vh', maxHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)', width: '100%', maxWidth: '100vw', overflow: 'hidden' }}>
       {/* Top Navbar */}
       <Navbar
         activeTab={activeTab}
@@ -358,7 +358,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Body with Sidebar + Content */}
-      <div className="app-body" style={{ display: 'flex', flex: 1, minHeight: 'calc(100vh - 64px)', minWidth: 0, position: 'relative' }}>
+      <div className="app-body" style={{ display: 'flex', flex: 1, height: 'calc(100vh - 64px)', minHeight: 0, minWidth: 0, position: 'relative', overflow: 'hidden' }}>
         {/* Mobile Backdrop Overlay */}
         {mobileMenuOpen && (
           <div
@@ -375,7 +375,7 @@ export const App: React.FC = () => {
           onClose={() => setMobileMenuOpen(false)}
         />
 
-        <main className="page-wrapper" style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        <main className="page-wrapper" style={{ flex: 1, minWidth: 0, height: '100%', overflowY: 'auto', overflowX: 'hidden' }}>
           {renderActiveModule()}
         </main>
       </div>
