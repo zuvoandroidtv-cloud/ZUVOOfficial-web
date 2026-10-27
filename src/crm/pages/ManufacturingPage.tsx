@@ -88,9 +88,9 @@ export const ManufacturingPage: React.FC = () => {
   const [newBomNumber, setNewBomNumber] = useState('');
   const [newBomRevision, setNewBomRevision] = useState('REV-A');
   const [newBomDesc, setNewBomDesc] = useState('');
-  const [newBomLaborCost, setNewBomLaborCost] = useState('450');
-  const [newBomOverheadCost, setNewBomOverheadCost] = useState('250');
-  const [newBomYieldPct, setNewBomYieldPct] = useState('98.5');
+  const [newBomLaborCost, setNewBomLaborCost] = useState('0');
+  const [newBomOverheadCost, setNewBomOverheadCost] = useState('0');
+  const [newBomYieldPct, setNewBomYieldPct] = useState('100.0');
   const [newBomItems, setNewBomItems] = useState<Array<{
     component_part_id: string;
     quantity_per_unit: number;
@@ -104,13 +104,13 @@ export const ManufacturingPage: React.FC = () => {
   const [newWoBomId, setNewWoBomId] = useState('');
   const [newWoSourceWhId, setNewWoSourceWhId] = useState('');
   const [newWoDestWhId, setNewWoDestWhId] = useState('');
-  const [newWoPlannedQty, setNewWoPlannedQty] = useState('10');
-  const [newWoAssemblyLine, setNewWoAssemblyLine] = useState('LINE-1');
+  const [newWoPlannedQty, setNewWoPlannedQty] = useState('');
+  const [newWoAssemblyLine, setNewWoAssemblyLine] = useState('');
 
   // Form States - Quality Gate
   const [qaStation, setQaStation] = useState<StationType>('ELECTRICAL_HI_POT');
-  const [qaUnitsTested, setQaUnitsTested] = useState('10');
-  const [qaUnitsPassed, setQaUnitsPassed] = useState('10');
+  const [qaUnitsTested, setQaUnitsTested] = useState('0');
+  const [qaUnitsPassed, setQaUnitsPassed] = useState('0');
   const [qaUnitsFailed, setQaUnitsFailed] = useState('0');
   const [qaEquipmentId, setQaEquipmentId] = useState('');
   const [qaNotes, setQaNotes] = useState('');
@@ -249,6 +249,24 @@ export const ManufacturingPage: React.FC = () => {
       }
     });
 
+    // Calculate quality gate pass rate from actual completed inspection gates if available
+    let passRate = 100;
+    let totalTested = 0;
+    let totalPassed = 0;
+    wos.forEach(w => {
+      if (w.quality_checks && w.quality_checks.length > 0) {
+        w.quality_checks.forEach((qc: any) => {
+          totalTested += Number(qc.units_tested || 0);
+          totalPassed += Number(qc.units_passed || 0);
+        });
+      }
+    });
+    if (totalTested > 0) {
+      passRate = Number(((totalPassed / totalTested) * 100).toFixed(1));
+    } else {
+      passRate = 0;
+    }
+
     setSummary({
       active_work_orders: activeWos,
       completed_work_orders: completedWos,
@@ -256,7 +274,7 @@ export const ManufacturingPage: React.FC = () => {
       total_completed_units: totalCompleted,
       total_wip_value: wipVal,
       scrap_percentage: Number(scrapPct.toFixed(2)),
-      quality_pass_rate: 99.2, // standard high factory quality metric
+      quality_pass_rate: passRate,
       units_awaiting_qa: wos.filter(w => w.status === 'IN_PRODUCTION' || w.status === 'QUALITY_HOLD')
         .reduce((sum, w) => sum + (w.planned_quantity - w.completed_quantity), 0)
     });
@@ -736,7 +754,7 @@ export const ManufacturingPage: React.FC = () => {
                 <ShieldCheck size={16} />
               </div>
               <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.5rem', color: '#a78bfa' }}>
-                {summary?.quality_pass_rate ?? 100}%
+                {summary && summary.quality_pass_rate > 0 ? `${summary.quality_pass_rate}%` : '0.0%'}
               </div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', marginTop: '0.25rem' }}>
                 4-Hour Burn-in & Hi-Pot
@@ -1241,38 +1259,9 @@ export const ManufacturingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#6366f1' }}>ECO-2026-004</td>
-                  <td style={{ padding: '0.6rem' }}>ZUVO 55" 4K Google TV</td>
-                  <td style={{ padding: '0.6rem' }}>Upgrade Power Supply Board to 120W surge-protected unit</td>
-                  <td style={{ padding: '0.6rem', fontFamily: 'monospace' }}>BOM-55-A → BOM-55-B</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#f59e0b20', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
-                      MEDIUM
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.6rem' }}>2026-10-25</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
-                      APPROVED
-                    </span>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#6366f1' }}>ECO-2026-005</td>
-                  <td style={{ padding: '0.6rem' }}>ZUVO 43" 4K Smart TV</td>
-                  <td style={{ padding: '0.6rem' }}>Substitute Wi-Fi 6 Module (MTK7921) to replace end-of-life component</td>
-                  <td style={{ padding: '0.6rem', fontFamily: 'monospace' }}>BOM-43-REV-A → BOM-43-REV-B</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#3b82f620', color: '#3b82f6', fontSize: '0.75rem', fontWeight: 600 }}>
-                      LOW
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.6rem' }}>2026-11-01</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#eab30820', color: '#eab308', fontSize: '0.75rem', fontWeight: 600 }}>
-                      SUBMITTED
-                    </span>
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    No engineering change orders (ECO) on record. Click "+ Create ECO" to initiate an engineering revision review.
                   </td>
                 </tr>
               </tbody>
@@ -1301,38 +1290,20 @@ export const ManufacturingPage: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem' }}>
-            <div style={{ padding: '1rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: 700, color: '#38bdf8' }}>TV Serial: ZUV-202610-55-00451</span>
-                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>GEN-2 (ACTIVE)</span>
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                Model: ZUVO 55" 4K Google TV • Assembly: LINE_1 • Work Order: WO-2026-001
-              </div>
-              <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <div>• Open Cell Panel: <span style={{ fontFamily: 'monospace', color: '#fff' }}>BOE-55-UHD-LOT-901</span> (BOE Display)</div>
-                <div>• Motherboard: <span style={{ fontFamily: 'monospace', color: '#fff' }}>MB-ZUV-RTD2874-LOT-44</span> (Realtek SMT)</div>
-                <div>• Power Supply: <span style={{ fontFamily: 'monospace', color: '#fff' }}>PSU-120W-DELTA-B08</span> (Delta Electronics)</div>
-                <div>• T-Con Board: <span style={{ fontFamily: 'monospace', color: '#fff' }}>TCON-LG-55-LOT-12</span> (LG Display)</div>
-                <div>• Backlight Array: <span style={{ fontFamily: 'monospace', color: '#fff' }}>LED-BAR-55-LOT-30</span> (San'an Opto)</div>
-              </div>
+          <div style={{
+            textAlign: 'center',
+            padding: '3rem 1.5rem',
+            background: '#0f172a',
+            border: '1px dashed #334155',
+            borderRadius: '8px',
+            color: 'var(--text-muted, #94a3b8)'
+          }}>
+            <Boxes size={36} style={{ margin: '0 auto 0.75rem auto', opacity: 0.5, display: 'block' }} />
+            <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#cbd5e1', marginBottom: '0.25rem' }}>
+              No Serial Genealogy Records Found
             </div>
-
-            <div style={{ padding: '1rem', background: '#0f172a', border: '1px solid #334155', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: 700, color: '#38bdf8' }}>TV Serial: ZUV-202610-43-00912</span>
-                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>GEN-2 (ACTIVE)</span>
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                Model: ZUVO 43" 4K Smart TV • Assembly: LINE_2 • Work Order: WO-2026-002
-              </div>
-              <div style={{ fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <div>• Open Cell Panel: <span style={{ fontFamily: 'monospace', color: '#fff' }}>CSOT-43-FHD-LOT-112</span> (CSOT)</div>
-                <div>• Motherboard: <span style={{ fontFamily: 'monospace', color: '#fff' }}>MB-ZUV-MT9638-LOT-88</span> (MediaTek)</div>
-                <div>• Power Supply: <span style={{ fontFamily: 'monospace', color: '#fff' }}>PSU-75W-CHICONY-C02</span> (Chicony Power)</div>
-                <div>• Wi-Fi/BT Module: <span style={{ fontFamily: 'monospace', color: '#fff' }}>WIFI6-MTK-7921-LOT-09</span> (AzureWave)</div>
-              </div>
+            <div style={{ fontSize: '0.8rem', maxWidth: '500px', margin: '0 auto' }}>
+              Complete a work order with serialized TV units to populate component lot genealogy and bidirectional traceability records.
             </div>
           </div>
         </div>
@@ -1370,44 +1341,9 @@ export const ManufacturingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#ef4444' }}>NCR-2026-009</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <div>OPTICAL_PANEL_BLEED</div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Torque on bezel screws exceeded 0.8 Nm causing edge stress</div>
-                  </td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#ef444420', color: '#ef4444', fontSize: '0.75rem', fontWeight: 600 }}>
-                      MAJOR
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.6rem' }}>REWORK</td>
-                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>₹1,250</td>
-                  <td style={{ padding: '0.6rem' }}>LINE_1 Assembly</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
-                      CLOSED
-                    </span>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 700, color: '#ef4444' }}>NCR-2026-010</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <div>SMPS_VOLTAGE_DRIFT</div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Cold solder joint on 24V flyback transformer pins</div>
-                  </td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#f59e0b20', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
-                      CRITICAL
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.6rem' }}>RETURN_TO_SUPPLIER</td>
-                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>₹18,500</td>
-                  <td style={{ padding: '0.6rem' }}>Delta Electronics</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#eab30820', color: '#eab308', fontSize: '0.75rem', fontWeight: 600 }}>
-                      INVESTIGATING
-                    </span>
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    No non-conformance reports (NCR) raised. All production lines operating within nominal defect limits.
                   </td>
                 </tr>
               </tbody>
@@ -1443,43 +1379,9 @@ export const ManufacturingPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>BOE Display Technology</td>
-                  <td style={{ padding: '0.6rem' }}>55" & 65" UHD Open Cell Panels</td>
-                  <td style={{ padding: '0.6rem' }}>1,200</td>
-                  <td style={{ padding: '0.6rem' }}>8</td>
-                  <td style={{ padding: '0.6rem', fontWeight: 600, color: '#10b981' }}>0.67%</td>
-                  <td style={{ padding: '0.6rem' }}>0</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 600 }}>
-                      EXCELLENT
-                    </span>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>Delta Power Electronics</td>
-                  <td style={{ padding: '0.6rem' }}>Integrated SMPS Power Supply Boards</td>
-                  <td style={{ padding: '0.6rem' }}>850</td>
-                  <td style={{ padding: '0.6rem' }}>24</td>
-                  <td style={{ padding: '0.6rem', fontWeight: 600, color: '#f59e0b' }}>2.82%</td>
-                  <td style={{ padding: '0.6rem' }}>1</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#f59e0b20', color: '#f59e0b', fontSize: '0.75rem', fontWeight: 600 }}>
-                      ACCEPTABLE
-                    </span>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  <td style={{ padding: '0.6rem', fontWeight: 600 }}>Shenzhen SMT Electronics</td>
-                  <td style={{ padding: '0.6rem' }}>LVDS Flex Ribbon Cables</td>
-                  <td style={{ padding: '0.6rem' }}>600</td>
-                  <td style={{ padding: '0.6rem' }}>32</td>
-                  <td style={{ padding: '0.6rem', fontWeight: 600, color: '#ef4444' }}>5.33%</td>
-                  <td style={{ padding: '0.6rem' }}>2</td>
-                  <td style={{ padding: '0.6rem' }}>
-                    <span style={{ padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#ef444420', color: '#ef4444', fontSize: '0.75rem', fontWeight: 600 }}>
-                      HIGH_RISK_SUPPLIER
-                    </span>
+                <tr>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted, #94a3b8)' }}>
+                    No incoming supplier batch inspections recorded.
                   </td>
                 </tr>
               </tbody>
@@ -1503,33 +1405,20 @@ export const ManufacturingPage: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ padding: '1.25rem', background: '#0f172a', border: '1px solid #ef4444', borderRadius: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                <div>
-                  <span style={{ fontWeight: 800, fontSize: '1rem', color: '#f87171' }}>CAMPAIGN: REC-2026-001</span>
-                  <span style={{ marginLeft: '0.75rem', padding: '0.2rem 0.5rem', borderRadius: '4px', background: '#ef444420', color: '#ef4444', fontSize: '0.75rem', fontWeight: 700 }}>
-                    SAFETY_CRITICAL
-                  </span>
-                </div>
-                <span style={{ padding: '0.2rem 0.6rem', borderRadius: '4px', background: '#10b98120', color: '#10b981', fontSize: '0.75rem', fontWeight: 700 }}>
-                  CONTAINED
-                </span>
-              </div>
-
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fff', marginBottom: '0.25rem' }}>
-                Precautionary Containment for LVDS Ribbon Cable Batch LOT-2026-09 on 43" 4K Smart TVs
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                Supplier: Shenzhen SMT Electronics • Authorized by: Quality Director (Operations)
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', padding: '0.75rem', background: '#1e293b', borderRadius: '6px', fontSize: '0.8rem' }}>
-                <div>Total Affected Serials: <span style={{ fontWeight: 700, color: '#38bdf8' }}>48 units</span></div>
-                <div>Warehouse Quarantined: <span style={{ fontWeight: 700, color: '#10b981' }}>32 units</span></div>
-                <div>Dealer Stock Held: <span style={{ fontWeight: 700, color: '#f59e0b' }}>12 units</span></div>
-                <div>Customer Field Service: <span style={{ fontWeight: 700, color: '#f87171' }}>4 units</span></div>
-              </div>
+          <div style={{
+            textAlign: 'center',
+            padding: '3rem 1.5rem',
+            background: '#0f172a',
+            border: '1px dashed #334155',
+            borderRadius: '8px',
+            color: 'var(--text-muted, #94a3b8)'
+          }}>
+            <ShieldCheck size={36} style={{ margin: '0 auto 0.75rem auto', color: '#10b981', display: 'block' }} />
+            <div style={{ fontWeight: 600, fontSize: '0.95rem', color: '#34d399', marginBottom: '0.25rem' }}>
+              No Active Recalls or Containment Holds
+            </div>
+            <div style={{ fontSize: '0.8rem', maxWidth: '500px', margin: '0 auto' }}>
+              Zero quarantined batches or active service safety holds currently in effect.
             </div>
           </div>
         </div>
