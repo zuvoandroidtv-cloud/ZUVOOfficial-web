@@ -46,6 +46,12 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
     expiringWarrantyCount: 0
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [analyticsTrends, setAnalyticsTrends] = useState<{
+    sales_trends: Array<{ month_index: number; month_name: string; units_sold: number; revenue: number }>;
+    rma_trends: Array<{ month_index: number; month_name: string; total_tickets: number; open_tickets: number }>;
+    stock_status: { in_stock: number; sold: number; in_service: number; reserved: number; damaged: number; returned: number; total: number };
+    year: number;
+  } | null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -69,7 +75,19 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
 
       setOverview(ovData || {});
 
-      // 2. Fetch stock by warehouse view
+      // 2. Fetch real live analytics trends RPC
+      try {
+        const { data: trendData } = await (supabase.rpc as any)('get_dashboard_analytics_trends', {
+          p_timeframe: activeTimeframe
+        });
+        if (trendData) {
+          setAnalyticsTrends(trendData);
+        }
+      } catch (trendErr) {
+        console.warn('Analytics trends RPC fallback:', trendErr);
+      }
+
+      // 3. Fetch stock by warehouse view
       const { data: stData } = await supabase
         .from('stock_by_warehouse')
         .select('*')
@@ -77,7 +95,7 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
 
       setStockSummary(stData || []);
 
-      // 3. Fetch product catalog for Best Selling Products table
+      // 4. Fetch product catalog for Best Selling Products table
       const { data: pvData } = await supabase
         .from('product_variants')
         .select('id, product_name, screen_size, tv_type, product_code, standard_manufacturing_cost')
@@ -85,7 +103,7 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
 
       setProductVariants(pvData || []);
 
-      // 4. Fetch recent service tickets
+      // 5. Fetch recent service tickets
       const { data: tktData } = await supabase
         .from('service_tickets')
         .select(`
@@ -102,7 +120,7 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
 
       setRecentTickets(tktData || []);
 
-      // 5. Fetch notification alert breakdown
+      // 6. Fetch notification alert breakdown
       if (user?.id) {
         const { data: notifs } = await supabase
           .from('notifications')
@@ -446,7 +464,7 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
           </div>
 
           {/* Dynamic / Zero-State Sales Analytics Display */}
-          {(overview?.total_product_units ?? 0) === 0 ? (
+          {(overview?.total_product_units ?? 0) === 0 && (!analyticsTrends || analyticsTrends.sales_trends.every(s => s.units_sold === 0 && s.revenue === 0)) ? (
             <div style={{
               height: '200px',
               display: 'flex',
@@ -474,37 +492,67 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
             </div>
           ) : (
             <div style={{ position: 'relative', width: '100%', height: '200px' }}>
-              <svg width="100%" height="100%" viewBox="0 0 700 200" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="waveGlowGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#14F1C4" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#14F1C4" stopOpacity="0.0" />
-                  </linearGradient>
-                  <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#14F1C4" />
-                    <stop offset="50%" stopColor="#06B6D4" />
-                    <stop offset="100%" stopColor="#3B82F6" />
-                  </linearGradient>
-                </defs>
-                <line x1="0" y1="40" x2="700" y2="40" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-                <line x1="0" y1="90" x2="700" y2="90" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-                <line x1="0" y1="140" x2="700" y2="140" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-                <path
-                  d="M 10 140 Q 70 80, 130 160 T 250 110 T 370 140 T 490 90 T 610 130 T 690 40 L 690 190 L 10 190 Z"
-                  fill="url(#waveGlowGrad)"
-                />
-                <path
-                  d="M 10 140 Q 70 80, 130 160 T 250 110 T 370 140 T 490 90 T 610 130 T 690 40"
-                  stroke="url(#lineGrad)"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  fill="none"
-                  style={{ filter: 'drop-shadow(0 0 8px rgba(20, 241, 196, 0.7))' }}
-                />
-                <circle cx="690" cy="40" r="5" fill="#14F1C4" style={{ filter: 'drop-shadow(0 0 8px #14F1C4)' }} />
-              </svg>
+              {(() => {
+                const months = analyticsTrends?.sales_trends || [];
+                const maxVal = Math.max(1, ...months.map(m => m.units_sold || (m.revenue > 0 ? 10 : 0)));
+                const points = months.map((m, idx) => {
+                  const x = 20 + idx * ((680 - 40) / 11);
+                  const normalized = (m.units_sold || (m.revenue > 0 ? 5 : 0)) / maxVal;
+                  const y = 170 - normalized * 130;
+                  return { x, y, name: m.month_name, units: m.units_sold, revenue: m.revenue };
+                });
+
+                const dPath = points.length > 0
+                  ? points.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '')
+                  : 'M 10 140 L 690 140';
+                const fillPath = points.length > 0
+                  ? `${dPath} L ${points[points.length - 1].x} 185 L ${points[0].x} 185 Z`
+                  : '';
+
+                return (
+                  <svg width="100%" height="100%" viewBox="0 0 700 200" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="waveGlowGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#14F1C4" stopOpacity="0.28" />
+                        <stop offset="100%" stopColor="#14F1C4" stopOpacity="0.0" />
+                      </linearGradient>
+                      <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor="#14F1C4" />
+                        <stop offset="50%" stopColor="#06B6D4" />
+                        <stop offset="100%" stopColor="#3B82F6" />
+                      </linearGradient>
+                    </defs>
+                    <line x1="0" y1="40" x2="700" y2="40" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    <line x1="0" y1="90" x2="700" y2="90" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    <line x1="0" y1="140" x2="700" y2="140" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    
+                    {fillPath && <path d={fillPath} fill="url(#waveGlowGrad)" />}
+                    <path
+                      d={dPath}
+                      stroke="url(#lineGrad)"
+                      strokeWidth="3.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                      style={{ filter: 'drop-shadow(0 0 8px rgba(20, 241, 196, 0.7))' }}
+                    />
+                    {points.map((pt, i) => (
+                      <circle
+                        key={i}
+                        cx={pt.x}
+                        cy={pt.y}
+                        r={pt.units > 0 ? 5 : 3}
+                        fill={pt.units > 0 ? '#14F1C4' : '#06B6D4'}
+                        style={{ filter: pt.units > 0 ? 'drop-shadow(0 0 8px #14F1C4)' : 'none' }}
+                      >
+                        <title>{`${pt.name}: ${pt.units} units sold (₹${pt.revenue.toLocaleString()})`}</title>
+                      </circle>
+                    ))}
+                  </svg>
+                );
+              })()}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(m => (
+                {(analyticsTrends?.sales_trends?.map(s => s.month_name) || ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']).map(m => (
                   <span key={m}>{m}</span>
                 ))}
               </div>
@@ -528,11 +576,11 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border-card)'
               }}>
-                Current Period
+                Year {analyticsTrends?.year || 2026}
               </span>
             </div>
 
-            {(overview?.open_service_tickets ?? 0) === 0 ? (
+            {(overview?.open_service_tickets ?? 0) === 0 && (!analyticsTrends || analyticsTrends.rma_trends.every(r => r.total_tickets === 0)) ? (
               <div style={{
                 height: '140px',
                 display: 'flex',
@@ -553,24 +601,34 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', paddingTop: '20px' }}>
-                {[
-                  { month: 'Jan', val: 0, color: '#14F1C4' },
-                  { month: 'Feb', val: 0, color: '#06B6D4' },
-                  { month: 'Mar', val: 0, color: '#3B82F6' },
-                  { month: 'Apr', val: overview?.open_service_tickets || 0, color: '#14F1C4' },
-                ].map((b) => (
-                  <div key={b.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-                    <div style={{
-                      width: '18px',
-                      height: `${Math.max(4, Math.min(100, b.val * 10))}px`,
-                      borderRadius: '8px 8px 3px 3px',
-                      background: b.color,
-                      boxShadow: `0 0 10px ${b.color}55`,
-                      transition: 'height 0.3s ease'
-                    }} />
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{b.month}</span>
-                  </div>
-                ))}
+                {(() => {
+                  const rmaList = analyticsTrends?.rma_trends || [
+                    { month_name: 'Jan', open_tickets: 0, total_tickets: 0 },
+                    { month_name: 'Feb', open_tickets: 0, total_tickets: 0 },
+                    { month_name: 'Mar', open_tickets: 0, total_tickets: 0 },
+                    { month_name: 'Apr', open_tickets: overview?.open_service_tickets || 0, total_tickets: overview?.open_service_tickets || 0 }
+                  ];
+                  const maxRma = Math.max(1, ...rmaList.map(r => r.total_tickets));
+
+                  return rmaList.slice(0, 6).map((b, i) => {
+                    const barColor = i % 2 === 0 ? '#14F1C4' : '#06B6D4';
+                    const heightPercent = Math.max(6, Math.min(100, (b.total_tickets / maxRma) * 100));
+
+                    return (
+                      <div key={b.month_name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} title={`${b.month_name}: ${b.total_tickets} claims (${b.open_tickets} active)`}>
+                        <div style={{
+                          width: '18px',
+                          height: `${heightPercent}px`,
+                          borderRadius: '8px 8px 3px 3px',
+                          background: barColor,
+                          boxShadow: `0 0 10px ${barColor}55`,
+                          transition: 'height 0.3s ease'
+                        }} />
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{b.month_name}</span>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             )}
           </div>
