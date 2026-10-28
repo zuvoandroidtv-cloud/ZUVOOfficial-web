@@ -256,9 +256,19 @@ export const InventoryPage: React.FC = () => {
       return;
     }
     try {
-      const { error } = await supabase.from('warehouses').delete().eq('id', warehouseId);
-      if (error) throw error;
-      alert(`Facility "${warehouseName}" deleted successfully.`);
+      const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)('fn_delete_warehouse_cascade', {
+        p_warehouse_id: warehouseId
+      });
+
+      if (rpcErr) {
+        console.warn('RPC delete fallback:', rpcErr);
+        const { error } = await supabase.from('warehouses').delete().eq('id', warehouseId);
+        if (error) throw error;
+      } else if (rpcRes && rpcRes.success === false) {
+        throw new Error(rpcRes.message || 'Failed to delete warehouse facility.');
+      }
+
+      alert(`Facility "${warehouseName}" deleted successfully from both CRM web and Supabase.`);
       loadData();
     } catch (err: any) {
       console.error('Failed to delete facility:', err);

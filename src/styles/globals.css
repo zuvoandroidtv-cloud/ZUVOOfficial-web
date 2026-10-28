@@ -5,11 +5,41 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+  }
+
   body {
     background-color: #000000;
     color: #ffffff;
     font-family: 'Inter', sans-serif;
     overflow-x: hidden;
+    padding-top: var(--sat);
+    padding-bottom: var(--sab);
+    padding-left: var(--sal);
+    padding-right: var(--sar);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Prevent automatic text zoom on iOS Safari */
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Ensure inputs on mobile have at least 16px font to prevent iOS safari auto-zoom */
+  @media (max-width: 768px) {
+    input, select, textarea {
+      font-size: 16px !important;
+    }
+    
+    /* Touch targets minimum 44px for iOS HIG & Android */
+    button, a[role="button"] {
+      min-height: 44px;
+      touch-action: manipulation;
+    }
   }
 }
 

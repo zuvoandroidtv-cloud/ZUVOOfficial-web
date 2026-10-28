@@ -284,12 +284,20 @@ export const SparePartsPage: React.FC = () => {
     if (!confirmDelete) return;
 
     try {
-      const { error } = await supabase
-        .from('spare_parts')
-        .delete()
-        .eq('id', part.id);
+      const { data: rpcRes, error: rpcErr } = await (supabase.rpc as any)('fn_delete_spare_part_cascade', {
+        p_part_id: part.id
+      });
 
-      if (error) throw error;
+      if (rpcErr) {
+        console.warn('RPC delete fallback:', rpcErr);
+        const { error: directErr } = await supabase
+          .from('spare_parts')
+          .delete()
+          .eq('id', part.id);
+        if (directErr) throw directErr;
+      } else if (rpcRes && rpcRes.success === false) {
+        throw new Error(rpcRes.message || 'Failed to delete spare part.');
+      }
 
       setSuccessMsg(`Spare part "${part.part_name}" deleted successfully.`);
       fetchPartsData();
