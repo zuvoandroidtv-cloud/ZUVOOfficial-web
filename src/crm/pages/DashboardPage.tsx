@@ -291,17 +291,6 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Factory Direct</span>
               </div>
             </div>
-
-            {/* Glowing Neon Wave SVG Sparkline */}
-            <svg width="90" height="50" viewBox="0 0 90 50" fill="none" style={{ filter: 'drop-shadow(0 0 6px rgba(20, 241, 196, 0.6))' }}>
-              <path
-                d="M 2 35 Q 20 10, 35 25 T 65 15 T 88 5"
-                stroke="#14F1C4"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
           </div>
         </div>
 
@@ -330,17 +319,6 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Serialized</span>
               </div>
             </div>
-
-            {/* Cyan Wave Sparkline */}
-            <svg width="90" height="50" viewBox="0 0 90 50" fill="none" style={{ filter: 'drop-shadow(0 0 6px rgba(6, 182, 212, 0.6))' }}>
-              <path
-                d="M 2 20 Q 25 45, 45 20 T 75 35 T 88 15"
-                stroke="#06B6D4"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
           </div>
         </div>
 
@@ -369,17 +347,6 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Registered</span>
               </div>
             </div>
-
-            {/* Purple Wave Sparkline */}
-            <svg width="90" height="50" viewBox="0 0 90 50" fill="none" style={{ filter: 'drop-shadow(0 0 6px rgba(168, 85, 247, 0.6))' }}>
-              <path
-                d="M 2 30 Q 22 5, 45 30 T 70 10 T 88 20"
-                stroke="#A855F7"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
           </div>
         </div>
 
@@ -408,17 +375,6 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>SLA Active</span>
               </div>
             </div>
-
-            {/* Rose/Green Wave Sparkline */}
-            <svg width="90" height="50" viewBox="0 0 90 50" fill="none" style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.6))' }}>
-              <path
-                d="M 2 40 Q 20 20, 40 35 T 70 15 T 88 5"
-                stroke="#10B981"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
           </div>
         </div>
       </div>
