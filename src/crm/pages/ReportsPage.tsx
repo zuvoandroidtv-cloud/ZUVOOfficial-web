@@ -207,6 +207,7 @@ export const ReportsPage: React.FC = () => {
   // KPI summary state
   const [kpiLoading, setKpiLoading] = useState(false);
   const [kpis, setKpis] = useState<KPIPayload | null>(null);
+  const [csatDistribution, setCsatDistribution] = useState<Record<number, number>>({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
 
   // Tabular data state
   const [reportData, setReportData] = useState<any[]>([]);
@@ -279,13 +280,27 @@ export const ReportsPage: React.FC = () => {
     setKpiLoading(true);
     try {
       const dealerParam = isDealer ? profile?.dealer_id : selectedDealer || null;
-      const { data, error } = await (supabase.rpc as any)('fn_get_advanced_analytics_kpis', {
-        p_start_date: startDate || null,
-        p_end_date: endDate || null,
-        p_dealer_id: dealerParam || null
-      });
-      if (error) throw error;
-      setKpis(data as unknown as KPIPayload);
+      const [kpiRes, csatRes] = await Promise.all([
+        (supabase.rpc as any)('fn_get_advanced_analytics_kpis', {
+          p_start_date: startDate || null,
+          p_end_date: endDate || null,
+          p_dealer_id: dealerParam || null
+        }),
+        supabase.from('vw_csat_rating_distribution' as any).select('rating, count')
+      ]);
+
+      if (kpiRes.error) throw kpiRes.error;
+      setKpis(kpiRes.data as unknown as KPIPayload);
+
+      if (csatRes.data) {
+        const distMap: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        csatRes.data.forEach((row: any) => {
+          if (row.rating && row.count !== undefined) {
+            distMap[Number(row.rating)] = Number(row.count) || 0;
+          }
+        });
+        setCsatDistribution(distMap);
+      }
     } catch (e: any) {
       console.error('Failed to load analytics KPIs', e);
     } finally {
@@ -1051,75 +1066,96 @@ export const ReportsPage: React.FC = () => {
                 </h3>
                 <span className="text-muted" style={{ fontSize: '0.75rem' }}>Reconciled Net Volume</span>
               </div>
-              <div style={{ height: 180, display: 'flex', alignItems: 'flex-end', gap: '1.5rem', padding: '1rem 0', borderBottom: '1px solid var(--border-color)' }}>
-                {/* Gross Sales Bar */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                    {formatCurrency(kpis?.sales.gross_sales)}
-                  </span>
-                  <div
-                    style={{
-                      width: '100%',
-                      maxWidth: 45,
-                      height: '85%',
-                      background: 'linear-gradient(180deg, #10b981 0%, rgba(16, 185, 129, 0.5) 100%)',
-                      borderRadius: '4px 4px 0 0'
-                    }}
-                  />
-                  <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Gross Sales</span>
-                </div>
+              {(() => {
+                const gross = Number(kpis?.sales.gross_sales) || 0;
+                const net = Number(kpis?.sales.net_sales) || 0;
+                const collected = Number(kpis?.sales.payments_collected) || 0;
+                const refunds = Number(kpis?.sales.refunds_value) || 0;
+                const maxVal = Math.max(gross, net, collected, refunds, 1);
+                const hasAnySales = (gross + net + collected + refunds) > 0;
 
-                {/* Net Sales Bar */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                    {formatCurrency(kpis?.sales.net_sales)}
-                  </span>
-                  <div
-                    style={{
-                      width: '100%',
-                      maxWidth: 45,
-                      height: '80%',
-                      background: 'linear-gradient(180deg, #3b82f6 0%, rgba(59, 130, 246, 0.5) 100%)',
-                      borderRadius: '4px 4px 0 0'
-                    }}
-                  />
-                  <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Net Sales</span>
-                </div>
+                const calcHeight = (val: number) => {
+                  if (!hasAnySales || val <= 0) return '2px';
+                  const pct = Math.max(4, Math.round((val / maxVal) * 88));
+                  return `${pct}%`;
+                };
 
-                {/* Cash Collections Bar */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                    {formatCurrency(kpis?.sales.payments_collected)}
-                  </span>
-                  <div
-                    style={{
-                      width: '100%',
-                      maxWidth: 45,
-                      height: '80%',
-                      background: 'linear-gradient(180deg, #8b5cf6 0%, rgba(139, 92, 246, 0.5) 100%)',
-                      borderRadius: '4px 4px 0 0'
-                    }}
-                  />
-                  <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Collected</span>
-                </div>
+                return (
+                  <div style={{ height: 180, display: 'flex', alignItems: 'flex-end', gap: '1.5rem', padding: '1rem 0', borderBottom: '1px solid var(--border-color)' }}>
+                    {/* Gross Sales Bar */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                        {formatCurrency(gross)}
+                      </span>
+                      <div
+                        style={{
+                          width: '100%',
+                          maxWidth: 45,
+                          height: calcHeight(gross),
+                          background: gross > 0 ? 'linear-gradient(180deg, #10b981 0%, rgba(16, 185, 129, 0.5) 100%)' : 'rgba(16, 185, 129, 0.25)',
+                          borderRadius: '4px 4px 0 0',
+                          transition: 'height 0.4s ease'
+                        }}
+                      />
+                      <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Gross Sales</span>
+                    </div>
 
-                {/* Refunds Bar */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                    {formatCurrency(kpis?.sales.refunds_value)}
-                  </span>
-                  <div
-                    style={{
-                      width: '100%',
-                      maxWidth: 45,
-                      height: kpis?.sales.refunds_value ? '20%' : '4px',
-                      background: '#ef4444',
-                      borderRadius: '4px 4px 0 0'
-                    }}
-                  />
-                  <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Refunds</span>
-                </div>
-              </div>
+                    {/* Net Sales Bar */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                        {formatCurrency(net)}
+                      </span>
+                      <div
+                        style={{
+                          width: '100%',
+                          maxWidth: 45,
+                          height: calcHeight(net),
+                          background: net > 0 ? 'linear-gradient(180deg, #3b82f6 0%, rgba(59, 130, 246, 0.5) 100%)' : 'rgba(59, 130, 246, 0.25)',
+                          borderRadius: '4px 4px 0 0',
+                          transition: 'height 0.4s ease'
+                        }}
+                      />
+                      <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Net Sales</span>
+                    </div>
+
+                    {/* Cash Collections Bar */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                        {formatCurrency(collected)}
+                      </span>
+                      <div
+                        style={{
+                          width: '100%',
+                          maxWidth: 45,
+                          height: calcHeight(collected),
+                          background: collected > 0 ? 'linear-gradient(180deg, #8b5cf6 0%, rgba(139, 92, 246, 0.5) 100%)' : 'rgba(139, 92, 246, 0.25)',
+                          borderRadius: '4px 4px 0 0',
+                          transition: 'height 0.4s ease'
+                        }}
+                      />
+                      <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Collected</span>
+                    </div>
+
+                    {/* Refunds Bar */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                        {formatCurrency(refunds)}
+                      </span>
+                      <div
+                        style={{
+                          width: '100%',
+                          maxWidth: 45,
+                          height: calcHeight(refunds),
+                          background: refunds > 0 ? '#ef4444' : 'rgba(239, 68, 68, 0.25)',
+                          borderRadius: '4px 4px 0 0',
+                          transition: 'height 0.4s ease'
+                        }}
+                      />
+                      <span className="text-muted" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}>Refunds</span>
+                    </div>
+                  </div>
+                );
+              })()}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                 <span>Completed Orders: {kpis?.sales.completed_orders ?? 0}</span>
                 <span>Outstanding Receivables: {formatCurrency(kpis?.sales.outstanding_receivables)}</span>
@@ -1136,29 +1172,68 @@ export const ReportsPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', height: 180, justifyContent: 'center' }}>
                 {/* Progress bar stack */}
-                <div style={{ height: 24, borderRadius: 6, overflow: 'hidden', display: 'flex', background: 'var(--bg-secondary)' }}>
-                  <div
-                    style={{
-                      width: `${kpis?.inventory.total_units ? ((kpis.inventory.warehouse_available_units / kpis.inventory.total_units) * 100) : 50}%`,
-                      background: '#10b981'
-                    }}
-                    title={`Available Warehouse: ${kpis?.inventory.warehouse_available_units ?? 0}`}
-                  />
-                  <div
-                    style={{
-                      width: `${kpis?.inventory.total_units ? ((kpis.inventory.dealer_stock_units / kpis.inventory.total_units) * 100) : 20}%`,
-                      background: '#3b82f6'
-                    }}
-                    title={`Dealer Stock: ${kpis?.inventory.dealer_stock_units ?? 0}`}
-                  />
-                  <div
-                    style={{
-                      width: `${kpis?.inventory.total_units ? ((kpis.inventory.sold_units / kpis.inventory.total_units) * 100) : 30}%`,
-                      background: '#6b7280'
-                    }}
-                    title={`Sold: ${kpis?.inventory.sold_units ?? 0}`}
-                  />
-                </div>
+                {(() => {
+                  const totalUnits = Number(kpis?.inventory.total_units) || 0;
+                  const warehouseUnits = Number(kpis?.inventory.warehouse_available_units) || 0;
+                  const dealerUnits = Number(kpis?.inventory.dealer_stock_units) || 0;
+                  const inTransitUnits = Number(kpis?.inventory.in_transit_units) || 0;
+                  const soldUnits = Number(kpis?.inventory.sold_units) || 0;
+
+                  return (
+                    <div style={{ height: 24, borderRadius: 6, overflow: 'hidden', display: 'flex', background: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                      {totalUnits > 0 ? (
+                        <>
+                          <div
+                            style={{
+                              width: `${(warehouseUnits / totalUnits) * 100}%`,
+                              background: '#10b981',
+                              transition: 'width 0.4s ease'
+                            }}
+                            title={`Available Warehouse: ${warehouseUnits}`}
+                          />
+                          <div
+                            style={{
+                              width: `${(dealerUnits / totalUnits) * 100}%`,
+                              background: '#3b82f6',
+                              transition: 'width 0.4s ease'
+                            }}
+                            title={`Dealer Consignment: ${dealerUnits}`}
+                          />
+                          <div
+                            style={{
+                              width: `${(inTransitUnits / totalUnits) * 100}%`,
+                              background: '#f59e0b',
+                              transition: 'width 0.4s ease'
+                            }}
+                            title={`In-Transit: ${inTransitUnits}`}
+                          />
+                          <div
+                            style={{
+                              width: `${(soldUnits / totalUnits) * 100}%`,
+                              background: '#6b7280',
+                              transition: 'width 0.4s ease'
+                            }}
+                            title={`Sold: ${soldUnits}`}
+                          />
+                        </>
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.75rem',
+                            color: 'var(--text-muted)'
+                          }}
+                        >
+                          0 Total Units In Inventory
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Legend */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.8125rem' }}>
@@ -1227,25 +1302,32 @@ export const ReportsPage: React.FC = () => {
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', height: 180, justifyContent: 'center' }}>
-                {[5, 4, 3, 2, 1].map((stars) => (
-                  <div key={stars} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
-                    <span style={{ width: 30, display: 'flex', alignItems: 'center', gap: 2 }}>
-                      {stars} <Star size={10} fill="#f59e0b" color="#f59e0b" />
-                    </span>
-                    <div style={{ flex: 1, height: 8, background: 'var(--bg-secondary)', borderRadius: 4, overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: stars === 5 ? '80%' : stars === 4 ? '15%' : '5%',
-                          height: '100%',
-                          background: stars >= 4 ? '#10b981' : stars === 3 ? '#f59e0b' : '#ef4444'
-                        }}
-                      />
+                {[5, 4, 3, 2, 1].map((stars) => {
+                  const countForStar = csatDistribution[stars] || 0;
+                  const totalResp = Number(kpis?.csat.total_responses) || 0;
+                  const pct = totalResp > 0 ? Math.round((countForStar / totalResp) * 100) : 0;
+
+                  return (
+                    <div key={stars} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
+                      <span style={{ width: 30, display: 'flex', alignItems: 'center', gap: 2 }}>
+                        {stars} <Star size={10} fill="#f59e0b" color="#f59e0b" />
+                      </span>
+                      <div style={{ flex: 1, height: 8, background: 'var(--bg-secondary)', borderRadius: 4, overflow: 'hidden' }}>
+                        <div
+                          style={{
+                            width: `${pct}%`,
+                            height: '100%',
+                            background: stars >= 4 ? '#10b981' : stars === 3 ? '#f59e0b' : '#ef4444',
+                            transition: 'width 0.4s ease'
+                          }}
+                        />
+                      </div>
+                      <span className="text-muted" style={{ width: 45, textAlign: 'right' }}>
+                        {countForStar}
+                      </span>
                     </div>
-                    <span className="text-muted" style={{ width: 45, textAlign: 'right' }}>
-                      {stars === 5 ? (kpis?.csat.total_responses ?? 0) : 0}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
