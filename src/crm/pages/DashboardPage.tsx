@@ -278,7 +278,6 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '3px',
                   background: 'rgba(20, 241, 196, 0.12)',
                   color: 'var(--accent-mint)',
                   fontSize: '0.72rem',
@@ -286,9 +285,9 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                   padding: '2px 8px',
                   borderRadius: '9999px'
                 }}>
-                  <TrendingUp size={12} /> 100%
+                  Factory Direct
                 </span>
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Factory Direct</span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Warehouse Valuation</span>
               </div>
             </div>
           </div>
@@ -449,27 +448,47 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
           ) : (
             <div style={{ position: 'relative', width: '100%', height: '200px' }}>
               {(() => {
-                const months = analyticsTrends?.sales_trends || [];
-                const maxVal = Math.max(1, ...months.map(m => m.units_sold || (m.revenue > 0 ? 10 : 0)));
+                const months = analyticsTrends?.sales_trends || [
+                  { month_name: 'Jan', units_sold: 0, revenue: 0 },
+                  { month_name: 'Feb', units_sold: 0, revenue: 0 },
+                  { month_name: 'Mar', units_sold: 0, revenue: 0 },
+                  { month_name: 'Apr', units_sold: 0, revenue: 0 },
+                  { month_name: 'May', units_sold: 0, revenue: 0 },
+                  { month_name: 'Jun', units_sold: 0, revenue: 0 },
+                  { month_name: 'Jul', units_sold: 0, revenue: 0 },
+                  { month_name: 'Aug', units_sold: 0, revenue: 0 },
+                  { month_name: 'Sep', units_sold: 0, revenue: 0 },
+                  { month_name: 'Oct', units_sold: 0, revenue: 0 },
+                  { month_name: 'Nov', units_sold: 0, revenue: 0 },
+                  { month_name: 'Dec', units_sold: 0, revenue: 0 }
+                ];
+                
+                // Real live values: baseline is strictly at y = 175 (bottom)
+                const BASELINE_Y = 175;
+                const TOP_Y = 30;
+                const HEIGHT_RANGE = BASELINE_Y - TOP_Y; // 145px
+                
+                const maxVal = Math.max(...months.map(m => m.units_sold || m.revenue));
+                const allZero = maxVal === 0;
+
                 const points = months.map((m, idx) => {
                   const x = 20 + idx * ((680 - 40) / 11);
-                  const normalized = (m.units_sold || (m.revenue > 0 ? 5 : 0)) / maxVal;
-                  const y = 170 - normalized * 130;
+                  const currentVal = m.units_sold || m.revenue;
+                  // If 0, stays strictly at the baseline (bottom of graph). If positive, scale up.
+                  const y = allZero || currentVal === 0
+                    ? BASELINE_Y
+                    : BASELINE_Y - (currentVal / maxVal) * HEIGHT_RANGE;
                   return { x, y, name: m.month_name, units: m.units_sold, revenue: m.revenue };
                 });
 
-                const dPath = points.length > 0
-                  ? points.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '')
-                  : 'M 10 140 L 690 140';
-                const fillPath = points.length > 0
-                  ? `${dPath} L ${points[points.length - 1].x} 185 L ${points[0].x} 185 Z`
-                  : '';
+                const dPath = points.reduce((acc, pt, i) => i === 0 ? `M ${pt.x} ${pt.y}` : `${acc} L ${pt.x} ${pt.y}`, '');
+                const fillPath = `${dPath} L ${points[points.length - 1].x} ${BASELINE_Y} L ${points[0].x} ${BASELINE_Y} Z`;
 
                 return (
                   <svg width="100%" height="100%" viewBox="0 0 700 200" preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="waveGlowGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#14F1C4" stopOpacity="0.28" />
+                        <stop offset="0%" stopColor="#14F1C4" stopOpacity="0.25" />
                         <stop offset="100%" stopColor="#14F1C4" stopOpacity="0.0" />
                       </linearGradient>
                       <linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0">
@@ -478,27 +497,29 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
                         <stop offset="100%" stopColor="#3B82F6" />
                       </linearGradient>
                     </defs>
-                    <line x1="0" y1="40" x2="700" y2="40" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-                    <line x1="0" y1="90" x2="700" y2="90" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
-                    <line x1="0" y1="140" x2="700" y2="140" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    {/* Grid Guide Lines */}
+                    <line x1="0" y1="30" x2="700" y2="30" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    <line x1="0" y1="80" x2="700" y2="80" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    <line x1="0" y1="130" x2="700" y2="130" stroke="rgba(255,255,255,0.04)" strokeDasharray="4 4" />
+                    <line x1="0" y1="175" x2="700" y2="175" stroke="rgba(255,255,255,0.08)" />
                     
-                    {fillPath && <path d={fillPath} fill="url(#waveGlowGrad)" />}
+                    {!allZero && <path d={fillPath} fill="url(#waveGlowGrad)" />}
                     <path
                       d={dPath}
                       stroke="url(#lineGrad)"
-                      strokeWidth="3.5"
+                      strokeWidth={allZero ? "2" : "3.5"}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       fill="none"
-                      style={{ filter: 'drop-shadow(0 0 8px rgba(20, 241, 196, 0.7))' }}
+                      style={{ filter: allZero ? 'none' : 'drop-shadow(0 0 8px rgba(20, 241, 196, 0.7))' }}
                     />
                     {points.map((pt, i) => (
                       <circle
                         key={i}
                         cx={pt.x}
                         cy={pt.y}
-                        r={pt.units > 0 ? 5 : 3}
-                        fill={pt.units > 0 ? '#14F1C4' : '#06B6D4'}
+                        r={pt.units > 0 ? 5 : 2.5}
+                        fill={pt.units > 0 ? '#14F1C4' : 'rgba(255, 255, 255, 0.2)'}
                         style={{ filter: pt.units > 0 ? 'drop-shadow(0 0 8px #14F1C4)' : 'none' }}
                       >
                         <title>{`${pt.name}: ${pt.units} units sold (₹${pt.revenue.toLocaleString()})`}</title>
@@ -536,57 +557,42 @@ export const DashboardPage: React.FC<DashboardProps> = ({ onNavigate, onOpenBarc
               </span>
             </div>
 
-            {(overview?.open_service_tickets ?? 0) === 0 && (!analyticsTrends || analyticsTrends.rma_trends.every(r => r.total_tickets === 0)) ? (
-              <div style={{
-                height: '140px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'rgba(255, 255, 255, 0.01)',
-                border: '1px dashed var(--border-card)',
-                borderRadius: 'var(--radius-md)',
-                padding: '16px',
-                textAlign: 'center'
-              }}>
-                <ShieldCheck size={32} style={{ color: 'var(--accent-emerald)', opacity: 0.8, marginBottom: '6px' }} />
-                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FFFFFF' }}>0 Returns & Claims</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  No warranty claims or RMA requests recorded.
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', paddingTop: '20px' }}>
-                {(() => {
-                  const rmaList = analyticsTrends?.rma_trends || [
-                    { month_name: 'Jan', open_tickets: 0, total_tickets: 0 },
-                    { month_name: 'Feb', open_tickets: 0, total_tickets: 0 },
-                    { month_name: 'Mar', open_tickets: 0, total_tickets: 0 },
-                    { month_name: 'Apr', open_tickets: overview?.open_service_tickets || 0, total_tickets: overview?.open_service_tickets || 0 }
-                  ];
-                  const maxRma = Math.max(1, ...rmaList.map(r => r.total_tickets));
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-around', height: '140px', paddingTop: '20px', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              {(() => {
+                const rmaList = analyticsTrends?.rma_trends || [
+                  { month_name: 'Jan', open_tickets: 0, total_tickets: 0 },
+                  { month_name: 'Feb', open_tickets: 0, total_tickets: 0 },
+                  { month_name: 'Mar', open_tickets: 0, total_tickets: 0 },
+                  { month_name: 'Apr', open_tickets: 0, total_tickets: 0 },
+                  { month_name: 'May', open_tickets: 0, total_tickets: 0 },
+                  { month_name: 'Jun', open_tickets: 0, total_tickets: 0 }
+                ];
+                const maxRma = Math.max(...rmaList.map(r => r.total_tickets));
+                const allZeroRma = maxRma === 0;
 
-                  return rmaList.slice(0, 6).map((b, i) => {
-                    const barColor = i % 2 === 0 ? '#14F1C4' : '#06B6D4';
-                    const heightPercent = Math.max(6, Math.min(100, (b.total_tickets / maxRma) * 100));
+                return rmaList.slice(0, 6).map((b, i) => {
+                  const barColor = i % 2 === 0 ? '#14F1C4' : '#06B6D4';
+                  // If 0 value, stays at flat 2px at the very bottom line. If > 0, grows up to 100px proportionally.
+                  const heightPx = allZeroRma || b.total_tickets === 0
+                    ? 2
+                    : Math.max(6, Math.min(100, (b.total_tickets / maxRma) * 100));
 
-                    return (
-                      <div key={b.month_name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} title={`${b.month_name}: ${b.total_tickets} claims (${b.open_tickets} active)`}>
-                        <div style={{
-                          width: '18px',
-                          height: `${heightPercent}px`,
-                          borderRadius: '8px 8px 3px 3px',
-                          background: barColor,
-                          boxShadow: `0 0 10px ${barColor}55`,
-                          transition: 'height 0.3s ease'
-                        }} />
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{b.month_name}</span>
-                      </div>
-                    );
-                  });
-                })()}
-              </div>
-            )}
+                  return (
+                    <div key={b.month_name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }} title={`${b.month_name}: ${b.total_tickets} claims (${b.open_tickets} active)`}>
+                      <div style={{
+                        width: '18px',
+                        height: `${heightPx}px`,
+                        borderRadius: b.total_tickets > 0 ? '8px 8px 3px 3px' : '2px',
+                        background: b.total_tickets > 0 ? barColor : 'rgba(255, 255, 255, 0.12)',
+                        boxShadow: b.total_tickets > 0 ? `0 0 10px ${barColor}55` : 'none',
+                        transition: 'height 0.3s ease'
+                      }} />
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{b.month_name}</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
           </div>
 
           <div style={{
